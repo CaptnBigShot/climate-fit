@@ -9,6 +9,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import catalog from '../src/data/catalog.json' with { type: 'json' }
 import { buildManifest } from './build-manifest.mjs'
+import { DAILY_VARS, fetchYtdRaw } from '../src/lib/ytd.ts'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const OUT = join(ROOT, 'public', 'data')
@@ -23,18 +24,8 @@ const { startYear, endYear } = catalog.archive
 const START = `${startYear}-01-01`
 const END = `${endYear}-12-31`
 
-// Open-Meteo name → our key, and decimals kept in the output.
-const CITY_VARS = [
-  ['temperature_2m_max', 'high', 1],
-  ['temperature_2m_min', 'low', 1],
-  ['dew_point_2m_mean', 'dew', 1],
-  ['cloud_cover_mean', 'cloud', 0],
-  ['precipitation_sum', 'precip', 2],
-  ['snowfall_sum', 'snow', 2],
-  ['wind_speed_10m_max', 'wind', 1],
-  ['shortwave_radiation_sum', 'rad', 2],
-  ['sunshine_duration', 'sun', 1],
-]
+// Open-Meteo name → our key, and decimals kept — shared with the live current-year fetch.
+const CITY_VARS = DAILY_VARS
 
 const exists = (p) => access(p).then(() => true, () => false)
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -178,7 +169,18 @@ async function fetchAq(city) {
   }))
 }
 
-for (const dir of ['cities', 'terrain', 'hourly', 'aq']) await mkdir(join(OUT, dir), { recursive: true })
+// Current partial year: an offline fallback for the app's live fetch. Always
+// re-fetched (never cached) so each run refreshes it.
+async function fetchYtdSnapshot(city) {
+  console.log(`↓ ytd/${city.id}`)
+  const raw = await fetchYtdRaw({
+    year: endYear + 1, lat: city.lat, lon: city.lon,
+    terrain: city.terrain.map(([id]) => ({ id, ...catalog.terrain[id] })),
+  })
+  await writeFile(join(OUT, 'ytd', `${city.id}.json`), JSON.stringify(raw))
+}
+
+for (const dir of ['cities', 'terrain', 'hourly', 'aq', 'ytd']) await mkdir(join(OUT, dir), { recursive: true })
 
 // Fetch city-by-city with its terrain right after, so partial runs still leave
 // complete, usable cities behind.
@@ -191,6 +193,7 @@ for (const city of catalog.cities) {
     for (const [tid] of city.terrain) await fetchTerrain(tid)
     await fetchHourly(city)
     await fetchAq(city)
+    await fetchYtdSnapshot(city)
   } catch (e) {
     failed = e
     console.error(`✗ ${city.id}: ${e.message}`)

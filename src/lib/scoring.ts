@@ -126,13 +126,15 @@ export function dayTemp(s: CitySeries, j: number, p: Prefs, shift = 0): number {
 }
 
 /** Score every day in the window. `shift` (°F) warms highs, lows and dew point uniformly —
- *  used only by the "what would have to change" inverse query. */
-export function score(s: CitySeries, p: Prefs, w: Window, shift = 0): Scored | null {
+ *  used only by the "what would have to change" inverse query. `warmOverride` supplies
+ *  season weights from another window (for the partial current year). */
+export function score(s: CitySeries, p: Prefs, w: Window, shift = 0, warmOverride?: Float32Array): Scored | null {
   if (!hasPreference(p)) return null
   const years = windowYears(w), N = years * 365, off = (w.from - FIRST_YEAR) * 365
   const cut = CUTOFF[p.strict]
   const band = new Uint8Array(N), sc = new Float32Array(N), hard = new Uint8Array(N), why = new Uint8Array(N)
-  const { warmW } = seasonWeights(s, w)
+  // A partial year can't define its own seasons; callers scoring one pass the window's.
+  const warmW = warmOverride ?? seasonWeights(s, w).warmW
   const t = p.temp
   const wt = {
     temp: WEIGHT_VALUE[p.weights.temp], dew: WEIGHT_VALUE[p.weights.dew], cloud: WEIGHT_VALUE[p.weights.cloud],

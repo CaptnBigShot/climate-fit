@@ -7,11 +7,12 @@ import { CUTOFF, windowLabel, windowYears, type Prefs } from '../lib/prefs'
 import type { Model } from '../lib/model'
 import type { Units } from '../lib/units'
 import { downloadDailyCsv } from '../lib/csv'
+import { DEPTH_CARRY_DAYS, YTD_MIN_DAYS, YTD_YEAR, fetchedDay, type Ytd } from '../lib/current'
 import { AQI_SENSITIVE, AQI_UNHEALTHY, MOSQUITO_DEW_F, MOSQUITO_LOW_F, PM25_SMOKE, SHIFTS } from '../lib/extras'
 
 const M_TO_FT = 3.28084
 
-export function Methods({ city, s, m, p, u }: { city: CityMeta; s: CitySeries; m: Model; p: Prefs; u: Units }) {
+export function Methods({ city, s, m, p, u, ytd, ytdError }: { city: CityMeta; s: CitySeries; m: Model; p: Prefs; u: Units; ytd: Ytd | null; ytdError: string | null }) {
   const [open, setOpen] = useState(false)
   const gridFt = s.gridElevM * M_TO_FT, demFt = s.demElevM * M_TO_FT
   const delta = gridFt - demFt
@@ -48,6 +49,9 @@ export function Methods({ city, s, m, p, u }: { city: CityMeta; s: CitySeries; m
               ['Air-quality tier', `Separate tier: CAMS global from Aug 2022, CAMS Europe from 2013. Daily max US AQI; thresholds ${AQI_SENSITIVE} (sensitive groups) and ${AQI_UNHEALTHY} (unhealthy). Smoke proxy: daily mean PM2.5 > ${PM25_SMOKE} µg/m³. Lookback window does not apply`],
               ['Mosquito proxy', `Rough proxy, not an observation: daily low ≥ ${MOSQUITO_LOW_F}°F and mean dew point ≥ ${MOSQUITO_DEW_F}°F`],
               ['What would have to change', `Re-scores the window with highs, lows and dew point all shifted by ${SHIFTS[0]}…+${SHIFTS[SHIFTS.length - 1]}°F; crossing interpolated linearly; year = ${ARCHIVE.endYear} + warming ÷ OLS slope of annual mean temperature over the full archive`],
+              [`${YTD_YEAR} (current year)`, ytd
+                ? `${ytd.source === 'live' ? 'Fetched live today' : `Build-time snapshot from ${fetchedDay(ytd)} (live fetch failed)`}; observed Jan 1 → ${ytd.raw.through ?? '—'} (${ytd.raw.days} days), ending at the city's local yesterday. Never folded into a lookback window: compared only with the same Jan 1 → date span of each window year (withheld below ${YTD_MIN_DAYS} days). Recent days are provisional. Terrain snow depth lags a few days and is carried forward up to ${DEPTH_CARRY_DAYS} days`
+                : `Unavailable${ytdError ? ` — ${ytdError}` : ''}`],
               ['Best time to visit', 'Share of comfortable days in every 7-, 14- or 30-day span of the year across the window; top three that do not overlap. Worst span = most unbearable days'],
             ].map(([k, v]) => <Row key={k} k={k} v={v} />)}
           </div>

@@ -8,11 +8,12 @@ import { quantileSorted } from '../lib/stats'
 import type { Units } from '../lib/units'
 import { Head, Seg } from './ui'
 import { useWidth } from '../hooks/useWidth'
+import { YTD_YEAR, type Ytd } from '../lib/current'
 
-type Mode = 'dist' | 'every' | 'year'
+type Mode = 'dist' | 'ytd' | 'every' | 'year'
 const H = 260, PAD_L = 40, PAD_R = 8, PAD_B = 22, PAD_T = 14
 
-export function TempDistribution({ s, p, u }: { s: CitySeries; p: Prefs; u: Units }) {
+export function TempDistribution({ s, p, u, ytd }: { s: CitySeries; p: Prefs; u: Units; ytd: Ytd | null }) {
   const [ref, width] = useWidth<HTMLDivElement>()
   const [mode, setMode] = useState<Mode>('dist')
   const [which, setWhich] = useState<'high' | 'low'>('high')
@@ -84,6 +85,30 @@ export function TempDistribution({ s, p, u }: { s: CitySeries; p: Prefs; u: Unit
       <text x={rx + (rd > 250 ? -7 : 7)} y={ry + (which === 'high' ? -6 : 13)} textAnchor={rd > 250 ? 'end' : 'start'} fill="#ffd18a" style={{ font: "500 9.5px 'JetBrains Mono', monospace" }}>{recLabel}</text>
     </g>
   )
+  // Current year so far, over the window's distribution. Stops at the last observed day.
+  let ytdLine = null, ytdNote = null
+  if (mode === 'ytd' && ytd && ytd.raw.days > 0) {
+    const n = ytd.raw.days, y0 = (YTD_YEAR - FIRST_YEAR) * 365, ys = which === 'high' ? ytd.sx.high : ytd.sx.low
+    const pts: string[] = []
+    let above = 0, below = 0
+    for (let d = 0; d < n; d++) {
+      const v = ys[y0 + d]
+      pts.push(`${x(d).toFixed(1)},${yv(v).toFixed(1)}`, `${x(d + 1).toFixed(1)},${yv(v).toFixed(1)}`)
+      if (v > stats.p90[d]) above++
+      if (v < stats.p10[d]) below++
+    }
+    const last = ys[y0 + n - 1]
+    ytdLine = (
+      <g>
+        <polyline points={pts.join(' ')} fill="none" stroke="#f4f6f9" strokeWidth={1.3} />
+        <line x1={x(n)} x2={x(n)} y1={PAD_T} y2={H - PAD_B} stroke="#e6e8ec" strokeOpacity={0.4} strokeDasharray="2 3" />
+        <circle cx={x(n)} cy={yv(last)} r={2.5} fill="#f4f6f9" />
+        <text x={x(n) + 5} y={PAD_T + 10} fill="#8b929e" style={{ font: "400 9px 'JetBrains Mono', monospace" }}>{doyLabel(n - 1).toUpperCase()} · LAST OBSERVED</text>
+      </g>
+    )
+    const expect = n * 0.1
+    ytdNote = <>{YTD_YEAR} so far: <b>{above}</b> days above the window's 90th percentile and <b>{below}</b> below its 10th, where a typical year would have about <b>{Math.round(expect)}</b> of each by {doyLabel(n - 1)}.</>
+  }
   const yearLine = mode === 'year'
     ? <polyline points={stepPts(src.subarray(off + (year - p.window.from) * 365, off + (year - p.window.from + 1) * 365)).join(' ')} fill="none" stroke="#ffd18a" strokeWidth={1.2} />
     : null
@@ -95,7 +120,7 @@ export function TempDistribution({ s, p, u }: { s: CitySeries; p: Prefs; u: Unit
         <span className="sub">daily {which} · p10/p25/p50/p75/p90 + record envelope · step segments, no smoothing</span>
         <div className="right">
           <Seg small value={which} onChange={setWhich} options={[{ v: 'high', label: 'HIGH' }, { v: 'low', label: 'LOW' }]} />
-          <Seg small value={mode} onChange={setMode} options={[{ v: 'dist', label: 'DISTRIBUTION' }, { v: 'every', label: 'EVERY DAY' }, { v: 'year', label: 'SINGLE YEAR' }]} />
+          <Seg small value={mode} onChange={setMode} options={[{ v: 'dist', label: 'DISTRIBUTION' }, ...(ytd ? [{ v: 'ytd' as Mode, label: `${YTD_YEAR} SO FAR` }] : []), { v: 'every', label: 'EVERY DAY' }, { v: 'year', label: 'SINGLE YEAR' }]} />
           {mode === 'year' && (
             <select className="mono" value={year} onChange={(e) => setYear(+e.target.value)}
               style={{ background: 'var(--btn)', color: 'var(--ink)', border: '1px solid var(--line-2)', font: "400 10.5px/1 var(--mono)", padding: '3px 4px' }}>
@@ -121,6 +146,7 @@ export function TempDistribution({ s, p, u }: { s: CitySeries; p: Prefs; u: Unit
           </>
         )}
         {yearLine}
+        {ytdLine}
         {recMark}
         {t && t.hardMax !== null && (
           <g>
@@ -138,6 +164,12 @@ export function TempDistribution({ s, p, u }: { s: CitySeries; p: Prefs; u: Unit
           <text key={m} x={x(MONTH_START[k]) + 2} y={H - 6} fill={CO.faint} style={{ font: "400 9px 'JetBrains Mono', monospace" }}>{m.toUpperCase()}</text>
         ))}
       </svg>
+      {ytdNote && (
+        <div className="legend">
+          <span className="item"><span className="sw" style={{ background: '#f4f6f9', height: 2 }} />{YTD_YEAR} DAILY {which.toUpperCase()} · {ytd?.source === 'live' ? 'LIVE' : 'SNAPSHOT'}</span>
+          <span className="prose" style={{ fontSize: 11 }}>{ytdNote}</span>
+        </div>
+      )}
       {mode === 'year' && <div className="legend"><span className="item"><span className="sw" style={{ background: '#ffd18a', height: 2 }} />{year} DAILY {which.toUpperCase()} OVER THE {p.window.from}–{p.window.to} DISTRIBUTION</span></div>}
     </div>
   )

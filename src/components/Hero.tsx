@@ -5,8 +5,13 @@ import type { Budget } from '../lib/aggregate'
 import type { Units } from '../lib/units'
 import { Cap, Head, HatchDefs, Spark } from './ui'
 import { useWidth } from '../hooks/useWidth'
+import { YTD_MIN_DAYS, YTD_YEAR, fetchedDay, ytdBudget, ytdOutdoor, type Ytd } from '../lib/current'
+import { doyLabel } from '../lib/calendar'
+import type { Scored } from '../lib/scoring'
 
-export function Hero({ m, p, u, set }: { m: Model; p: Prefs; u: Units; set: (patch: Partial<Prefs>) => void }) {
+export function Hero({ m, p, u, set, ytd, ytdSc, ytdError }: {
+  m: Model; p: Prefs; u: Units; set: (patch: Partial<Prefs>) => void; ytd: Ytd | null; ytdSc: Scored | null; ytdError: string | null
+}) {
   const [ref, width] = useWidth<HTMLDivElement>()
   const win = windowLabel(p.window)
   const b = m.b
@@ -38,6 +43,7 @@ export function Hero({ m, p, u, set }: { m: Model; p: Prefs; u: Units; set: (pat
         ) : (
           <Unset p={p} m={m} u={u} set={set} />
         )}
+        <YtdBlock m={m} p={p} ytd={ytd} ytdSc={ytdSc} error={ytdError} width={width} />
       </div>
 
       <div className="section" style={{ borderBottom: 'none', display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -176,5 +182,67 @@ function UnsetSide({ m, u }: { m: Model; u: Units }) {
       <div className="list-row"><span className="k">Sunshine hours</span><span className="v">{Math.round(f.sunHours).toLocaleString()} /yr</span></div>
       <div className="prose" style={{ marginTop: 12, fontSize: 10.5 }}>Colours on this page encode fit to your preferences, never temperature. With nothing stated, there is nothing to colour.</div>
     </div>
+  )
+}
+
+/** The current partial year, compared like for like: Jan 1 → last observed day,
+ *  against the mean of the window's years over exactly the same dates. */
+function YtdBlock({ m, p, ytd, ytdSc, error, width }: { m: Model; p: Prefs; ytd: Ytd | null; ytdSc: Scored | null; error: string | null; width: number }) {
+  const head = (right: React.ReactNode) => (
+    <div className="section-head" style={{ marginBottom: 10 }}>
+      <Head small tip={`${YTD_YEAR} is still in progress, so it is never folded into a lookback window. Here it is compared only against the same calendar span — Jan 1 to the last observed day — in each year of your window.`}>{YTD_YEAR} SO FAR</Head>
+      {right}
+    </div>
+  )
+  const wrap = (children: React.ReactNode) => <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--line)' }}>{children}</div>
+  if (!ytd) return wrap(head(<span className="sub">{error ? `unavailable — ${error}` : 'loading current year…'}</span>))
+  const n = ytd.raw.days
+  const through = n ? doyLabel(n - 1) : null
+  const badge = (
+    <span className="sub" style={{ marginLeft: 'auto' }} data-tip={ytd.source === 'live'
+      ? 'Fetched live from Open-Meteo today. The most recent days are provisional reanalysis and can be revised slightly.'
+      : `Live fetch failed; showing the snapshot saved at build time (${fetchedDay(ytd)}).`}>
+      {ytd.source === 'live' ? '● live · recent days provisional' : `snapshot ${fetchedDay(ytd)}`}
+    </span>
+  )
+  if (n < YTD_MIN_DAYS) {
+    return wrap(<>{head(<><span className="sub">jan 1 → {through ?? '—'} · {n} days</span>{badge}</>)}<div className="prose">Too few observed days yet for a fair comparison.</div></>)
+  }
+  const yb = ytdSc && m.sc ? ytdBudget(ytdSc, m.sc, n) : null
+  const out = ytdOutdoor(ytd, p.window, p.acts, m.terrain?.id ?? null, n)
+  const d = (a: number, b: number) => { const v = Math.round(a - b); return v === 0 ? '±0' : v > 0 ? `+${v}` : `−${-v}` }
+  const barW = Math.max(0, width - 170)
+  return wrap(
+    <>
+      {head(<><span className="sub">jan 1 → {through} · {n} days · vs same dates, {windowLabel(p.window)} mean</span>{badge}</>)}
+      {yb && barW > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: '64px auto 86px', alignItems: 'center', gap: '6px 10px' }}>
+          <span className="cap" style={{ color: 'var(--ink)' }}>{YTD_YEAR}</span>
+          <MiniBar counts={yb.ytd} hard={yb.hard} n={n} width={barW} id="hatch-ytd" />
+          <span className="mono" style={{ fontSize: 11, textAlign: 'right' }}>{yb.ytd.map((v) => Math.round(v)).join(' · ')}</span>
+          <span className="cap">TYPICAL</span>
+          <MiniBar counts={yb.typical} hard={yb.typicalHard} n={n} width={barW} id="hatch-typ" dim />
+          <span className="mono" style={{ fontSize: 11, textAlign: 'right', color: 'var(--dim)' }}>{yb.typical.map((v) => Math.round(v)).join(' · ')}</span>
+        </div>
+      )}
+      <div className="prose" style={{ marginTop: 10 }}>
+        {yb && <>Comfortable <b className="mono">{d(yb.ytd[0], yb.typical[0])}</b>, unbearable <b className="mono">{d(yb.ytd[2], yb.typical[2])}</b> days vs a typical year by {through}. </>}
+        Outdoor days <b className="mono">{out.ytd}</b> vs typical <span className="mono">{Math.round(out.typical)}</span> ({d(out.ytd, out.typical)}).
+      </div>
+    </>,
+  )
+}
+
+function MiniBar({ counts, hard, n, width, id, dim }: { counts: [number, number, number]; hard: number; n: number; width: number; id: string; dim?: boolean }) {
+  const x = (v: number) => (v / n) * width
+  const [c, t, un] = counts.map(x)
+  return (
+    <svg width={width} height={12} style={{ display: 'block', shapeRendering: 'crispEdges', opacity: dim ? 0.7 : 1 }}>
+      <HatchDefs id={id} />
+      <rect width={c} height={12} fill={CO.comf} />
+      <rect x={c} width={t} height={12} fill={CO.tol} />
+      <rect x={c + t} width={un} height={12} fill={CO.unb} />
+      <rect x={c + t + un - x(hard)} width={x(hard)} height={12} fill={`url(#${id})`} />
+    </svg>
   )
 }

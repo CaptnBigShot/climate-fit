@@ -24,7 +24,24 @@ React 19 + TypeScript + Vite. No backend: the spec puts all scoring on the clien
 - **Two shorter tiers** are fetched alongside, each labelled as its own tier wherever it appears:
   - `public/data/hourly/` — hourly temperature for the last 10 years (base64 Int16, ~230 KB/city, loaded only by the Typical day panel).
   - `public/data/aq/` — air quality from the CAMS model: **Aug 2022 onward globally, 2013 onward in Europe**. That's the free history available, which is shorter than the spec's "~2013+".
-- The data is committed as static files (~7.5 MB total), so the app runs with no API access at all.
+- The data is committed as static files (~7.6 MB total), so the app runs with no API access at all.
+
+### The current year
+
+The archive is whole years (1991–2025). The current year (2026) is **partial**, so it is kept out of every lookback window. A year missing its autumn and winter would skew every per-year mean. Instead it's shown alongside the window and only ever compared like for like: Jan 1 → the last observed day, against the same dates in each window year.
+
+- **Live:** the app fetches the current year from Open-Meteo in the browser when a city loads. That's two small requests, cached for the day in `localStorage`. The dashboard never waits for it.
+- **Fallback:** if the live fetch fails, the app uses `public/data/ytd/<city>.json`, a snapshot that `npm run fetch-data` re-writes on every run. It's labelled with its date.
+- **Partial-data rules** (`src/lib/ytd.ts`):
+  - "Observed" is the unbroken run of days from Jan 1 that have a high and a low, ending at the city's **local** yesterday (today isn't over).
+  - Anything after a gap is dropped.
+  - Feb 29 is dropped, as in the archive.
+  - Seasons come from the window, not the partial year.
+  - Comparisons are withheld until 14 days are observed.
+  - Ski-terrain snow depth lags a few days; the last value is carried forward up to 7 days.
+  - The most recent days are provisional and are labelled that way.
+- **Where it appears:** the hero ("2026 so far" vs typical-by-this-date), an extra calendar row below the window (unobserved days are outlined, never coloured), a "2026 so far" mode on the temperature chart (with counts above p90 and below p10), and a 2026 / typical column on the threshold counters.
+- The live fetch means the deployed app calls Open-Meteo from users' browsers. The free tier is for non-commercial use; a commercial deployment needs an API key or a server-side cache.
 
 To add a city, append it to `catalog.json` (with any terrain references and drive minutes), then run `npm run fetch-data`.
 
@@ -38,6 +55,8 @@ src/lib/        pure logic, no React
   prefs.ts      session state, presets, URL encode/decode
   model.ts      one call: series + prefs → everything the dashboard renders
   extras.ts     spec §5 features: best time, extremes, warming sensitivity, typical day, air quality, mosquito
+  ytd.ts        current-year fetch (shared by the browser and the fetch script)
+  current.ts    current-year loading, fallback, and like-for-like comparisons
 src/components/ one file per dashboard region; the calendar is a canvas (≤11k cells redrawn per drag)
 scripts/        build-time data fetch + manifest
 ```

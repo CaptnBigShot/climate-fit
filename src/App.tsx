@@ -15,6 +15,8 @@ import { ClimateDrift, FactsPanel, MonthlyTable, OutdoorPanel, ThresholdCounters
 import { Methods } from './components/Methods'
 import { AirQualityPanel, BestTimePanel, ExtremesPanel, MosquitoPanel, TypicalDayPanel, WhatWouldChangePanel } from './components/Extras'
 import { Tooltip } from './components/Tooltip'
+import { extend, loadYtdRaw, scoreYtd } from './lib/current'
+import type { YtdRaw } from './lib/ytd'
 
 const DEFAULT_CITY = 'tacoma'
 
@@ -88,14 +90,26 @@ export default function App() {
     })
   }, [firstLoaded])
 
+  // Current partial year: fetched after the city is on screen; the dashboard never waits for it.
+  const [ytdRaw, setYtdRaw] = useState<{ id: string; raw: YtdRaw; source: 'live' | 'snapshot' } | null>(null)
+  const [ytdError, setYtdError] = useState<string | null>(null)
+  useEffect(() => {
+    let live = true
+    loadYtdRaw(cityMeta).then((r) => live && setYtdRaw({ id: cityMeta.id, ...r })).catch((e: Error) => live && setYtdError(e.message))
+    return () => { live = false }
+  }, [cityMeta])
+
   const p = session.prefs
   const u = useMemo(() => units(p.metric), [p.metric])
   const set = useCallback((patch: Partial<Prefs>) => setSession((s) => ({ ...s, prefs: { ...s.prefs, ...patch } })), [])
   const reset = useCallback(() => setSession((s) => ({ ...s, prefs: { ...structuredClone(DEFAULT_PREFS), metric: s.prefs.metric, window: s.prefs.window } })), [])
-  const setCity = useCallback((id: string) => { setError(null); setSession((s) => ({ ...s, city: id })) }, [])
+  const setCity = useCallback((id: string) => { setError(null); setYtdError(null); setSession((s) => ({ ...s, city: id })) }, [])
 
   const s = series[cityMeta.id]
   const model = useMemo(() => (s ? buildModel(cityMeta, s, terrains, p, (f) => u.t(f), u.tu) : null), [cityMeta, s, terrains, p, u])
+
+  const ytd = useMemo(() => (s && ytdRaw?.id === cityMeta.id ? extend(s, terrains, ytdRaw.raw, ytdRaw.source) : null), [s, terrains, ytdRaw, cityMeta.id])
+  const ytdSc = useMemo(() => (ytd && s ? scoreYtd(ytd, s, p, p.window) : null), [ytd, s, p])
 
   const comfByCity = useMemo(() => {
     const out: Record<string, number | null> = {}
@@ -122,10 +136,10 @@ export default function App() {
             inCompare={inCompare} compareCount={session.cmp.length}
             toggleCompare={() => setSession((x) => ({ ...x, cmp: inCompare ? x.cmp.filter((c) => c !== cityMeta.id) : [...x.cmp, cityMeta.id] }))}
             exportCsv={() => downloadMonthlyCsv(cityMeta, model.months, p, u)} />
-          <Hero m={model} p={p} u={u} set={set} />
-          <ComfortCalendar s={s} sc={model.sc} p={p} terrain={model.terrain?.series ?? null} u={u} fill={calFill} setFill={setCalFill} />
+          <Hero m={model} p={p} u={u} set={set} ytd={ytd} ytdSc={ytdSc} ytdError={ytdError} />
+          <ComfortCalendar s={s} sc={model.sc} p={p} terrain={model.terrain?.series ?? null} u={u} fill={calFill} setFill={setCalFill} ytd={ytd} ytdSc={ytdSc} terrainId={model.terrain?.id ?? null} />
           <div className="grid-dist">
-            <div className="section" style={{ borderBottom: 'none' }}><TempDistribution s={s} p={p} u={u} /></div>
+            <div className="section" style={{ borderBottom: 'none' }}><TempDistribution s={s} p={p} u={u} ytd={ytd} /></div>
             <OutdoorPanel m={model} p={p} set={set} u={u} />
           </div>
           <MonthlyTable m={model} p={p} u={u} />
@@ -135,7 +149,7 @@ export default function App() {
             <WhatWouldChangePanel s={s} p={p} u={u} b={model.b} />
           </div>
           <div className="grid-3">
-            <ThresholdCounters key={p.metric ? 'metric' : 'us'} s={s} p={p} set={set} u={u} />
+            <ThresholdCounters key={p.metric ? 'metric' : 'us'} s={s} p={p} set={set} u={u} ytd={ytd} />
             <ClimateDrift s={s} m={model} p={p} u={u} />
             <FactsPanel m={model} u={u} w={p.window} solarIdx={mf?.solarIdx ?? null} seasonsIdx={mf?.seasonsIdx ?? null} />
           </div>
@@ -144,7 +158,7 @@ export default function App() {
             <AirQualityPanel city={cityMeta} />
             <MosquitoPanel s={s} p={p} u={u} />
           </div>
-          <Methods city={cityMeta} s={s} m={model} p={p} u={u} />
+          <Methods city={cityMeta} s={s} m={model} p={p} u={u} ytd={ytd} ytdError={ytdError} />
         </main>
       )}
       <Tooltip />

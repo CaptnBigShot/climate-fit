@@ -188,8 +188,8 @@ table.monthly th.l, table.monthly td.l { text-align: left; }
   padding: 3px 4px; background: var(--btn); border: 1px solid var(--line-2); color: var(--ink); font: 400 10.5px/1 var(--mono);
 }
 .builder input { width: 58px; }
-.counter { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-.counter .lab { font: 400 10.5px/1.25 var(--mono); color: var(--mid); width: 150px; flex: none; }
+.counter { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.counter .lab { font: 400 10.5px/1.25 var(--mono); color: var(--mid); width: 140px; flex: none; }
 .counter .avg { font: 500 10.5px/1 var(--mono); color: var(--ink); width: 54px; text-align: right; }
 .counter .fit { font: 400 10px/1 var(--mono); color: var(--dim); width: 92px; text-align: right; white-space: nowrap; }
 .x-btn { background: transparent; border: none; color: #767d8a; cursor: pointer; font: 400 11px/1 var(--mono); padding: 2px 3px; }

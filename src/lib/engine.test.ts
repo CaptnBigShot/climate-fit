@@ -148,3 +148,71 @@ describe('secondary features', async () => {
     expect(m.flat().reduce((a, b) => a + b, 0)).toBe(total)
   })
 })
+
+describe('current partial year', async () => {
+  const { fetchYtdRaw } = await import('./ytd')
+  // Fake Open-Meteo: daily rows from start to end, with the values chosen by the test.
+  const fake = (rows: { date: string; high: number | null }[], offsetSec: number, depth?: (number | null)[]) =>
+    (async (url: string) => {
+      const isTerrain = url.includes('era5_land')
+      const time = rows.map((r) => r.date)
+      const body = isTerrain
+        ? [{ utc_offset_seconds: offsetSec, daily: { time, snow_depth_max: depth ?? time.map(() => 1) } }]
+        : { utc_offset_seconds: offsetSec, daily: {
+            time, temperature_2m_max: rows.map((r) => r.high), temperature_2m_min: rows.map((r) => (r.high === null ? null : r.high - 10)),
+            dew_point_2m_mean: rows.map(() => 40), cloud_cover_mean: rows.map(() => 50), precipitation_sum: rows.map(() => 0),
+            snowfall_sum: rows.map(() => 0), wind_speed_10m_max: rows.map(() => 5), shortwave_radiation_sum: rows.map(() => 10), sunshine_duration: rows.map(() => 3600),
+          } }
+      return new Response(JSON.stringify(body), { status: 200 })
+    }) as unknown as typeof fetch
+  const days = (from: string, n: number, high: (i: number) => number | null = () => 60) =>
+    Array.from({ length: n }, (_, i) => ({ date: new Date(Date.parse(from) + i * 86400000).toISOString().slice(0, 10), high: high(i) }))
+
+  it("stops at the city's local yesterday, not UTC's", async () => {
+    // 04:00 UTC on Sep 14 is still Sep 13 in UTC−7: Sep 13 must not count.
+    const now = new Date('2026-09-14T04:00:00Z')
+    const r = await fetchYtdRaw({ year: 2026, lat: 0, lon: 0, terrain: [], now, fetchImpl: fake(days('2026-01-01', 257), -7 * 3600) })
+    expect(r.through).toBe('2026-09-12')
+    expect(r.days).toBe(255)
+    expect(r.daily.high[255]).toBeNull()
+  })
+
+  it('ends the observed run at the first gap', async () => {
+    const r = await fetchYtdRaw({ year: 2026, lat: 0, lon: 0, terrain: [], now: new Date('2026-03-01T12:00:00Z'),
+      fetchImpl: fake(days('2026-01-01', 59, (i) => (i === 40 ? null : 50)), 0) })
+    expect(r.days).toBe(40)
+    expect(r.daily.high[45]).toBeNull()
+  })
+
+  it('drops Feb 29 in a leap year so day-of-year lines up with the archive', async () => {
+    const r = await fetchYtdRaw({ year: 2028, lat: 0, lon: 0, terrain: [], now: new Date('2028-03-10T12:00:00Z'),
+      fetchImpl: fake(days('2028-01-01', 69, (i) => i), 0) })
+    // Mar 1 is day 59 in a 365-day year; in 2028 it is the 61st calendar day (index 60).
+    expect(r.daily.high[59]).toBe(60)
+    expect(r.days).toBe(68)
+  })
+
+  it('carries lagging terrain snow depth forward a few days, then stops', async () => {
+    const { extend, DEPTH_CARRY_DAYS } = await import('./current')
+    const depth = [...Array(30).fill(0.508), ...Array(30).fill(null)] // metres, as the API returns; 0.508 m = 20"
+    const raw = await fetchYtdRaw({ year: 2026, lat: 0, lon: 0, terrain: [{ id: 'crystal', lat: 0, lon: 0, elevFt: 5000 }], now: new Date('2026-03-02T12:00:00Z'),
+      fetchImpl: fake(days('2026-01-01', 60), 0, depth) })
+    const tj = JSON.parse(readFileSync(new URL('../../public/data/terrain/crystal.json', import.meta.url), 'utf8'))
+    const terr = { ...tj, depth: Float32Array.from(tj.depth, (v: number | null) => (v === null ? NaN : v)) }
+    const y = extend(loadTacoma(), { crystal: terr }, raw, 'live')
+    const base = terr.years * 365
+    expect(y.tx.crystal.depth[base + 29 + DEPTH_CARRY_DAYS]).toBe(20)
+    expect(Number.isNaN(y.tx.crystal.depth[base + 29 + DEPTH_CARRY_DAYS + 1])).toBe(true)
+  })
+
+  it('compares like for like: the same Jan 1 → n span in every window year', async () => {
+    const { ytdBudget } = await import('./current')
+    const s = loadTacoma(), w = lookbackWindow(10)
+    const wsc = score(s, example, w)!
+    // Treat the window's last year as if it were the partial year: its own share must match exactly.
+    const last = { ...wsc, years: 1, band: wsc.band.subarray(9 * 365), hard: wsc.hard.subarray(9 * 365) }
+    const yb = ytdBudget(last, wsc, 120)
+    expect(yb.ytd[0] + yb.ytd[1] + yb.ytd[2]).toBe(120)
+    expect(yb.typical[0] + yb.typical[1] + yb.typical[2]).toBeCloseTo(120)
+  })
+})
