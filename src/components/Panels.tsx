@@ -9,6 +9,7 @@ import { windowLabel, type ActivityId, type CounterMetric, type CounterOp, type 
 import type { Model } from '../lib/model'
 import { signed, type Units } from '../lib/units'
 import { Head, Seg, Spark } from './ui'
+import { isMosquitoDay, monthYearMatrix } from '../lib/extras'
 
 // ---------------- Outdoor days ----------------
 
@@ -142,6 +143,7 @@ function metricPred(m: CounterMetric, op: CounterOp, v: number): DayPred {
 }
 
 export function ThresholdCounters({ s, p, set, u }: { s: CitySeries; p: Prefs; set: (patch: Partial<Prefs>) => void; u: Units }) {
+  const [picked, setPicked] = useState<string | null>(null)
   const [draft, setDraft] = useState<{ m1: CounterMetric; op1: CounterOp; v1: string; m2: CounterMetric | ''; op2: CounterOp; v2: string }>({ m1: 'high', op1: 'ge', v1: u.t(80), m2: 'dew', op2: 'ge', v2: u.t(55) })
   const disp = (m: CounterMetric, v: number) => (isTemp(m) ? `${u.t(v)}${u.tu}` : isLen(m) ? u.len(v, 1) : m === 'wind' ? u.speed(v) : `${v}%`)
   const toInternal = (m: CounterMetric, v: number) => (isTemp(m) ? u.toF(v) : isLen(m) && u.metric ? v / 25.4 : m === 'wind' && u.metric ? v / 1.609 : v)
@@ -156,6 +158,7 @@ export function ThresholdCounters({ s, p, set, u }: { s: CitySeries; p: Prefs; s
     { label: 'Overcast days (cloud ≥ 80%)', pred: (x, j) => x.cloud[j] >= 80 },
     { label: 'Clear days (cloud ≤ 20%)', pred: (x, j) => x.cloud[j] <= 20 },
     { label: `Muggy days (dew pt ≥ ${u.t(65)}${u.tu})`, pred: (x, j) => x.dew[j] >= 65 },
+    { label: 'Mosquito-favourable (proxy)', pred: isMosquitoDay },
   ]
   const custom = p.counters.map((c, ci) => ({
     label: `${METRIC_LABEL[c.m1]} ${c.op1 === 'ge' ? '≥' : '≤'} ${disp(c.m1, c.v1)}${c.m2 ? ` & ${METRIC_LABEL[c.m2]} ${c.op2 === 'ge' ? '≥' : '≤'} ${disp(c.m2, c.v2)}` : ''}`,
@@ -189,16 +192,27 @@ export function ThresholdCounters({ s, p, set, u }: { s: CitySeries; p: Prefs; s
         {draft.m2 && <input value={draft.v2} onChange={(e) => setDraft({ ...draft, v2: e.target.value })} inputMode="decimal" />}
         <button className="link-btn" style={{ padding: '3px 6px' }} onClick={add}>+ ADD</button>
       </div>
-      {[...custom, ...presets].map((c) => <CounterRow key={c.label} s={s} w={p.window} {...c} custom={'remove' in c} />)}
+      {[...custom, ...presets].map((c) => (
+        <CounterRow key={c.label} s={s} w={p.window} {...c} custom={'remove' in c} selected={picked === c.label} onSelect={() => setPicked(picked === c.label ? null : c.label)} />
+      ))}
+      {(() => {
+        const c = [...custom, ...presets].find((x) => x.label === picked)
+        return c ? <Matrix s={s} w={p.window} label={c.label} pred={c.pred} /> : <div className="prose" style={{ marginTop: 10, fontSize: 10.5 }}>Click a counter to see it as a month × year matrix.</div>
+      })()}
     </div>
   )
 }
 
-function CounterRow({ s, w, label, pred, remove, custom }: { s: CitySeries; w: Window; label: string; pred: DayPred; remove?: () => void; custom: boolean }) {
+function CounterRow({ s, w, label, pred, remove, custom, selected, onSelect }: {
+  s: CitySeries; w: Window; label: string; pred: DayPred; remove?: () => void; custom: boolean; selected: boolean; onSelect: () => void
+}) {
   const c = useMemo(() => counter(s, w, pred), [s, w, label]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="counter">
-      <span className="lab" style={{ color: custom ? CO.accent : undefined }}>{label}</span>
+      <button className="lab" onClick={onSelect} aria-pressed={selected}
+        style={{ color: selected ? 'var(--ink)' : custom ? CO.accent : undefined, background: 'transparent', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', textDecoration: selected ? 'underline' : 'none' }}>
+        {label}
+      </button>
       <Spark ys={c.perYear} w={96} h={20} color={custom ? CO.tol : CO.accent} />
       <span className="avg">{c.avg.toFixed(1)}/yr</span>
       <span className="fit" data-tip="OLS slope in days per year, and how much of the year-to-year variation the trend explains (R²).">{signed(c.fit.slope, 2)} R² {c.fit.r2.toFixed(2)}</span>
@@ -295,3 +309,27 @@ export function FactsPanel({ m, u, w, solarIdx, seasonsIdx }: { m: Model; u: Uni
   )
 }
 
+
+/** Month × year matrix for one counter — where drift stops being a trend line and becomes visible. */
+function Matrix({ s, w, label, pred }: { s: CitySeries; w: Window; label: string; pred: DayPred }) {
+  const m = useMemo(() => monthYearMatrix(s, w, pred), [s, w, label]) // eslint-disable-line react-hooks/exhaustive-deps
+  const max = Math.max(1, ...m.flat())
+  return (
+    <div style={{ marginTop: 14 }}>
+      <div className="cap" style={{ marginBottom: 6 }}>{label.toUpperCase()} · DAYS PER MONTH</div>
+      <div style={{ display: 'grid', gridTemplateColumns: `34px repeat(12, 1fr)`, gap: 1, font: "400 9px/1 var(--mono)" }}>
+        <span />
+        {MN.map((n) => <span key={n} style={{ color: 'var(--faint)', textAlign: 'center', paddingBottom: 3 }}>{n[0]}</span>)}
+        {m.map((row, y) => [
+          <span key={`y${y}`} style={{ color: 'var(--faint)', alignSelf: 'center' }}>{w.from + y}</span>,
+          ...row.map((v, k) => (
+            <span key={`${y}-${k}`} data-tip={`${MN[k]} ${w.from + y}: ${v} days`}
+              style={{ height: 14, background: v ? `rgba(124,196,255,${0.12 + 0.78 * (v / max)})` : 'var(--row)', color: v / max > 0.55 ? 'var(--bg)' : 'var(--mid)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8.5 }}>
+              {v || ''}
+            </span>
+          )),
+        ])}
+      </div>
+    </div>
+  )
+}

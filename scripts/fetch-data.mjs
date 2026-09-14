@@ -1,8 +1,9 @@
 // Build-time data fetch: pulls the daily archive for every catalogue city and
 // snow-depth series for every terrain reference from the Open-Meteo Historical
-// Weather API, and writes compact JSON into public/data/. Resumable: files that
-// already exist are skipped, so re-running after a rate limit picks up where it
-// stopped. Run: npm run fetch-data
+// Weather API, plus two separate, shorter data tiers — hourly temperature (for
+// the typical-day profile) and air quality — and writes compact JSON into
+// public/data/. Resumable: files that already exist are skipped, so re-running
+// after a rate limit picks up where it stopped. Run: npm run fetch-data
 import { mkdir, writeFile, access } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -12,6 +13,12 @@ import { buildManifest } from './build-manifest.mjs'
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const OUT = join(ROOT, 'public', 'data')
 const API = 'https://archive-api.open-meteo.com/v1/archive'
+const AQ_API = 'https://air-quality-api.open-meteo.com/v1/air-quality'
+/** Hourly tier: the most recent decade only, to stay inside the free-tier budget. */
+const HOURLY_YEARS = 10
+/** CAMS global air-quality history starts here; CAMS Europe reaches back to 2013. */
+const AQ_GLOBAL_START = '2022-08-01'
+const AQ_EUROPE_START = '2013-01-01'
 const { startYear, endYear } = catalog.archive
 const START = `${startYear}-01-01`
 const END = `${endYear}-12-31`
@@ -32,8 +39,8 @@ const CITY_VARS = [
 const exists = (p) => access(p).then(() => true, () => false)
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-async function get(params) {
-  const url = `${API}?${new URLSearchParams(params)}`
+async function get(params, api = API) {
+  const url = `${api}?${new URLSearchParams(params)}`
   for (let attempt = 0; attempt < 6; attempt++) {
     const res = await fetch(url)
     if (res.ok) return res.json()
@@ -107,8 +114,71 @@ async function fetchTerrain(id) {
   await writeFile(file, JSON.stringify({ id, startYear, years: endYear - startYear + 1, depth: depthIn }))
 }
 
-await mkdir(join(OUT, 'cities'), { recursive: true })
-await mkdir(join(OUT, 'terrain'), { recursive: true })
+// Hourly temperature, local time, 365 × 24 per year (Feb 29 dropped), stored as
+// base64 Int16 tenths of °F — ~230 KB per city, loaded only when the panel opens.
+async function fetchHourly(city) {
+  const file = join(OUT, 'hourly', `${city.id}.json`)
+  if (await exists(file)) return console.log(`✓ hourly/${city.id} (cached)`)
+  console.log(`↓ hourly/${city.id}`)
+  const y0 = endYear - HOURLY_YEARS + 1
+  const data = await get({
+    latitude: city.lat, longitude: city.lon, start_date: `${y0}-01-01`, end_date: END,
+    hourly: 'temperature_2m', temperature_unit: 'fahrenheit', timezone: 'auto',
+  })
+  // Bucket by local date and hour, so DST transitions (23- or 25-hour days) can't shift the grid.
+  const byDate = new Map()
+  data.hourly.time.forEach((t, i) => {
+    const date = t.slice(0, 10), hr = +t.slice(11, 13)
+    if (date.endsWith('-02-29')) return
+    if (!byDate.has(date)) byDate.set(date, new Array(24).fill(null))
+    const row = byDate.get(date)
+    if (row[hr] === null) row[hr] = data.hourly.temperature_2m[i]
+  })
+  const dates = [...byDate.keys()].sort()
+  if (dates.length !== HOURLY_YEARS * 365) throw new Error(`hourly: expected ${HOURLY_YEARS * 365} days, got ${dates.length}`)
+  const buf = new Int16Array(dates.length * 24)
+  dates.forEach((d, di) => {
+    const row = byDate.get(d)
+    for (let h = 0; h < 24; h++) {
+      // A DST gap leaves one hour empty; carry the previous hour forward.
+      const v = row[h] ?? row[h - 1] ?? row[h + 1] ?? 0
+      buf[di * 24 + h] = Math.round(v * 10)
+    }
+  })
+  await writeFile(file, JSON.stringify({ id: city.id, startYear: y0, years: HOURLY_YEARS, timezone: data.timezone, temp10: Buffer.from(buf.buffer).toString('base64') }))
+}
+
+// Air quality: a separate, shorter tier (CAMS). Daily max US AQI and daily mean PM2.5.
+async function fetchAq(city) {
+  const file = join(OUT, 'aq', `${city.id}.json`)
+  if (await exists(file)) return console.log(`✓ aq/${city.id} (cached)`)
+  console.log(`↓ aq/${city.id}`)
+  const inEurope = city.lon >= -25 && city.lon <= 45 && city.lat >= 30 && city.lat <= 72
+  const domain = inEurope ? 'cams_europe' : 'cams_global'
+  const start = inEurope ? AQ_EUROPE_START : AQ_GLOBAL_START
+  const data = await get({
+    latitude: city.lat, longitude: city.lon, start_date: start, end_date: END,
+    hourly: 'us_aqi,pm2_5', domains: domain, timezone: 'auto',
+  }, AQ_API)
+  const days = new Map()
+  data.hourly.time.forEach((t, i) => {
+    const date = t.slice(0, 10)
+    if (!days.has(date)) days.set(date, { aqi: null, pm: 0, n: 0 })
+    const d = days.get(date), a = data.hourly.us_aqi[i], p = data.hourly.pm2_5[i]
+    if (a !== null) d.aqi = Math.max(d.aqi ?? 0, a)
+    if (p !== null) { d.pm += p; d.n++ }
+  })
+  const dates = [...days.keys()].sort()
+  const first = dates.findIndex((d) => days.get(d).n > 0)
+  const kept = dates.slice(first)
+  await writeFile(file, JSON.stringify({
+    id: city.id, domain, start: kept[0], end: kept[kept.length - 1],
+    aqi: kept.map((d) => days.get(d).aqi),
+    pm25: kept.map((d) => { const x = days.get(d); return x.n ? Number((x.pm / x.n).toFixed(1)) : null }),
+  }))
+}
+
+for (const dir of ['cities', 'terrain', 'hourly', 'aq']) await mkdir(join(OUT, dir), { recursive: true })
 
 // Fetch city-by-city with its terrain right after, so partial runs still leave
 // complete, usable cities behind.
@@ -119,6 +189,8 @@ for (const city of catalog.cities) {
   try {
     await fetchCity(city)
     for (const [tid] of city.terrain) await fetchTerrain(tid)
+    await fetchHourly(city)
+    await fetchAq(city)
   } catch (e) {
     failed = e
     console.error(`✗ ${city.id}: ${e.message}`)

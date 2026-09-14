@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { CitySeries } from '../lib/data'
-import { MN, MONTH_START } from '../lib/calendar'
+import { MN, MONTH_START, doyLabel } from '../lib/calendar'
 import { CO } from '../lib/colors'
 import { FIRST_YEAR, windowYears, type Prefs } from '../lib/prefs'
 import { idealFor, seasonWeights } from '../lib/scoring'
@@ -73,6 +73,17 @@ export function TempDistribution({ s, p, u }: { s: CitySeries; p: Prefs; u: Unit
     }
     raw = <path d={dpath} fill="#9aa9c4" fillOpacity={0.5} />
   }
+  // Annotate the window's record (hottest high, or coldest low) with its date.
+  let ri = 0
+  for (let i = 1; i < years * 365; i++) if (which === 'high' ? src[off + i] > src[off + ri] : src[off + i] < src[off + ri]) ri = i
+  const rv = src[off + ri], rd = ri % 365, rx = x(rd + 0.5), ry = yv(rv)
+  const recLabel = `${which === 'high' ? 'RECORD HIGH' : 'RECORD LOW'} ${u.t(rv)}${u.tu} · ${doyLabel(rd)}, ${p.window.from + Math.floor(ri / 365)}`
+  const recMark = (
+    <g>
+      <circle cx={rx} cy={ry} r={3.5} fill="none" stroke="#ffd18a" strokeWidth={1.2} />
+      <text x={rx + (rd > 250 ? -7 : 7)} y={ry + (which === 'high' ? -6 : 13)} textAnchor={rd > 250 ? 'end' : 'start'} fill="#ffd18a" style={{ font: "500 9.5px 'JetBrains Mono', monospace" }}>{recLabel}</text>
+    </g>
+  )
   const yearLine = mode === 'year'
     ? <polyline points={stepPts(src.subarray(off + (year - p.window.from) * 365, off + (year - p.window.from + 1) * 365)).join(' ')} fill="none" stroke="#ffd18a" strokeWidth={1.2} />
     : null
@@ -110,6 +121,7 @@ export function TempDistribution({ s, p, u }: { s: CitySeries; p: Prefs; u: Unit
           </>
         )}
         {yearLine}
+        {recMark}
         {t && t.hardMax !== null && (
           <g>
             <line x1={PAD_L} x2={W - PAD_R} y1={yv(t.hardMax)} y2={yv(t.hardMax)} stroke={CO.warn} strokeDasharray="4 3" />

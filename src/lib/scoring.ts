@@ -117,15 +117,17 @@ export function idealFor(p: Prefs, warmW: number): [number, number] {
   return [p.cold.idealMin + (t.idealMin - p.cold.idealMin) * warmW, p.cold.idealMax + (t.idealMax - p.cold.idealMax) * warmW]
 }
 
-/** Temperature the score uses for the day's daytime reading, °F. */
-export function dayTemp(s: CitySeries, j: number, p: Prefs): number {
+/** Temperature the score uses for the day's daytime reading, °F. `shift` adds uniform warming. */
+export function dayTemp(s: CitySeries, j: number, p: Prefs, shift = 0): number {
   const sun = p.sun === 'sun' ? SUN_F_PER_MJ * (s.rad[j] || 0) : 0
-  if (p.basis === 'apparent') return apparent(s.high[j], s.dew[j], s.wind[j]) + sun
-  if (p.basis === 'low') return s.low[j]
-  return s.high[j] + sun
+  if (p.basis === 'apparent') return apparent(s.high[j] + shift, s.dew[j] + shift, s.wind[j]) + sun
+  if (p.basis === 'low') return s.low[j] + shift
+  return s.high[j] + shift + sun
 }
 
-export function score(s: CitySeries, p: Prefs, w: Window): Scored | null {
+/** Score every day in the window. `shift` (°F) warms highs, lows and dew point uniformly —
+ *  used only by the "what would have to change" inverse query. */
+export function score(s: CitySeries, p: Prefs, w: Window, shift = 0): Scored | null {
   if (!hasPreference(p)) return null
   const years = windowYears(w), N = years * 365, off = (w.from - FIRST_YEAR) * 365
   const cut = CUTOFF[p.strict]
@@ -151,21 +153,22 @@ export function score(s: CitySeries, p: Prefs, w: Window): Scored | null {
 
     if (t) {
       const [iMin, iMax] = idealFor(p, warmW[doy])
-      const v = dayTemp(s, j, p)
+      const v = dayTemp(s, j, p, shift)
       const r = ramp(v, t.hardMin, iMin, iMax, t.hardMax, SOFT.temp)
       const low = p.basis === 'low'
       if (r === OUT) { breach = t.hardMax !== null && v > t.hardMax ? R.ceiling : R.floor; primary = 1 }
       else if (both) {
-        const rl = ramp(s.low[j], t.hardMin, iMin, iMax, t.hardMax, SOFT.temp)
+        const lo = s.low[j] + shift
+        const rl = ramp(lo, t.hardMin, iMin, iMax, t.hardMax, SOFT.temp)
         if (rl === OUT) { breach = R.lowBound; primary = 1 }
         else {
           const rMin = Math.min(r, rl), lowWorse = rl < r
-          take(rMin, wt.temp, lowWorse ? (s.low[j] > iMax ? R.warmNight : R.coldNight) : v > iMax ? R.warm : R.cold)
+          take(rMin, wt.temp, lowWorse ? (lo > iMax ? R.warmNight : R.coldNight) : v > iMax ? R.warm : R.cold)
         }
       } else take(r, wt.temp, low ? (v > iMax ? R.warmNight : R.coldNight) : v > iMax ? R.warm : R.cold)
     }
     if (!breach && p.dewMax !== null) {
-      const r = ramp(s.dew[j], null, null, p.dewMax, p.dewMax + DEW_HARD_GAP, SOFT.dew)
+      const r = ramp(s.dew[j] + shift, null, null, p.dewMax, p.dewMax + DEW_HARD_GAP, SOFT.dew)
       if (r === OUT) { breach = R.dewLimit; primary = 1 } else take(r, wt.dew, R.dew)
     }
     if (!breach && p.cloud !== 'any') {

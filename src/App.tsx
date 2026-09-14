@@ -13,6 +13,7 @@ import { ComfortCalendar } from './components/ComfortCalendar'
 import { TempDistribution } from './components/TempDistribution'
 import { ClimateDrift, FactsPanel, MonthlyTable, OutdoorPanel, ThresholdCounters } from './components/Panels'
 import { Methods } from './components/Methods'
+import { AirQualityPanel, BestTimePanel, ExtremesPanel, MosquitoPanel, TypicalDayPanel, WhatWouldChangePanel } from './components/Extras'
 import { Tooltip } from './components/Tooltip'
 
 const DEFAULT_CITY = 'tacoma'
@@ -129,9 +130,19 @@ export default function App() {
           </div>
           <MonthlyTable m={model} p={p} u={u} />
           <div className="grid-3">
+            <BestTimePanel sc={model.sc} p={p} />
+            <TypicalDayPanel city={cityMeta} p={p} u={u} sc={model.sc} defaultMonth={model.facts.warmestMonth} />
+            <WhatWouldChangePanel s={s} p={p} u={u} b={model.b} />
+          </div>
+          <div className="grid-3">
             <ThresholdCounters key={p.metric ? 'metric' : 'us'} s={s} p={p} set={set} u={u} />
             <ClimateDrift s={s} m={model} p={p} u={u} />
             <FactsPanel m={model} u={u} w={p.window} solarIdx={mf?.solarIdx ?? null} seasonsIdx={mf?.seasonsIdx ?? null} />
+          </div>
+          <div className="grid-3">
+            <ExtremesPanel s={s} p={p} u={u} />
+            <AirQualityPanel city={cityMeta} />
+            <MosquitoPanel s={s} p={p} u={u} />
           </div>
           <Methods city={cityMeta} s={s} m={model} p={p} u={u} />
         </main>

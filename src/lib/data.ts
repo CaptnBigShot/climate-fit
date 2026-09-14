@@ -85,3 +85,37 @@ export function loadTerrain(id: string): Promise<TerrainSeries> {
   }
   return p
 }
+
+// ---------- Separate, shorter data tiers (loaded on demand) ----------
+
+/** Hourly temperature, local time, 365 × 24 per year, tenths of °F. */
+export interface HourlySeries { id: string; startYear: number; years: number; timezone: string; temp: Int16Array }
+/** Air quality: daily max US AQI and daily mean PM2.5 (µg/m³), one entry per calendar day from `start`. */
+export interface AqSeries { id: string; domain: string; start: string; end: string; aqi: (number | null)[]; pm25: (number | null)[] }
+
+const hourlyCache = new Map<string, Promise<HourlySeries>>()
+const aqCache = new Map<string, Promise<AqSeries>>()
+
+export function loadHourly(id: string): Promise<HourlySeries> {
+  let p = hourlyCache.get(id)
+  if (!p) {
+    p = getJson<{ id: string; startYear: number; years: number; timezone: string; temp10: string }>(`hourly/${id}.json`).then((raw) => {
+      const bin = atob(raw.temp10), bytes = new Uint8Array(bin.length)
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+      return { id: raw.id, startYear: raw.startYear, years: raw.years, timezone: raw.timezone, temp: new Int16Array(bytes.buffer) }
+    })
+    p.catch(() => hourlyCache.delete(id))
+    hourlyCache.set(id, p)
+  }
+  return p
+}
+
+export function loadAq(id: string): Promise<AqSeries> {
+  let p = aqCache.get(id)
+  if (!p) {
+    p = getJson<AqSeries>(`aq/${id}.json`)
+    p.catch(() => aqCache.delete(id))
+    aqCache.set(id, p)
+  }
+  return p
+}

@@ -7,6 +7,7 @@ import { CUTOFF, windowLabel, windowYears, type Prefs } from '../lib/prefs'
 import type { Model } from '../lib/model'
 import type { Units } from '../lib/units'
 import { downloadDailyCsv } from '../lib/csv'
+import { AQI_SENSITIVE, AQI_UNHEALTHY, MOSQUITO_DEW_F, MOSQUITO_LOW_F, PM25_SMOKE, SHIFTS } from '../lib/extras'
 
 const M_TO_FT = 3.28084
 
@@ -43,6 +44,11 @@ export function Methods({ city, s, m, p, u }: { city: CityMeta; s: CitySeries; m
               ['Apparent temperature', 'NWS heat index (Rothfusz) at ≥80°F; NWS wind chill at ≤50°F and ≥3 mph; otherwise air temperature. Daily high with daily mean dew point and daily max wind'],
               ['In-sun temperature', `Daily high + ${SUN_F_PER_MJ}°F per MJ/m² of daily shortwave radiation — a simple radiant-load approximation, not a full UTCI calculation`],
               ['Trend fit', 'Ordinary least squares on annual values; R² always shown next to the slope'],
+              ['Hourly tier (typical day)', `Separate tier: hourly temperature for the last 10 years of the archive only, local clock time; percentiles across every day of the chosen month. Sunrise/sunset computed astronomically`],
+              ['Air-quality tier', `Separate tier: CAMS global from Aug 2022, CAMS Europe from 2013. Daily max US AQI; thresholds ${AQI_SENSITIVE} (sensitive groups) and ${AQI_UNHEALTHY} (unhealthy). Smoke proxy: daily mean PM2.5 > ${PM25_SMOKE} µg/m³. Lookback window does not apply`],
+              ['Mosquito proxy', `Rough proxy, not an observation: daily low ≥ ${MOSQUITO_LOW_F}°F and mean dew point ≥ ${MOSQUITO_DEW_F}°F`],
+              ['What would have to change', `Re-scores the window with highs, lows and dew point all shifted by ${SHIFTS[0]}…+${SHIFTS[SHIFTS.length - 1]}°F; crossing interpolated linearly; year = ${ARCHIVE.endYear} + warming ÷ OLS slope of annual mean temperature over the full archive`],
+              ['Best time to visit', 'Share of comfortable days in every 7-, 14- or 30-day span of the year across the window; top three that do not overlap. Worst span = most unbearable days'],
             ].map(([k, v]) => <Row key={k} k={k} v={v} />)}
           </div>
 
