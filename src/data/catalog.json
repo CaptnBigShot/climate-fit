@@ -1,0 +1,70 @@
+{
+  "archive": { "startYear": 1991, "endYear": 2025 },
+  "terrain": {
+    "snoqualmie": { "name": "Snoqualmie Pass", "lat": 47.4245, "lon": -121.4138, "elevFt": 3400 },
+    "crystal": { "name": "Crystal Mtn", "lat": 46.9357, "lon": -121.4747, "elevFt": 5600 },
+    "stevens": { "name": "Stevens Pass", "lat": 47.7448, "lon": -121.089, "elevFt": 4800 },
+    "baker": { "name": "Mt Baker", "lat": 48.8573, "lon": -121.6664, "elevFt": 4300 },
+    "echo": { "name": "Echo Mountain", "lat": 39.6847, "lon": -105.5194, "elevFt": 10300 },
+    "loveland": { "name": "Loveland", "lat": 39.68, "lon": -105.8978, "elevFt": 11500 },
+    "vail": { "name": "Vail", "lat": 39.6061, "lon": -106.355, "elevFt": 9800 },
+    "nakiska": { "name": "Nakiska", "lat": 50.9425, "lon": -115.1508, "elevFt": 6200 },
+    "sunshine": { "name": "Sunshine Village", "lat": 51.0785, "lon": -115.7731, "elevFt": 7300 },
+    "louise": { "name": "Lake Louise", "lat": 51.4254, "lon": -116.1773, "elevFt": 6800 },
+    "spindleruv": { "name": "Špindlerův Mlýn", "lat": 50.7262, "lon": 15.6096, "elevFt": 3300 },
+    "snowbowl": { "name": "Arizona Snowbowl", "lat": 35.3306, "lon": -111.7117, "elevFt": 10000 },
+    "blafjoll": { "name": "Bláfjöll", "lat": 63.9794, "lon": -21.6547, "elevFt": 1900 }
+  },
+  "cities": [
+    {
+      "id": "tacoma", "name": "Tacoma", "code": "WA", "region": "Washington · United States",
+      "lat": 47.2529, "lon": -122.4443, "pop": 219346, "coastal": true,
+      "terrain": [["snoqualmie", 70], ["crystal", 110], ["stevens", 125]]
+    },
+    {
+      "id": "denver", "name": "Denver", "code": "CO", "region": "Colorado · United States",
+      "lat": 39.7392, "lon": -104.9903, "pop": 715522, "coastal": false,
+      "terrain": [["echo", 50], ["loveland", 65], ["vail", 115]]
+    },
+    {
+      "id": "bellingham", "name": "Bellingham", "code": "WA", "region": "Washington · United States",
+      "lat": 48.7519, "lon": -122.4787, "pop": 91482, "coastal": true,
+      "terrain": [["baker", 80], ["stevens", 150]]
+    },
+    {
+      "id": "lynnwood", "name": "Lynnwood", "code": "WA", "region": "Washington · United States",
+      "lat": 47.8209, "lon": -122.3151, "pop": 38568, "coastal": true,
+      "terrain": [["snoqualmie", 60], ["stevens", 85], ["baker", 125], ["crystal", 130]]
+    },
+    {
+      "id": "calgary", "name": "Calgary", "code": "AB", "region": "Alberta · Canada",
+      "lat": 51.0447, "lon": -114.0719, "pop": 1306784, "coastal": false,
+      "terrain": [["nakiska", 60], ["sunshine", 95], ["louise", 115]]
+    },
+    {
+      "id": "prague", "name": "Prague", "code": "CZ", "region": "Czechia",
+      "lat": 50.0755, "lon": 14.4378, "pop": 1357000, "coastal": false,
+      "terrain": [["spindleruv", 110]]
+    },
+    {
+      "id": "wellington", "name": "Wellington", "code": "NZ", "region": "New Zealand",
+      "lat": -41.2865, "lon": 174.7762, "pop": 212700, "coastal": true,
+      "terrain": []
+    },
+    {
+      "id": "phoenix", "name": "Phoenix", "code": "AZ", "region": "Arizona · United States",
+      "lat": 33.4484, "lon": -112.074, "pop": 1608139, "coastal": false,
+      "terrain": [["snowbowl", 150]]
+    },
+    {
+      "id": "miami", "name": "Miami", "code": "FL", "region": "Florida · United States",
+      "lat": 25.7617, "lon": -80.1918, "pop": 442241, "coastal": true,
+      "terrain": []
+    },
+    {
+      "id": "reykjavik", "name": "Reykjavík", "code": "IS", "region": "Iceland",
+      "lat": 64.1466, "lon": -21.9426, "pop": 139900, "coastal": true,
+      "terrain": [["blafjoll", 30]]
+    }
+  ]
+}

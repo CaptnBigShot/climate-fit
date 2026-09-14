@@ -1,0 +1,100 @@
+{
+ "refYears": 10,
+ "cities": {
+  "tacoma": {
+   "solarIdx": 43,
+   "seasonsIdx": 46,
+   "meanRadMJ": 12.73,
+   "seasonStdF": 10.12,
+   "demElevM": 85,
+   "gridElevM": 89
+  },
+  "denver": {
+   "solarIdx": 82,
+   "seasonsIdx": 98,
+   "meanRadMJ": 17.83,
+   "seasonStdF": 16.49,
+   "demElevM": 1599,
+   "gridElevM": 1579
+  },
+  "bellingham": {
+   "solarIdx": 43,
+   "seasonsIdx": 40,
+   "meanRadMJ": 12.68,
+   "seasonStdF": 9.36,
+   "demElevM": 23,
+   "gridElevM": 152
+  },
+  "lynnwood": {
+   "solarIdx": 42,
+   "seasonsIdx": 37,
+   "meanRadMJ": 12.59,
+   "seasonStdF": 8.99,
+   "demElevM": 119,
+   "gridElevM": 66
+  },
+  "calgary": {
+   "solarIdx": 50,
+   "seasonsIdx": 100,
+   "meanRadMJ": 13.61,
+   "seasonStdF": 16.73,
+   "demElevM": 1051,
+   "gridElevM": 1089
+  },
+  "prague": {
+   "solarIdx": 36,
+   "seasonsIdx": 68,
+   "meanRadMJ": 11.87,
+   "seasonStdF": 12.85,
+   "demElevM": 251,
+   "gridElevM": 264
+  },
+  "wellington": {
+   "solarIdx": 62,
+   "seasonsIdx": 0,
+   "meanRadMJ": 15.17,
+   "seasonStdF": 4.52,
+   "demElevM": 20,
+   "gridElevM": 0
+  },
+  "phoenix": {
+   "solarIdx": 100,
+   "seasonsIdx": 84,
+   "meanRadMJ": 20.1,
+   "seasonStdF": 14.76,
+   "demElevM": 333,
+   "gridElevM": 354
+  },
+  "miami": {
+   "solarIdx": 85,
+   "seasonsIdx": 0,
+   "meanRadMJ": 18.13,
+   "seasonStdF": 4.57,
+   "demElevM": 5,
+   "gridElevM": 5
+  },
+  "reykjavik": {
+   "solarIdx": 0,
+   "seasonsIdx": 24,
+   "meanRadMJ": 7.19,
+   "seasonStdF": 7.41,
+   "demElevM": 7,
+   "gridElevM": 61
+  }
+ },
+ "terrain": [
+  "snoqualmie",
+  "crystal",
+  "stevens",
+  "baker",
+  "echo",
+  "loveland",
+  "vail",
+  "nakiska",
+  "sunshine",
+  "louise",
+  "spindleruv",
+  "snowbowl",
+  "blafjoll"
+ ]
+}
