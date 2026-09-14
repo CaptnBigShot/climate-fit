@@ -155,7 +155,7 @@ export default function App() {
           </div>
           <div className="grid-3">
             <ExtremesPanel s={s} p={p} u={u} />
-            <AirQualityPanel city={cityMeta} />
+            <AirQualityPanel city={cityMeta} w={p.window} />
             <MosquitoPanel s={s} p={p} u={u} />
           </div>
           <Methods city={cityMeta} s={s} m={model} p={p} u={u} ytd={ytd} ytdError={ytdError} />

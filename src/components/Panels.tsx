@@ -158,6 +158,7 @@ export function ThresholdCounters({ s, p, set, u, ytd }: { s: CitySeries; p: Pre
     { label: 'Dry days (no precip)', pred: (x, j) => x.precip[j] < 0.005 },
     { label: 'Overcast days (cloud ≥ 80%)', pred: (x, j) => x.cloud[j] >= 80 },
     { label: 'Clear days (cloud ≤ 20%)', pred: (x, j) => x.cloud[j] <= 20 },
+    { label: `Humid days (dew pt ≥ ${u.t(55)}${u.tu})`, pred: (x, j) => x.dew[j] >= 55 },
     { label: `Muggy days (dew pt ≥ ${u.t(65)}${u.tu})`, pred: (x, j) => x.dew[j] >= 65 },
     { label: 'Mosquito-favourable (proxy)', pred: isMosquitoDay },
   ]

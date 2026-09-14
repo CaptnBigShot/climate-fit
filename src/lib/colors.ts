@@ -19,6 +19,10 @@ export const CO = {
 }
 export const BAND_COLOR = [CO.comf, CO.tol, CO.unb]
 
+/** Air-quality drivers. Ozone and PM2.5 are a validated categorical pair on the dark
+ *  panel (CVD ΔE 15.9, normal 26.5); everything else folds into a neutral "other". */
+export const AQ_COLOR = { o3: '#3987e5', pm25: '#d55181', other: '#6b7280' }
+
 export const LOSS_COLOR = [CO.act, '#8a5a3c', '#3c5a8a', '#4a5560', '#4a5560', '#33373f']
 
 /** Perceptually ordered 0→100 fit ramp for the continuous calendar. Lightness rises

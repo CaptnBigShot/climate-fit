@@ -20,18 +20,12 @@ const range = (v: number, lo: number, hi: number): LossReason => (v > hi ? 1 : v
 export const RIDE_DEPTH_IN = 18
 
 export const ACTIVITIES: Activity[] = [
-  { id: 'walk', name: 'Walk / be outside', rules: 'daily high 32–84°F · precip < 0.40"',
-    test: (d) => range(d.hi, 32, 84) || (d.precip >= 0.4 ? 3 : 0) },
-  { id: 'hike', name: 'Hike / trail', rules: 'daily high 28–76°F · precip < 0.30" · max wind < 22 mph',
-    test: (d) => range(d.hi, 28, 76) || (d.precip >= 0.3 ? 3 : d.wind >= 22 ? 4 : 0) },
-  { id: 'run', name: 'Running / cycling', rules: 'daily high 20–68°F · dew pt < 60°F · precip < 0.20" · max wind < 20 mph',
-    test: (d) => range(d.hi, 20, 68) || (d.precip >= 0.2 ? 3 : d.dew >= 60 || d.wind >= 20 ? 4 : 0) },
+  { id: 'walk', name: 'Walk / be outside', rules: 'daily high 32–70°F · dew pt < 55°F · precip < 0.40"',
+    test: (d) => range(d.hi, 32, 70) || (d.precip >= 0.4 ? 3 : d.dew >= 55 ? 4 : 0) },
+  { id: 'run', name: 'Running / cycling', rules: 'daily high 10–64°F · dew pt < 55°F · precip < 0.20" · max wind < 20 mph',
+    test: (d) => range(d.hi, 10, 64) || (d.precip >= 0.2 ? 3 : d.dew >= 55 || d.wind >= 20 ? 4 : 0) },
   { id: 'ride', name: 'Snowboard / ski', rules: `snow depth ≥ ${RIDE_DEPTH_IN}" at the reference terrain · city high ≥ 0°F`,
     test: (d) => (!(d.depth >= RIDE_DEPTH_IN) ? 5 : d.hi < 0 ? 2 : 0) },
-  { id: 'patio', name: 'Sitting outside', rules: 'daily high 55–82°F · precip < 0.01" · max wind < 14 mph',
-    test: (d) => range(d.hi, 55, 82) || (d.precip >= 0.01 ? 3 : d.wind >= 14 ? 4 : 0) },
-  { id: 'garden', name: 'Yard & garden', rules: 'daily low > 32°F · daily high < 90°F · precip < 0.35"',
-    test: (d) => (d.lo <= 32 ? 2 : d.hi >= 90 ? 1 : d.precip >= 0.35 ? 3 : 0) },
 ]
 
 /** Outdoor season: the longest run of days on which walking is viable in at least

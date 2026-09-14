@@ -8,7 +8,8 @@ import type { Model } from '../lib/model'
 import type { Units } from '../lib/units'
 import { downloadDailyCsv } from '../lib/csv'
 import { DEPTH_CARRY_DAYS, YTD_MIN_DAYS, YTD_YEAR, fetchedDay, type Ytd } from '../lib/current'
-import { AQI_SENSITIVE, AQI_UNHEALTHY, MOSQUITO_DEW_F, MOSQUITO_LOW_F, PM25_SMOKE, SHIFTS } from '../lib/extras'
+import { MOSQUITO_DEW_F, MOSQUITO_LOW_F, SHIFTS } from '../lib/extras'
+import { AQI_LEVELS, EPA_OUTLIER_AQI, EPA_RADIUS_KM, EPA_START_YEAR, POLLUTANTS } from '../lib/aq'
 
 const M_TO_FT = 3.28084
 
@@ -46,7 +47,7 @@ export function Methods({ city, s, m, p, u, ytd, ytdError }: { city: CityMeta; s
               ['In-sun temperature', `Daily high + ${SUN_F_PER_MJ}°F per MJ/m² of daily shortwave radiation — a simple radiant-load approximation, not a full UTCI calculation`],
               ['Trend fit', 'Ordinary least squares on annual values; R² always shown next to the slope'],
               ['Hourly tier (typical day)', `Separate tier: hourly temperature for the last 10 years of the archive only, local clock time; percentiles across every day of the chosen month. Sunrise/sunset computed astronomically`],
-              ['Air-quality tier', `Separate tier: CAMS global from Aug 2022, CAMS Europe from 2013. Daily max US AQI; thresholds ${AQI_SENSITIVE} (sensitive groups) and ${AQI_UNHEALTHY} (unhealthy). Smoke proxy: daily mean PM2.5 > ${PM25_SMOKE} µg/m³. Lookback window does not apply`],
+              ['Air-quality tier', `Separate tier with its own dates; the lookback window is clipped to it. US cities: EPA AirData (validated monitor data) from ${EPA_START_YEAR}, monitors within ${EPA_RADIUS_KM} km. Ozone takes the day's highest monitor (how EPA and AirNow report a metro; ozone is regional and reads low downtown), skipping a lone reading more than ${EPA_OUTLIER_AQI} AQI points above every other monitor (with 3+ reporting) as a faulty monitor; PM2.5, PM10 and NO₂ take the nearest monitor that reported. Elsewhere: CAMS model via Open-Meteo (global from Aug 2022, Europe from 2013), daily max of each hourly US AQI sub-index. Pollutants: ${POLLUTANTS.map((x) => x.label).join(', ')}. A day's AQI is its worst pollutant; counted above ${AQI_LEVELS.map((l) => l.at).join(' / ')}`],
               ['Mosquito proxy', `Rough proxy, not an observation: daily low ≥ ${MOSQUITO_LOW_F}°F and mean dew point ≥ ${MOSQUITO_DEW_F}°F`],
               ['What would have to change', `Re-scores the window with highs, lows and dew point all shifted by ${SHIFTS[0]}…+${SHIFTS[SHIFTS.length - 1]}°F; crossing interpolated linearly; year = ${ARCHIVE.endYear} + warming ÷ OLS slope of annual mean temperature over the full archive`],
               [`${YTD_YEAR} (current year)`, ytd

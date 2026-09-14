@@ -1,5 +1,5 @@
 // Spec section 5 — additional features. Pure functions, like aggregate.ts.
-import type { AqSeries, CitySeries, HourlySeries } from './data'
+import type { CitySeries, HourlySeries } from './data'
 import { MD, MONTH_START, doyMonth } from './calendar'
 import { BAND, score, type Scored } from './scoring'
 import { FIRST_YEAR, LAST_YEAR, windowYears, type Prefs, type Window } from './prefs'
@@ -174,47 +174,6 @@ export function sunTimes(lat: number, lon: number, timeZone: string, month: numb
   const offset = tzOffsetMin(timeZone, new Date(Date.UTC(LAST_YEAR, month, 15, 12)))
   const noon = (720 - 4 * lon - eot + offset) / 60
   return { rise: noon - dl / 2, set: noon + dl / 2 }
-}
-
-// ---------- 5.3 Air quality (separate data tier) ----------
-
-export const AQI_SENSITIVE = 100
-export const AQI_UNHEALTHY = 150
-/** EPA 24-hour PM2.5 level for "unhealthy for sensitive groups" — used as the smoke-day proxy. */
-export const PM25_SMOKE = 35.4
-
-export interface AqStats {
-  domain: string; from: string; to: string; years: number
-  sensitive: number; unhealthy: number; smoke: number
-  months: number[]
-  worst: { date: string; aqi: number; pm25: number | null } | null
-  perYear: { year: number; sensitive: number; coverage: number }[]
-}
-
-export function aqStats(aq: AqSeries): AqStats {
-  const start = new Date(`${aq.start}T00:00:00Z`)
-  const n = aq.aqi.length, years = n / 365.25
-  let sensitive = 0, unhealthy = 0, smoke = 0, wi = -1
-  const months = new Array(12).fill(0)
-  const byYear = new Map<number, { sensitive: number; days: number }>()
-  for (let i = 0; i < n; i++) {
-    const date = new Date(start.getTime() + i * 86400000), a = aq.aqi[i], pm = aq.pm25[i]
-    const yr = date.getUTCFullYear()
-    if (!byYear.has(yr)) byYear.set(yr, { sensitive: 0, days: 0 })
-    const Y = byYear.get(yr)!
-    Y.days++
-    if (a !== null && a > AQI_SENSITIVE) { sensitive++; months[date.getUTCMonth()]++; Y.sensitive++ }
-    if (a !== null && a > AQI_UNHEALTHY) unhealthy++
-    if (pm !== null && pm > PM25_SMOKE) smoke++
-    if (a !== null && (wi < 0 || a > (aq.aqi[wi] ?? 0))) wi = i
-  }
-  return {
-    domain: aq.domain, from: aq.start, to: aq.end, years,
-    sensitive: sensitive / years, unhealthy: unhealthy / years, smoke: smoke / years,
-    months: months.map((m) => m / years),
-    worst: wi >= 0 ? { date: new Date(start.getTime() + wi * 86400000).toISOString().slice(0, 10), aqi: aq.aqi[wi]!, pm25: aq.pm25[wi] } : null,
-    perYear: [...byYear.entries()].map(([year, v]) => ({ year, sensitive: v.sensitive, coverage: v.days / 365 })),
-  }
 }
 
 // ---------- 3.5 Month × year matrix ----------

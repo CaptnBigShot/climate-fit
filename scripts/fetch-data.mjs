@@ -1,25 +1,22 @@
 // Build-time data fetch: pulls the daily archive for every catalogue city and
 // snow-depth series for every terrain reference from the Open-Meteo Historical
-// Weather API, plus two separate, shorter data tiers — hourly temperature (for
-// the typical-day profile) and air quality — and writes compact JSON into
-// public/data/. Resumable: files that already exist are skipped, so re-running
-// after a rate limit picks up where it stopped. Run: npm run fetch-data
+// Weather API, plus two separate data tiers — hourly temperature (for the
+// typical-day profile) and air quality (scripts/air-quality.mjs) — and writes
+// compact JSON into public/data/. Resumable: files that already exist are skipped,
+// so re-running after a rate limit picks up where it stopped. Run: npm run fetch-data
 import { mkdir, writeFile, access } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import catalog from '../src/data/catalog.json' with { type: 'json' }
 import { buildManifest } from './build-manifest.mjs'
+import { fetchAirQuality } from './air-quality.mjs'
+import { get } from './open-meteo.mjs'
 import { DAILY_VARS, fetchYtdRaw } from '../src/lib/ytd.ts'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const OUT = join(ROOT, 'public', 'data')
-const API = 'https://archive-api.open-meteo.com/v1/archive'
-const AQ_API = 'https://air-quality-api.open-meteo.com/v1/air-quality'
 /** Hourly tier: the most recent decade only, to stay inside the free-tier budget. */
 const HOURLY_YEARS = 10
-/** CAMS global air-quality history starts here; CAMS Europe reaches back to 2013. */
-const AQ_GLOBAL_START = '2022-08-01'
-const AQ_EUROPE_START = '2013-01-01'
 const { startYear, endYear } = catalog.archive
 const START = `${startYear}-01-01`
 const END = `${endYear}-12-31`
@@ -28,23 +25,6 @@ const END = `${endYear}-12-31`
 const CITY_VARS = DAILY_VARS
 
 const exists = (p) => access(p).then(() => true, () => false)
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
-
-async function get(params, api = API) {
-  const url = `${api}?${new URLSearchParams(params)}`
-  for (let attempt = 0; attempt < 6; attempt++) {
-    const res = await fetch(url)
-    if (res.ok) return res.json()
-    const body = await res.json().catch(() => ({}))
-    const reason = body.reason || res.statusText
-    if (res.status !== 429) throw new Error(`${res.status} ${reason}`)
-    if (/daily/i.test(reason)) throw new Error(`Daily limit reached — re-run tomorrow. (${reason})`)
-    const wait = /hourly/i.test(reason) ? 10 * 60_000 : 65_000
-    console.log(`  rate limited (${reason}); waiting ${Math.round(wait / 1000)}s`)
-    await sleep(wait)
-  }
-  throw new Error('gave up after repeated rate limits')
-}
 
 // Drop Feb 29 so every year is exactly 365 days — the calendar and all
 // day-of-year statistics assume a fixed 365-column year.
@@ -139,36 +119,6 @@ async function fetchHourly(city) {
   await writeFile(file, JSON.stringify({ id: city.id, startYear: y0, years: HOURLY_YEARS, timezone: data.timezone, temp10: Buffer.from(buf.buffer).toString('base64') }))
 }
 
-// Air quality: a separate, shorter tier (CAMS). Daily max US AQI and daily mean PM2.5.
-async function fetchAq(city) {
-  const file = join(OUT, 'aq', `${city.id}.json`)
-  if (await exists(file)) return console.log(`✓ aq/${city.id} (cached)`)
-  console.log(`↓ aq/${city.id}`)
-  const inEurope = city.lon >= -25 && city.lon <= 45 && city.lat >= 30 && city.lat <= 72
-  const domain = inEurope ? 'cams_europe' : 'cams_global'
-  const start = inEurope ? AQ_EUROPE_START : AQ_GLOBAL_START
-  const data = await get({
-    latitude: city.lat, longitude: city.lon, start_date: start, end_date: END,
-    hourly: 'us_aqi,pm2_5', domains: domain, timezone: 'auto',
-  }, AQ_API)
-  const days = new Map()
-  data.hourly.time.forEach((t, i) => {
-    const date = t.slice(0, 10)
-    if (!days.has(date)) days.set(date, { aqi: null, pm: 0, n: 0 })
-    const d = days.get(date), a = data.hourly.us_aqi[i], p = data.hourly.pm2_5[i]
-    if (a !== null) d.aqi = Math.max(d.aqi ?? 0, a)
-    if (p !== null) { d.pm += p; d.n++ }
-  })
-  const dates = [...days.keys()].sort()
-  const first = dates.findIndex((d) => days.get(d).n > 0)
-  const kept = dates.slice(first)
-  await writeFile(file, JSON.stringify({
-    id: city.id, domain, start: kept[0], end: kept[kept.length - 1],
-    aqi: kept.map((d) => days.get(d).aqi),
-    pm25: kept.map((d) => { const x = days.get(d); return x.n ? Number((x.pm / x.n).toFixed(1)) : null }),
-  }))
-}
-
 // Current partial year: an offline fallback for the app's live fetch. Always
 // re-fetched (never cached) so each run refreshes it.
 async function fetchYtdSnapshot(city) {
@@ -185,20 +135,26 @@ for (const dir of ['cities', 'terrain', 'hourly', 'aq', 'ytd']) await mkdir(join
 // Fetch city-by-city with its terrain right after, so partial runs still leave
 // complete, usable cities behind.
 const only = process.argv.slice(2)
+const selected = catalog.cities.filter((c) => !only.length || only.includes(c.id))
 let failed = null
-for (const city of catalog.cities) {
-  if (only.length && !only.includes(city.id)) continue
+for (const city of selected) {
   try {
     await fetchCity(city)
     for (const [tid] of city.terrain) await fetchTerrain(tid)
     await fetchHourly(city)
-    await fetchAq(city)
     await fetchYtdSnapshot(city)
   } catch (e) {
     failed = e
     console.error(`✗ ${city.id}: ${e.message}`)
     break
   }
+}
+// One batch, not per city: each EPA file covers every US city at once.
+try {
+  await fetchAirQuality(selected, { out: join(OUT, 'aq'), cache: join(ROOT, '.cache'), endYear })
+} catch (e) {
+  failed ??= e
+  console.error(`✗ air quality: ${e.message}`)
 }
 await buildManifest()
 if (failed) process.exit(1)

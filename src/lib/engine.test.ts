@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { SERIES_KEYS, type CitySeries } from './data'
 import { apparent, ramp, score, seasonWeights, BAND } from './scoring'
 import { budget, activities } from './aggregate'
+import { AQI_LEVELS, AQ_FORMAT, aqStats, type AqSeries } from './aq'
 import { DEFAULT_PREFS, EXAMPLE_STATE, PRESETS, decodePrefs, encodePrefs, lookbackWindow, type Prefs } from './prefs'
 
 function loadTacoma(): CitySeries {
@@ -93,7 +94,7 @@ describe('scoring real data', () => {
 })
 
 describe('secondary features', async () => {
-  const { spans, bestSpans, worstSpan, extremes, crossing, sensitivity, typicalDay, aqStats, monthYearMatrix, isMosquitoDay } = await import('./extras')
+  const { spans, bestSpans, worstSpan, extremes, crossing, sensitivity, typicalDay, monthYearMatrix, isMosquitoDay } = await import('./extras')
   const s = loadTacoma()
   const w = lookbackWindow(10)
   const sc = score(s, example, w)!
@@ -133,11 +134,41 @@ describe('secondary features', async () => {
     expect(prof.p50[15]).toBeGreaterThan(prof.p50[5] + 10)
   })
 
-  it('air-quality stats cover the separate tier', () => {
-    const aq = JSON.parse(readFileSync(new URL('../../public/data/aq/tacoma.json', import.meta.url), 'utf8'))
-    const st = aqStats(aq)
-    expect(st.from).toBe('2022-08-03')
-    expect(st.worst!.aqi).toBeGreaterThan(150)
+  it('air-quality stats count the worst pollutant per day and clip the window to the record', () => {
+    const aq: AqSeries = {
+      v: AQ_FORMAT, id: 't', source: 'epa', start: '2020-01-01', end: '2020-01-04',
+      aqi: { o3: [40, 120, null, 60], pm25: [60, 30, 160, null] },
+    }
+    const st = aqStats(aq, { from: 2020, to: 2020 })!
+    const yr = 4 / 365.25
+    expect(st.from).toBe('2020-01-01')
+    expect(st.to).toBe('2020-01-04')
+    const row = (k: string) => st.rows.find((r) => r.key === k)!
+    // Day AQI = worst pollutant: 60, 120, 160, 60.
+    expect(row('any').perYear.map((v) => v * yr)).toEqual([4, 2, 1].map((n) => expect.closeTo(n)))
+    expect(row('o3').perYear.map((v) => v * yr)).toEqual([2, 1, 0].map((n) => expect.closeTo(n)))
+    expect(row('o3').coverage).toBe(0.75)
+    expect(st.worst).toEqual({ date: '2020-01-03', aqi: 160, by: 'pm25' })
+    expect(st.months.o3[0] * yr).toBeCloseTo(1)
+    expect(st.months.pm25[0] * yr).toBeCloseTo(1)
+    expect(aqStats(aq, { from: 2021, to: 2022 })).toBeNull()
+  })
+
+  it('air-quality file for a US city comes from EPA monitors and is internally consistent', () => {
+    const aq: AqSeries = JSON.parse(readFileSync(new URL('../../public/data/aq/tacoma.json', import.meta.url), 'utf8'))
+    expect(aq.v).toBe(AQ_FORMAT)
+    expect(aq.source).toBe('epa')
+    const st = aqStats(aq, w)!
+    expect(st.years).toBeCloseTo(10, 1)
+    const any = st.rows[0]
+    for (const r of st.rows) {
+      AQI_LEVELS.forEach((_, k) => {
+        expect(any.perYear[k]).toBeGreaterThanOrEqual(r.perYear[k])
+        if (k) expect(r.perYear[k]).toBeLessThanOrEqual(r.perYear[k - 1])
+      })
+    }
+    const monthly = [...st.months.o3, ...st.months.pm25, ...st.months.other].reduce((a, b) => a + b, 0)
+    expect(monthly).toBeCloseTo(any.perYear[1], 6)
   })
 
   it('month × year matrix sums to the counter total', () => {

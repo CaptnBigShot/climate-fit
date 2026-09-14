@@ -6,7 +6,7 @@ export type Strictness = 'lenient' | 'standard' | 'strict'
 export type Basis = 'high' | 'low' | 'apparent' | 'both'
 export type Weight = 'minor' | 'normal' | 'critical'
 export type CloudPref = 'any' | 'clear' | 'overcast'
-export type ActivityId = 'walk' | 'hike' | 'run' | 'ride' | 'patio' | 'garden'
+export type ActivityId = 'walk' | 'run' | 'ride'
 export type CounterMetric = 'high' | 'low' | 'dew' | 'cloud' | 'precip' | 'snow' | 'wind'
 export type CounterOp = 'ge' | 'le'
 
@@ -42,7 +42,7 @@ export type DealVar = 'cloud' | 'wind' | 'precip'
 export const LAST_YEAR = ARCHIVE.endYear
 export const FIRST_YEAR = ARCHIVE.startYear
 export const LOOKBACKS = [3, 5, 7, 10, 15, 20, 30]
-export const ALL_ACTS: ActivityId[] = ['walk', 'hike', 'run', 'ride', 'patio', 'garden']
+export const ALL_ACTS: ActivityId[] = ['walk', 'run', 'ride']
 export const CUTOFF: Record<Strictness, number> = { lenient: 75, standard: 85, strict: 95 }
 export const WEIGHT_VALUE: Record<Weight, number> = { minor: 0.5, normal: 1, critical: 2 }
 /** Temperature slider scale, °F. */

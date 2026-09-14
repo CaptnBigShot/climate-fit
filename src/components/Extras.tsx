@@ -1,20 +1,22 @@
 // Spec section 5 panels: best time to visit, typical day, what would have to change,
 // annotated extremes, air quality (separate tier), mosquito proxy.
 import { useDeferredValue, useEffect, useMemo, useState } from 'react'
-import { loadAq, loadHourly, type AqSeries, type CityMeta, type CitySeries, type HourlySeries } from '../lib/data'
+import { loadAq, loadHourly, type CityMeta, type CitySeries, type HourlySeries } from '../lib/data'
 import { MN, MONTH_FULL, MONTH_START, doyLabel } from '../lib/calendar'
-import { CO } from '../lib/colors'
+import { AQ_COLOR, CO } from '../lib/colors'
+import { AQI_LEVELS, AQI_TRACKED, AQ_SOURCE_LABEL, EPA_OUTLIER_AQI, EPA_RADIUS_KM, POLLUTANTS, aqStats, type AqSeries, type AqStats, type Pollutant } from '../lib/aq'
 import type { Budget } from '../lib/aggregate'
 import {
-  AQI_SENSITIVE, AQI_UNHEALTHY, MOSQUITO_DEW_F, MOSQUITO_LOW_F, PM25_SMOKE, SHIFTS,
-  aqStats, bestSpans, crossing, extremes, mosquito, sensitivity, spans, sunTimes, typicalDay, warmingTrend, worstSpan, yearAt,
+  MOSQUITO_DEW_F, MOSQUITO_LOW_F, SHIFTS,
+  bestSpans, crossing, extremes, mosquito, sensitivity, spans, sunTimes, typicalDay, warmingTrend, worstSpan, yearAt,
   type DateSpan,
 } from '../lib/extras'
-import { windowLabel, type Prefs } from '../lib/prefs'
+import { windowLabel, type Prefs, type Window } from '../lib/prefs'
 import { idealFor, type Scored } from '../lib/scoring'
 import { signed, type Units } from '../lib/units'
 import { Head, Seg, Spark } from './ui'
 import { useWidth } from '../hooks/useWidth'
+import { ols } from '../lib/stats'
 
 const pct = (v: number) => `${Math.round(v * 100)}%`
 const spanLabel = (sp: DateSpan) => `${doyLabel(sp.start)} – ${doyLabel((sp.start + sp.len - 1) % 365)}`
@@ -224,7 +226,10 @@ export function ExtremesPanel({ s, p, u }: { s: CitySeries; p: Prefs; u: Units }
 
 // ---------------- 5.3 ----------------
 
-export function AirQualityPanel({ city }: { city: CityMeta }) {
+const fmtDays = (v: number) => (v === 0 ? '0' : v >= 10 ? String(Math.round(v)) : v.toFixed(1))
+const pctDays = (v: number) => `${Math.round(v * 100)}% of days`
+
+export function AirQualityPanel({ city, w }: { city: CityMeta; w: Window }) {
   const [aq, setAq] = useState<AqSeries | null>(null)
   const [err, setErr] = useState<string | null>(null)
   useEffect(() => {
@@ -232,32 +237,147 @@ export function AirQualityPanel({ city }: { city: CityMeta }) {
     loadAq(city.id).then((a) => live && setAq(a)).catch((e: Error) => live && setErr(e.message))
     return () => { live = false }
   }, [city.id])
-  const st = useMemo(() => (aq && aq.id === city.id ? aqStats(aq) : null), [aq, city.id])
-  const maxM = st ? Math.max(1, ...st.months) : 1
+  const cur = aq && aq.id === city.id ? aq : null
+  const st = useMemo(() => (cur ? aqStats(cur, w) : null), [cur, w])
+  const epa = cur?.source === 'epa'
   return (
     <div className="section" style={{ borderBottom: 'none' }}>
-      <div style={{ marginBottom: 12 }}><Head tip="Air quality comes from a different model (CAMS) with a much shorter archive than the weather data, so it is shown as its own tier with its own dates. The lookback window does not apply here.">AIR QUALITY · SMOKE</Head></div>
+      <div style={{ marginBottom: 12 }}>
+        <Head tip={`Days per year when the US Air Quality Index went above each EPA category edge, over your lookback window clipped to the air-quality record. A day's AQI is its worst pollutant; each pollutant row counts that pollutant's own index, so one day can count under more than one. US cities use EPA monitors within ${EPA_RADIUS_KM} km; elsewhere, the CAMS model.`}>AIR QUALITY</Head>
+      </div>
       {err && <div className="prose">Air-quality data unavailable: {err}</div>}
-      {st && (
+      {cur && !st && <div className="prose">The air-quality record covers {cur.start} → {cur.end}, outside the {windowLabel(w)} window.</div>}
+      {cur && st && (
         <>
-          <div className="sub" style={{ marginBottom: 10, color: 'var(--warn)' }}>
-            separate data tier · {st.domain.replace('_', ' ')} · {st.from} → {st.to} ({st.years.toFixed(1)} yr) · lookback does not apply
+          <div className="sub" style={{ marginBottom: 10, color: epa ? 'var(--dim)' : 'var(--warn)' }}>
+            {AQ_SOURCE_LABEL[st.source]} · {st.from} → {st.to} ({st.years.toFixed(1)} yr)
           </div>
-          <div className="list-row" data-tip={`Days whose highest hourly US AQI exceeded ${AQI_SENSITIVE} ("unhealthy for sensitive groups").`}><span className="k">Days AQI &gt; {AQI_SENSITIVE}</span><span className="v">{st.sensitive.toFixed(1)} /yr</span></div>
-          <div className="list-row" data-tip={`Days whose highest hourly US AQI exceeded ${AQI_UNHEALTHY} ("unhealthy" for everyone).`}><span className="k">Days AQI &gt; {AQI_UNHEALTHY}</span><span className="v">{st.unhealthy.toFixed(1)} /yr</span></div>
-          <div className="list-row" data-tip={`Smoke-day proxy: daily mean PM2.5 above ${PM25_SMOKE} µg/m³, the EPA 24-hour level for sensitive groups. Wildfire smoke is the usual cause in the western US, but not the only one.`}><span className="k">Smoke-level PM2.5 days (proxy)</span><span className="v">{st.smoke.toFixed(1)} /yr</span></div>
-          {st.worst && <div className="list-row"><span className="k">Worst day</span><span className="mono" style={{ fontSize: 10.5, color: 'var(--dim)' }}>{st.worst.date}</span><span className="v">AQI {st.worst.aqi}</span></div>}
-          <div className="cap" style={{ margin: '14px 0 6px' }}>DAYS AQI &gt; {AQI_SENSITIVE} BY MONTH · PER YEAR</div>
-          <svg width="100%" height={46} viewBox="0 0 240 46" preserveAspectRatio="none" style={{ display: 'block' }}>
-            {st.months.map((v, i) => <rect key={i} x={i * 20 + 2} y={36 - (v / maxM) * 34} width={16} height={(v / maxM) * 34} fill="#8a9ab3" data-tip={`${MN[i]}: ${v.toFixed(1)} days/yr`} />)}
-          </svg>
-          <div style={{ display: 'flex' }}>{MN.map((n) => <span key={n} className="cap" style={{ flex: 1, textAlign: 'center', fontSize: 8.5 }}>{n[0]}</span>)}</div>
+          <AqTable st={st} />
+          {st.worst && (
+            <div className="list-row" data-tip={`The highest AQI in the span, set by ${pollutantLabel(st.worst.by)}.`}>
+              <span className="k">Worst day</span><span className="mono" style={{ fontSize: 10.5, color: 'var(--dim)' }}>{st.worst.date} · {pollutantLabel(st.worst.by)}</span><span className="v">AQI {st.worst.aqi}</span>
+            </div>
+          )}
+          <AqMonths st={st} />
+          {st.byYear.length >= 5 && <AqTrend st={st} />}
+          {epa && st.sites && <AqMonitors st={st} />}
           <div className="prose" style={{ marginTop: 10, fontSize: 10.5 }}>
-            {st.years < 5 ? `Only ${st.years.toFixed(1)} years of record — one bad fire season moves these numbers a lot. ` : ''}
-            Reanalysis at ~40 km (global) or ~10 km (Europe); local smoke plumes can be missed or smeared.
+            {epa
+              ? `Validated EPA monitor data (AirData). Some states run ozone monitors only in the warm season, so winter gaps are low-ozone months, not missing bad days. EPA publishes each year about six months after it ends.`
+              : `${st.years < 5 ? `Only ${st.years.toFixed(1)} years of record — one bad fire season moves these numbers a lot. ` : ''}Model reanalysis, not monitors: local smoke plumes and pollution peaks are smeared, so counts tend to run low.`}
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+const pollutantLabel = (k: Pollutant) => POLLUTANTS.find((p) => p.key === k)!.label
+
+function AqTable({ st }: { st: AqStats }) {
+  const tip = (row: AqStats['rows'][number]) => {
+    if (row.key === 'any') return `The day's AQI: whichever pollutant was worst. Readings on ${pctDays(row.coverage)}.`
+    const p = POLLUTANTS.find((x) => x.key === row.key)!
+    return `${p.about} AQI 100 = ${p.at100}. Readings on ${pctDays(row.coverage)}.`
+  }
+  const swatch = (k: AqStats['rows'][number]['key']) => (k === 'o3' || k === 'pm25' ? AQ_COLOR[k] : null)
+  return (
+    <table className="aq" style={{ marginBottom: 4 }}>
+      <thead>
+        <tr>
+          <th className="l">DAYS/YR ABOVE</th>
+          {AQI_LEVELS.map((l) => <th key={l.at} data-tip={`AQI above ${l.at}: ${l.name}.`}>AQI {l.at}</th>)}
+        </tr>
+      </thead>
+      <tbody>
+        {st.rows.map((row) => (
+          <tr key={row.key} data-tip={tip(row)}>
+            <td className={`l${row.key === 'any' ? ' strong' : ''}`} style={{ fontFamily: 'var(--sans)' }}>
+              <span style={{ display: 'inline-block', width: 8, height: 8, marginRight: 7, background: swatch(row.key) ?? 'transparent' }} />
+              {row.label}
+            </td>
+            {row.perYear.map((v, k) => <td key={k} className={row.key === 'any' ? 'strong' : undefined}>{fmtDays(v)}</td>)}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
+/** Days above AQI_TRACKED per month, stacked by the pollutant that set the day's AQI. */
+function AqMonths({ st }: { st: AqStats }) {
+  const layers = [
+    { key: 'o3', label: 'OZONE', v: st.months.o3 },
+    { key: 'pm25', label: 'PM2.5', v: st.months.pm25 },
+    { key: 'other', label: 'OTHER', v: st.months.other },
+  ] as const
+  const totals = MN.map((_, i) => layers.reduce((a, l) => a + l.v[i], 0))
+  const max = Math.max(1, ...totals), H = 34, GAP = 1
+  const shown = layers.filter((l) => l.v.some((v) => v > 0))
+  return (
+    <>
+      <div className="cap" style={{ margin: '14px 0 6px' }}>DAYS AQI &gt; {AQI_TRACKED} BY MONTH · PER YEAR</div>
+      <svg width="100%" height={46} viewBox="0 0 240 46" preserveAspectRatio="none" style={{ display: 'block' }}>
+        {MN.map((m, i) => {
+          let y = 36
+          const tip = `${m}: ${fmtDays(totals[i])} days/yr${shown.length > 1 ? ` · ${shown.map((l) => `${l.label.toLowerCase()} ${fmtDays(l.v[i])}`).join(' · ')}` : ''}`
+          return (
+            <g key={m} data-tip={tip}>
+              <rect x={i * 20} y={0} width={20} height={46} fill="transparent" />
+              {layers.map((l) => {
+                const h = (l.v[i] / max) * H
+                if (h <= 0) return null
+                y -= h
+                return <rect key={l.key} x={i * 20 + 2} y={y} width={16} height={Math.max(0, h - GAP)} fill={AQ_COLOR[l.key]} />
+              })}
+            </g>
+          )
+        })}
+      </svg>
+      <div style={{ display: 'flex' }}>{MN.map((n) => <span key={n} className="cap" style={{ flex: 1, textAlign: 'center', fontSize: 8.5 }}>{n[0]}</span>)}</div>
+      {shown.length > 0 && (
+        <div className="legend" style={{ marginTop: 6 }}>
+          {shown.map((l) => <span key={l.key} className="item"><span className="sw" style={{ background: AQ_COLOR[l.key], width: 12 }} />{l.label}</span>)}
+        </div>
+      )}
+    </>
+  )
+}
+
+function AqTrend({ st }: { st: AqStats }) {
+  const ys = st.byYear.map((y) => y.days)
+  const fit = ols(ys)
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 14 }}>
+      <span className="cap" style={{ flex: 1 }}>AQI &gt; {AQI_TRACKED} PER YEAR · {st.byYear[0].year}–{st.byYear[st.byYear.length - 1].year}</span>
+      <span data-tip={st.byYear.map((y) => `${y.year}: ${y.days}`).join(' · ')}><Spark ys={ys} w={96} h={24} color={AQ_COLOR.o3} /></span>
+      <span className="mono" style={{ fontSize: 10, color: 'var(--dim)', whiteSpace: 'nowrap' }}>{signed(fit.slope, 1)} /yr · R² {fit.r2.toFixed(2)}</span>
+    </div>
+  )
+}
+
+function AqMonitors({ st }: { st: AqStats }) {
+  return (
+    <div style={{ marginTop: 12 }}>
+      <div className="cap" style={{ marginBottom: 4 }}>MONITORS USED · WHOLE RECORD</div>
+      {POLLUTANTS.map((p) => {
+        const sites = st.sites?.[p.key]
+        if (!sites?.length) return null
+        const highest = p.epaPick === 'highest'
+        const rule = highest
+          ? `Each day takes the highest ${p.label} reading among monitors within ${EPA_RADIUS_KM} km, the way EPA and AirNow report a metro area. Ozone is regional, and downtown monitors read low. A lone reading more than ${EPA_OUTLIER_AQI} AQI points above every other monitor that day is treated as a faulty monitor and skipped.`
+          : `Each day uses the nearest monitor that reported ${p.label} that day.`
+        const list = sites.slice(0, 5).map((s) => `${s.name} (${s.km} km): ${s.days.toLocaleString()} days`).join(' · ')
+        const more = sites.length > 5 ? ` · and ${sites.length - 5} more` : ''
+        return (
+          <div key={p.key} className="list-row" data-tip={`${rule} ${list}${more}`}>
+            <span className="k">{p.label}</span>
+            <span className="mono" style={{ fontSize: 10.5, color: 'var(--dim)', textAlign: 'right' }}>
+              {highest ? `highest within ${EPA_RADIUS_KM} km · ${sites.length} monitors` : `${sites[0].name} · ${sites[0].km} km${sites.length > 1 ? ` +${sites.length - 1}` : ''}`}
+            </span>
+          </div>
+        )
+      })}
     </div>
   )
 }

@@ -179,6 +179,11 @@ table.monthly td { text-align: right; padding: 5px 8px; border-bottom: 1px solid
 table.monthly td.strong { color: var(--ink); }
 table.monthly th.l, table.monthly td.l { text-align: left; }
 .table-scroll { overflow-x: auto; }
+table.aq { width: 100%; border-collapse: collapse; font: 400 11.5px/1 var(--mono); font-variant-numeric: tabular-nums; }
+table.aq th { text-align: right; padding: 5px 6px; border-bottom: 1px solid var(--line-2); color: var(--faint); font-weight: 400; font-size: 9.5px; letter-spacing: .08em; white-space: nowrap; }
+table.aq td { text-align: right; padding: 5px 6px; border-bottom: 1px solid var(--row); color: var(--mid); white-space: nowrap; }
+table.aq td.strong { color: var(--ink); }
+table.aq .l { text-align: left; }
 
 .builder {
   display: flex; align-items: center; gap: 6px; margin: 10px 0 14px; padding: 7px 9px; background: var(--bar-2);

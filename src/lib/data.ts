@@ -1,4 +1,5 @@
 import catalog from '../data/catalog.json'
+import type { AqSeries } from './aq'
 
 export interface CityMeta {
   id: string; name: string; code: string; region: string
@@ -90,8 +91,6 @@ export function loadTerrain(id: string): Promise<TerrainSeries> {
 
 /** Hourly temperature, local time, 365 × 24 per year, tenths of °F. */
 export interface HourlySeries { id: string; startYear: number; years: number; timezone: string; temp: Int16Array }
-/** Air quality: daily max US AQI and daily mean PM2.5 (µg/m³), one entry per calendar day from `start`. */
-export interface AqSeries { id: string; domain: string; start: string; end: string; aqi: (number | null)[]; pm25: (number | null)[] }
 
 const hourlyCache = new Map<string, Promise<HourlySeries>>()
 const aqCache = new Map<string, Promise<AqSeries>>()

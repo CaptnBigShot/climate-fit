@@ -23,8 +23,11 @@ React 19 + TypeScript + Vite. No backend: the spec puts all scoring on the clien
 - **Rate limits.** The free tier counts one 35-year request as roughly 900 "calls", against limits of 600 per minute, 5,000 per hour and 10,000 per day. The script waits out the per-minute and per-hour limits on its own. It stops cleanly at the daily limit, so re-run it the next day. Growing to the spec's "few hundred metros" will need an Open-Meteo API key (commercial tier) or a direct ERA5 download from Copernicus CDS.
 - **Two shorter tiers** are fetched alongside, each labelled as its own tier wherever it appears:
   - `public/data/hourly/` — hourly temperature for the last 10 years (base64 Int16, ~230 KB/city, loaded only by the Typical day panel).
-  - `public/data/aq/` — air quality from the CAMS model: **Aug 2022 onward globally, 2013 onward in Europe**. That's the free history available, which is shorter than the spec's "~2013+".
-- The data is committed as static files (~7.6 MB total), so the app runs with no API access at all.
+  - `public/data/aq/` — air quality, one file shape for every city (`src/lib/aq.ts`) from one of two sources:
+    - **US cities: EPA monitors, 2000 onward.** Validated daily AQI from [EPA AirData](https://aqs.epa.gov/aqsweb/airdata/download_files.html) for ozone, PM2.5, PM10 and NO₂, from monitors within 50 km. Ozone takes each day's highest monitor, the way the EPA and AirNow report a metro: ozone is regional, and downtown monitors read low because fresh traffic exhaust destroys it at street level. With three or more monitors reporting, a lone top reading more than 50 AQI points above the next is treated as a faulty monitor and skipped. Without that guard, one bad monitor (Fort McDowell, AZ, 2020–21) gave Phoenix 137 "unhealthy" ozone days in 2020, and the EPA's own metro AQI counts it too. PM2.5, PM10 and NO₂ are local, so each day takes the nearest monitor that reported. The rule per pollutant is `epaPick` in `src/lib/aq.ts`.
+    - **Everywhere else: the CAMS model** via Open-Meteo, Aug 2022 onward globally and 2013 onward in Europe. A US city with no monitor in range falls back to it too.
+    - The AirData zips (~350 MB for the full history) are cached in `.cache/airdata/`, which git ignores. They're revalidated on every run, so only files the EPA has changed are downloaded again. The step needs the `unzip` command (standard on macOS and Linux).
+- The data is committed as static files (~8.3 MB total), so the app runs with no API access at all.
 
 ### The current year
 
@@ -45,6 +48,12 @@ The archive is whole years (1991–2025). The current year (2026) is **partial**
 
 To add a city, append it to `catalog.json` (with any terrain references and drive minutes), then run `npm run fetch-data`.
 
+### Updating air quality
+
+- **EPA revisions and new years.** The EPA publishes each year about six months after it ends and revises recent years each June and December. To pick those up, delete the air-quality files and re-run: `rm public/data/aq/*.json && npm run fetch-data`. Air quality follows `archive.endYear` in `catalog.json`, the same as the weather.
+- **Changing the file shape or how it's built.** Bump `AQ_FORMAT` in `src/lib/aq.ts`. The next `npm run fetch-data` rebuilds every file with an older format.
+- **Adding a pollutant** (or changing the radius, start year or outlier guard). Edit `POLLUTANTS` (or `EPA_RADIUS_KM` / `EPA_START_YEAR` / `EPA_OUTLIER_AQI`) in `src/lib/aq.ts`. The fetch script and the app both read those, so bump `AQ_FORMAT` and re-run.
+
 ## Layout
 
 ```
@@ -54,11 +63,12 @@ src/lib/        pure logic, no React
   activities.ts fixed activity presets (every threshold published in Data & methods)
   prefs.ts      session state, presets, URL encode/decode
   model.ts      one call: series + prefs → everything the dashboard renders
-  extras.ts     spec §5 features: best time, extremes, warming sensitivity, typical day, air quality, mosquito
+  extras.ts     spec §5 features: best time, extremes, warming sensitivity, typical day, mosquito
+  aq.ts         air-quality tier: pollutants, thresholds, file format, stats (shared with the fetch script)
   ytd.ts        current-year fetch (shared by the browser and the fetch script)
   current.ts    current-year loading, fallback, and like-for-like comparisons
 src/components/ one file per dashboard region; the calendar is a canvas (≤11k cells redrawn per drag)
-scripts/        build-time data fetch + manifest
+scripts/        build-time data fetch (fetch-data.mjs; air-quality.mjs for EPA + CAMS) + manifest
 ```
 
 ## Where the mockup and spec disagreed
@@ -83,7 +93,7 @@ Kept from the mockup: open-ended bounds fade on a soft ramp rather than scoring 
 |---|---|
 | 5.1 Best time to visit | Panel: top three non-overlapping 1-week / 2-week / 30-day spans by comfortable share |
 | 5.2 Streak analysis | Seasonality panel (longest comfortable / unbearable / without-comfortable runs) + worst span of the year |
-| 5.3 Air quality / smoke days | Panel on a separate CAMS tier with its own date range; AQI > 100, > 150, PM2.5 smoke proxy, by month |
+| 5.3 Air quality / smoke days | Panel on a separate tier with its own dates (EPA monitors for US cities, CAMS elsewhere), clipped to the lookback window. Days above AQI 50 / 100 / 150, overall and per pollutant (ozone, PM2.5, PM10, NO₂); AQI > 100 by month, stacked by pollutant; per-year trend; the monitors used |
 | 5.4 Mosquito proxy | Panel + threshold counter, labelled as a rough proxy |
 | 5.5 Typical day profile | Hourly p10–p90 by month, sunrise/sunset, dawn / afternoon / dusk readouts, comfort band overlay |
 | 5.6 Annotated extremes | Panel of dated single-day records; the record high/low is also marked on the distribution chart |
