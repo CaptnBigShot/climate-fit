@@ -13,7 +13,9 @@
     "louise": { "name": "Lake Louise", "lat": 51.4254, "lon": -116.1773, "elevFt": 6800 },
     "spindleruv": { "name": "Špindlerův Mlýn", "lat": 50.7262, "lon": 15.6096, "elevFt": 3300 },
     "snowbowl": { "name": "Arizona Snowbowl", "lat": 35.3306, "lon": -111.7117, "elevFt": 10000 },
-    "blafjoll": { "name": "Bláfjöll", "lat": 63.9794, "lon": -21.6547, "elevFt": 1900 }
+    "blafjoll": { "name": "Bláfjöll", "lat": 63.9794, "lon": -21.6547, "elevFt": 1900 },
+    "alpental": { "name": "Alpental", "lat": 47.4411, "lon": -121.4358, "elevFt": 4300 },
+    "mission-ridge": { "name": "Mission Ridge", "lat": 47.2834, "lon": -120.4117, "elevFt": 5700 }
   },
   "cities": [
     {
@@ -65,6 +67,11 @@
       "id": "reykjavik", "name": "Reykjavík", "code": "IS", "region": "Iceland",
       "lat": 64.1466, "lon": -21.9426, "pop": 139900, "coastal": true, "continent": "Europe",
       "terrain": [["blafjoll", 30]]
+    },
+    {
+      "id": "seattle", "name": "Seattle", "code": "WA", "region": "Washington · United States",
+      "lat": 47.6062, "lon": -122.3321, "pop": 780995, "coastal": true, "continent": "North America",
+      "terrain": [["alpental", 55], ["crystal", 105], ["mission-ridge", 180]]
     }
   ]
 }

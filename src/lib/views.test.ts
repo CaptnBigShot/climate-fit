@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { CITIES, SERIES_KEYS, cityById, type CitySeries, type TerrainSeries } from './data'
+import { SERIES_KEYS, cityById, type CitySeries, type TerrainSeries } from './data'
 import { ACTIVITIES, ruleParts, type DayInputs } from './activities'
 import { activities } from './aggregate'
 import { DEFAULT_PREFS, EXAMPLE_STATE, lookbackWindow, type Prefs } from './prefs'
@@ -19,6 +19,10 @@ function loadSeries(id: string): CitySeries {
 }
 const loadTerrain = (id: string): TerrainSeries => { const t = json(`terrain/${id}.json`); return { ...t, depth: f32(t.depth) } }
 
+// The spec's ten seed cities. The assertions below are about these (which pass a filter,
+// who neighbours whom), so cities added to the catalogue later don't move them.
+const SEED = ['tacoma', 'denver', 'bellingham', 'lynnwood', 'calgary', 'prague', 'wellington', 'phoenix', 'miami', 'reykjavik']
+const CITIES = SEED.map((id) => cityById(id)!)
 const series = Object.fromEntries(CITIES.map((c) => [c.id, loadSeries(c.id)]))
 const terrains: Record<string, TerrainSeries> = {}
 for (const c of CITIES) for (const [id] of c.terrain) terrains[id] ??= loadTerrain(id)

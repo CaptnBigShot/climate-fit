@@ -4,7 +4,7 @@
 import { readFile, writeFile, readdir } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import catalog from '../src/data/catalog.json' with { type: 'json' }
+import { readCatalog } from './catalog-file.mjs'
 
 const OUT = join(dirname(fileURLToPath(import.meta.url)), '..', 'public', 'data')
 const MD = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
@@ -20,8 +20,11 @@ const normalize = (vals) => {
 }
 
 export async function buildManifest() {
+  // Read at call time: fetch-data adds cities to the catalogue during a run.
+  const catalog = await readCatalog()
   const files = new Set(await readdir(join(OUT, 'cities')).catch(() => []))
   const terrainFiles = new Set(await readdir(join(OUT, 'terrain')).catch(() => []))
+  const hourlyFiles = new Set(await readdir(join(OUT, 'hourly')).catch(() => []))
   const rows = []
   for (const c of catalog.cities) {
     if (!files.has(`${c.id}.json`)) continue
@@ -54,7 +57,9 @@ export async function buildManifest() {
     }
   })
   const terrain = Object.keys(catalog.terrain).filter((t) => terrainFiles.has(`${t}.json`))
-  const manifest = { refYears: REF_YEARS, cities, terrain }
+  // Cities with a pre-fetched hourly file; the app fetches the rest live.
+  const hourly = catalog.cities.map((c) => c.id).filter((id) => hourlyFiles.has(`${id}.json`))
+  const manifest = { refYears: REF_YEARS, cities, terrain, hourly }
   await writeFile(join(OUT, 'manifest.json'), JSON.stringify(manifest, null, 1))
   console.log(`manifest: ${rows.length} cities, ${terrain.length} terrain refs`)
 }

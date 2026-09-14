@@ -1,0 +1,349 @@
+<title>Climate Fit Queue</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+  /* Dark-first, in Climate Fit's own instrument-panel language; light is the swap. */
+  :root {
+    --bg: #101215; --panel: #15181d; --raise: #1b1f25; --line: #252a31; --line-2: #333942;
+    --ink: #e6e8ec; --mid: #a8aeb9; --faint: #6c7380;
+    --climate: #3ecfa4; --tech: #7cc4ff; --walk: #d9a03c; --warn: #ff8a6a;
+    --land: #1d2128; --land-edge: #2a3039; --graticule: #1a1e24;
+    --dot-hi: #7cc4ff; --dot-mid: #4f86b3; --dot-lo: #3a4655;
+    --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+    --sans: Archivo, system-ui, -apple-system, sans-serif;
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f2f4f7; --panel: #ffffff; --raise: #f7f8fa; --line: #dde1e7; --line-2: #c9ced6;
+      --ink: #14171c; --mid: #4a515c; --faint: #7c838f;
+      --climate: #0e9a75; --tech: #1f74bd; --walk: #a86e0a; --warn: #c4461f;
+      --land: #e3e7ed; --land-edge: #cbd1da; --graticule: #e9ecf1;
+      --dot-hi: #1f74bd; --dot-mid: #6f9cc4; --dot-lo: #aab6c4;
+      color-scheme: light;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #f2f4f7; --panel: #ffffff; --raise: #f7f8fa; --line: #dde1e7; --line-2: #c9ced6;
+    --ink: #14171c; --mid: #4a515c; --faint: #7c838f;
+    --climate: #0e9a75; --tech: #1f74bd; --walk: #a86e0a; --warn: #c4461f;
+    --land: #e3e7ed; --land-edge: #cbd1da; --graticule: #e9ecf1;
+    --dot-hi: #1f74bd; --dot-mid: #6f9cc4; --dot-lo: #aab6c4;
+    color-scheme: light;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 400 14px/1.5 var(--sans); }
+  .wrap { max-width: 1360px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 64px; display: grid; gap: 28px; }
+  .mono, td, .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .cap { font: 500 10px/1.2 var(--mono); letter-spacing: .09em; text-transform: uppercase; color: var(--faint); }
+  h1, h2 { margin: 0; text-wrap: balance; }
+  h1 { font: 700 30px/1.1 var(--sans); letter-spacing: -.01em; }
+  h2 { font: 600 12px/1 var(--sans); letter-spacing: .12em; text-transform: uppercase; }
+  button, input, select { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--tech); outline-offset: 2px; }
+
+  /* ---------- header ---------- */
+  header { display: grid; gap: 14px; }
+  .lede { max-width: 72ch; color: var(--mid); margin: 0; }
+  .facts { display: flex; flex-wrap: wrap; gap: 10px 28px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .fact { display: grid; gap: 4px; }
+  .fact b { font: 500 18px/1 var(--mono); font-variant-numeric: tabular-nums; }
+  .formula { font: 400 12px/1.4 var(--mono); color: var(--mid); }
+  .formula i { font-style: normal; font-weight: 700; }
+  .k-climate { color: var(--climate); } .k-tech { color: var(--tech); } .k-walk { color: var(--walk); }
+
+  /* ---------- map + composition ---------- */
+  .overview { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; align-items: start; }
+  .map-panel { background: var(--panel); border: 1px solid var(--line); display: grid; }
+  .map-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  .seg { display: flex; flex-wrap: wrap; gap: 2px; }
+  .seg button { font: 500 11px/1 var(--mono); padding: 6px 8px; border: 1px solid var(--line-2); background: var(--raise); color: var(--mid); cursor: pointer; }
+  .seg button:hover { color: var(--ink); border-color: var(--faint); }
+  .seg button[aria-pressed="true"] { background: var(--tech); border-color: var(--tech); color: var(--bg); }
+  #map { display: block; width: 100%; height: auto; max-width: 100%; cursor: crosshair; }
+  .map-key { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 10px 12px; border-top: 1px solid var(--line); font: 400 11px/1 var(--mono); color: var(--mid); }
+  .map-key span { display: inline-flex; align-items: center; gap: 6px; }
+  .sw { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  #tip { position: fixed; pointer-events: none; background: var(--raise); border: 1px solid var(--line-2); padding: 6px 8px; font: 400 11px/1.4 var(--mono); color: var(--ink); z-index: 5; }
+
+  aside { display: grid; gap: 18px; }
+  .block { background: var(--panel); border: 1px solid var(--line); padding: 14px; display: grid; gap: 10px; }
+  .comp { display: grid; gap: 7px; }
+  .comp-row { display: grid; grid-template-columns: 104px 1fr 34px; gap: 8px; align-items: center; font: 400 11.5px/1 var(--mono); }
+  .comp-row .track { height: 8px; background: var(--raise); border: 1px solid var(--line); position: relative; }
+  .comp-row .fill { position: absolute; inset: 0 auto 0 0; background: var(--tech); }
+  .comp-row .quota { position: absolute; top: -3px; bottom: -3px; width: 1px; background: var(--ink); opacity: .55; }
+  .comp-row .n { text-align: right; color: var(--mid); }
+  .note { font-size: 12px; color: var(--mid); margin: 0; }
+
+  /* ---------- table ---------- */
+  .table-head { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: end; justify-content: space-between; }
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  input[type="search"], select { background: var(--panel); border: 1px solid var(--line-2); padding: 7px 9px; font: 400 12px/1 var(--mono); color: var(--ink); }
+  input[type="search"] { width: 220px; max-width: 100%; }
+  .scroll { overflow-x: auto; border: 1px solid var(--line); background: var(--panel); }
+  table { border-collapse: collapse; width: 100%; min-width: 1080px; font-size: 12px; }
+  thead th { position: sticky; top: 0; background: var(--raise); z-index: 1; text-align: left; font: 500 10px/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--faint); padding: 9px 10px; border-bottom: 1px solid var(--line-2); white-space: nowrap; }
+  td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tbody tr:hover td { background: var(--raise); }
+  tbody tr.flash td { background: color-mix(in srgb, var(--tech) 16%, transparent); }
+  .rank { color: var(--faint); width: 36px; }
+  .city { font: 600 13px/1.25 var(--sans); }
+  .region { font: 400 11px/1.3 var(--sans); color: var(--faint); }
+  .fitcell { width: 160px; }
+  .nowrap { white-space: nowrap; }
+  .climcell { min-width: 230px; }
+  .fitnum { font-weight: 700; font-size: 13px; }
+  .bar { display: flex; height: 7px; margin-top: 5px; background: var(--raise); width: 140px; }
+  .bar i { display: block; height: 100%; }
+  .sub { color: var(--faint); font-size: 11px; line-height: 1.35; }
+  .chip { display: inline-block; font: 500 9.5px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; padding: 3px 5px; border: 1px solid var(--line-2); color: var(--mid); vertical-align: 1px; }
+  .chip.measured { border-color: color-mix(in srgb, var(--climate) 55%, transparent); color: var(--climate); }
+  .chip.last { border-color: var(--warn); color: var(--warn); }
+  .chip.named { border-color: color-mix(in srgb, var(--tech) 60%, transparent); color: var(--tech); }
+  .why { max-width: 260px; font-family: var(--sans); color: var(--mid); }
+  .koppen { font-weight: 700; }
+  .empty { padding: 28px; text-align: center; color: var(--faint); font-family: var(--sans); }
+
+  /* ---------- validation ---------- */
+  .validation { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+  .left-out { columns: 2 220px; column-gap: 20px; font-size: 12px; margin: 0; padding: 0; list-style: none; }
+  .left-out li { break-inside: avoid; padding: 3px 0; border-bottom: 1px solid var(--line); }
+  .left-out b { font-weight: 600; }
+  .left-out span { color: var(--faint); }
+  .next { display: grid; gap: 12px; }
+  .next div { font-size: 12px; }
+  .next .cap { display: block; margin-bottom: 3px; }
+  .next em { font-style: normal; color: var(--faint); font-family: var(--mono); font-size: 11px; }
+
+  @media (max-width: 900px) {
+    .overview { grid-template-columns: 1fr; }
+    h1 { font-size: 24px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="cap">Climate Fit · src/data/queue.json</span>
+    <h1>The fetch queue, ranked by fit</h1>
+    <p class="lede" id="lede"></p>
+    <div class="facts" id="facts"></div>
+  </header>
+
+  <section class="overview" aria-label="Map and composition">
+    <div class="map-panel">
+      <div class="map-bar">
+        <h2>Where they are</h2>
+        <div class="seg" id="zoom" role="group" aria-label="Map region"></div>
+      </div>
+      <svg id="map" role="img" aria-label="Map of queued cities, shaded by fit"></svg>
+      <div class="map-key">
+        <span><i class="sw" style="background:var(--dot-hi)"></i>fit ≥ 0.70</span>
+        <span><i class="sw" style="background:var(--dot-mid)"></i>0.55–0.70</span>
+        <span><i class="sw" style="background:var(--dot-lo)"></i>under 0.55</span>
+        <span><i class="sw" style="border:1.5px solid var(--ink)"></i>already in the app</span>
+        <span><i class="sw" style="border:1.5px solid var(--warn)"></i>fetched last</span>
+      </div>
+    </div>
+    <aside>
+      <div class="block">
+        <h2>By region</h2>
+        <div class="comp" id="comp"></div>
+        <p class="note">Bars count the whole set (queue plus the cities already in the app). The tick is each region's share from the config. A region with too few good fits stays short rather than handing its places to another.</p>
+      </div>
+      <div class="block">
+        <h2>How to read fit</h2>
+        <p class="note"><b class="k-climate">Climate</b>: cool summers, few muggy months, a real winter, ski terrain by drive time (CRU 1961–90 normals). <b class="k-tech">Tech</b>: software jobs within commuting reach. <b class="k-walk">Walk</b>: share of commuters on foot, bike or transit.</p>
+        <p class="note"><span class="chip measured">measured</span> US federal data (BLS QCEW, Census ACS). <span class="chip">est.</span> outside the US, from the tiers and country bases in <span class="mono">catalog.config.mjs</span>.</p>
+      </div>
+    </aside>
+  </section>
+
+  <section aria-label="Queue">
+    <div class="table-head">
+      <h2 id="count">Queue</h2>
+      <div class="controls">
+        <div class="seg" id="filter" role="group" aria-label="Region filter"></div>
+        <input type="search" id="q" placeholder="Search city, region, ski area" aria-label="Search">
+        <select id="sort" aria-label="Sort">
+          <option value="rank">Fetch order</option>
+          <option value="fit">Fit</option>
+          <option value="climate">Climate</option>
+          <option value="tech">Tech</option>
+          <option value="walk">Walk</option>
+          <option value="hot">Coolest summer</option>
+          <option value="cold">Coldest winter</option>
+        </select>
+      </div>
+    </div>
+    <div class="scroll" style="margin-top:10px">
+      <table>
+        <thead><tr>
+          <th>#</th><th>City</th><th>Fit</th><th>Climate (1961–90 normals)</th><th>Nearest ski terrain</th><th>Tech</th><th>Walk</th><th>Night</th><th>Why it's here</th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="validation" aria-label="Validation">
+    <div class="block">
+      <h2>Left out on purpose</h2>
+      <p class="note" id="leftout-summary"></p>
+      <ul class="left-out" id="leftout"></ul>
+    </div>
+    <div class="block">
+      <h2>Next in line</h2>
+      <p class="note">The best-fitting cities each region passed over, and what stopped them. Add one with <span class="mono">include</span> in the config.</p>
+      <div class="next" id="next"></div>
+    </div>
+  </section>
+</div>
+<div id="tip" hidden></div>
+
+<script>
+const DATA = /*__DATA__*/null;
+const LAND = /*__LAND__*/null;
+
+const $ = (id) => document.getElementById(id);
+const fmt = (n) => n.toLocaleString('en-US');
+const rows = DATA.rows;
+const W = DATA.weights;
+const REGIONS = ['North America', 'Europe', 'Asia', 'Oceania', 'South America', 'Africa'];
+const calls = rows.reduce((a, r) => a + r.calls, 0);
+const measuredTech = rows.filter((r) => r.fit.jobsFrom === 'BLS').length;
+
+$('lede').textContent = `${rows.length} cities waiting for their weather data, in the order the nightly fetch takes them: best fit first, for a software engineer choosing where to move who leans toward cold, snowy places, mostly in North America. Countries under a US Level 4 advisory come last. The ranking decides only what gets fetched first; the app still scores every day against whatever preferences you set.`;
+$('facts').innerHTML = [
+  ['Queued', fmt(rows.length)],
+  ['Already in the app', fmt(DATA.catalog.length)],
+  ['Open-Meteo calls', `~${fmt(Math.round(calls / 1000))}k`],
+  ['Nightly runs', `≈ ${DATA.nights} at ${fmt(DATA.budget)}`],
+  ['Tech measured', `${measuredTech} US · rest est.`],
+].map(([k, v]) => `<div class="fact"><span class="cap">${k}</span><b>${v}</b></div>`).join('')
+  + `<div class="fact"><span class="cap">Fit</span><span class="formula"><i class="k-climate">${W.climate.toFixed(2)}</i> climate + <i class="k-tech">${W.tech.toFixed(2)}</i> tech + <i class="k-walk">${W.walk.toFixed(2)}</i> walk</span></div>`;
+
+// ---------- composition ----------
+const setCount = {};
+for (const c of DATA.catalog) setCount[c.continent] = (setCount[c.continent] ?? 0) + 1;
+for (const r of rows) setCount[r.city.continent] = (setCount[r.city.continent] ?? 0) + 1;
+const setTotal = rows.length + DATA.catalog.length;
+const maxN = Math.max(...REGIONS.map((k) => Math.max(setCount[k] ?? 0, DATA.quota[k] ?? 0)));
+$('comp').innerHTML = REGIONS.map((k) => {
+  const n = setCount[k] ?? 0, q = DATA.quota[k] ?? 0;
+  return `<div class="comp-row"><span>${k}</span><span class="track" title="${n} of a ${q}-city quota"><span class="fill" style="width:${(n / maxN) * 100}%"></span><span class="quota" style="left:${(q / maxN) * 100}%"></span></span><span class="n">${n}</span></div>`;
+}).join('') + `<div class="comp-row"><span class="cap">whole set</span><span></span><span class="n">${setTotal}</span></div>`;
+
+// ---------- map ----------
+const S = LAND.scale;
+const VIEWS = {
+  World: [-180, 84, 360, 144], 'North America': [-168, 72, 118, 59], Europe: [-26, 71.5, 72, 36],
+};
+let view = 'World';
+const svg = $('map');
+const NS = 'http://www.w3.org/2000/svg';
+const dotColor = (f) => (f >= 0.7 ? 'var(--dot-hi)' : f >= 0.55 ? 'var(--dot-mid)' : 'var(--dot-lo)');
+function drawMap() {
+  const [lon0, lat0, w, h] = VIEWS[view];
+  svg.setAttribute('viewBox', `${lon0 * S} ${-lat0 * S} ${w * S} ${h * S}`);
+  svg.style.aspectRatio = `${w} / ${h}`;
+  const r = (w * S) / 260;
+  let g = '';
+  for (let lon = -180; lon <= 180; lon += 30) g += `<line x1="${lon * S}" x2="${lon * S}" y1="${-85 * S}" y2="${85 * S}" />`;
+  for (let lat = -60; lat <= 80; lat += 20) g += `<line x1="${-180 * S}" x2="${180 * S}" y1="${-lat * S}" y2="${-lat * S}" />`;
+  const pts = rows.slice().sort((a, b) => a.fit.score - b.fit.score).map((x) => {
+    const c = x.city, last = !!x.fetchLast;
+    return `<circle data-id="${c.id}" cx="${c.lon * S}" cy="${-c.lat * S}" r="${r * (x.fit.score >= 0.7 ? 1.25 : 1)}" fill="${dotColor(x.fit.score)}" stroke="${last ? 'var(--warn)' : 'var(--bg)'}" stroke-width="${r * (last ? 0.5 : 0.35)}" />`;
+  }).join('');
+  const seeds = DATA.catalog.map((c) => `<circle data-seed="${c.name}" cx="${c.lon * S}" cy="${-c.lat * S}" r="${r * 1.1}" fill="none" stroke="var(--ink)" stroke-width="${r * 0.4}" />`).join('');
+  svg.innerHTML = `<rect x="${-180 * S}" y="${-90 * S}" width="${360 * S}" height="${180 * S}" fill="var(--bg)" />`
+    + `<g stroke="var(--graticule)" stroke-width="${r * 0.25}">${g}</g>`
+    + `<path d="${LAND.d}" fill="var(--land)" stroke="var(--land-edge)" stroke-width="${r * 0.25}" />`
+    + `<g>${pts}</g><g>${seeds}</g>`;
+}
+$('zoom').innerHTML = Object.keys(VIEWS).map((k) => `<button type="button" id="zoom-${k.replace(/\s/g, '')}" aria-pressed="${k === view}">${k}</button>`).join('');
+$('zoom').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  view = b.textContent;
+  for (const x of $('zoom').children) x.setAttribute('aria-pressed', String(x === b));
+  drawMap();
+});
+const byId = new Map(rows.map((r) => [r.city.id, r]));
+const tip = $('tip');
+svg.addEventListener('mousemove', (e) => {
+  const t = e.target;
+  const r = t.dataset?.id && byId.get(t.dataset.id);
+  const seed = t.dataset?.seed;
+  if (!r && !seed) { tip.hidden = true; return; }
+  tip.innerHTML = r ? `<b>${r.rank}. ${r.city.name}, ${r.city.code}</b><br>fit ${r.fit.score.toFixed(2)} · ${r.climate.koppen}${r.fetchLast ? '<br>fetched last' : ''}` : `<b>${seed}</b><br>already in the app`;
+  tip.hidden = false;
+  tip.style.left = `${Math.min(e.clientX + 14, innerWidth - 180)}px`;
+  tip.style.top = `${e.clientY + 14}px`;
+});
+svg.addEventListener('mouseleave', () => { tip.hidden = true; });
+svg.addEventListener('click', (e) => {
+  const id = e.target.dataset?.id; if (!id) return;
+  region = 'All'; $('q').value = ''; renderFilter(); renderRows();
+  const tr = document.querySelector(`tr[data-id="${id}"]`);
+  if (tr) { tr.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); tr.classList.add('flash'); setTimeout(() => tr.classList.remove('flash'), 1600); }
+});
+drawMap();
+
+// ---------- table ----------
+let region = 'All';
+function renderFilter() {
+  $('filter').innerHTML = ['All', ...REGIONS].map((k) => `<button type="button" id="f-${k.replace(/\s/g, '')}" aria-pressed="${k === region}">${k === 'North America' ? 'N. America' : k === 'South America' ? 'S. America' : k}</button>`).join('');
+}
+$('filter').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  region = ['All', ...REGIONS][[...$('filter').children].indexOf(b)];
+  renderFilter(); renderRows();
+});
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const jobsText = (f) => (f.jobs >= 1000 ? `${Math.round(f.jobs / 1000)}k jobs` : f.jobs > 0 ? `${fmt(f.jobs)} jobs` : 'no hub in reach');
+const SORTS = {
+  rank: (a, b) => a.rank - b.rank, fit: (a, b) => b.fit.score - a.fit.score, climate: (a, b) => b.fit.climate - a.fit.climate,
+  tech: (a, b) => b.fit.tech - a.fit.tech, walk: (a, b) => b.fit.walk - a.fit.walk,
+  hot: (a, b) => a.climate.hotHigh - b.climate.hotHigh, cold: (a, b) => a.climate.coldMean - b.climate.coldMean,
+};
+function renderRows() {
+  const q = $('q').value.trim().toLowerCase();
+  const list = rows.filter((r) => (region === 'All' || r.city.continent === region)
+    && (!q || `${r.city.name} ${r.city.region} ${r.skiNames.join(' ')}`.toLowerCase().includes(q))).sort(SORTS[$('sort').value]);
+  $('count').textContent = `Queue · ${list.length} ${list.length === 1 ? 'city' : 'cities'}`;
+  if (!list.length) { $('rows').innerHTML = `<tr><td colspan="9" class="empty">No queued city matches “${esc(q)}”${region === 'All' ? '' : ` in ${region}`}.</td></tr>`; return; }
+  $('rows').innerHTML = list.map((r) => {
+    const f = r.fit, c = r.climate;
+    const seg = (k) => `<i style="width:${W[k] * f[k] * 100}%;background:var(--${k})" title="${k} ${f[k].toFixed(2)} × ${W[k]}"></i>`;
+    const ski = r.skiNames.length ? `${esc(r.skiNames[0].replace(/ (\d+)$/, ''))} <span class="sub">${r.skiNames[0].match(/(\d+)$/)[1]} min</span>${r.skiNames.length > 1 ? `<div class="sub">+ ${r.skiNames.slice(1).map((s) => esc(s.replace(/ (\d+)$/, ' · $1 min'))).join('; ')}</div>` : ''}` : '<span class="sub">none within 3 hr</span>';
+    const why = r.reason ? `<span class="chip named">named</span> ${esc(r.reason)}` : `picked on fit${r.nearest ? `<div class="sub">closest climate already in the set: ${esc(r.nearest)}</div>` : ''}`;
+    return `<tr data-id="${r.city.id}">
+      <td class="rank">${r.rank}</td>
+      <td><div class="city">${esc(r.city.name)}</div><div class="region">${esc(r.city.region)} · ${fmt(r.city.pop)}${r.city.coastal ? ' · coastal' : ''}</div></td>
+      <td class="fitcell"><span class="fitnum">${f.score.toFixed(2)}</span><div class="bar">${seg('climate')}${seg('tech')}${seg('walk')}</div></td>
+      <td class="climcell"><div class="nowrap"><span class="koppen" title="${esc(c.koppenName)}">${c.koppen}</span> <span class="sub">${esc(c.koppenName)}</span></div><div class="sub nowrap">warmest ${c.hotHigh}°F · coldest ${c.coldMean}°F · ${c.muggy} muggy mo</div><div class="sub nowrap"><span class="k-climate">climate ${f.climate.toFixed(2)}</span></div></td>
+      <td>${ski}</td>
+      <td>${f.tech.toFixed(2)} <span class="chip ${f.jobsFrom === 'BLS' ? 'measured' : ''}">${f.jobsFrom === 'BLS' ? 'measured' : 'est.'}</span><div class="sub">${jobsText(f)}</div></td>
+      <td>${f.walk.toFixed(2)} <span class="chip ${f.walkFrom === 'ACS' ? 'measured' : ''}">${f.walkFrom === 'ACS' ? 'measured' : 'est.'}</span>${f.commute != null ? `<div class="sub">${Math.round(f.commute * 100)}% walk, bike, transit</div>` : ''}</td>
+      <td>${r.fetchLast ? `<span class="chip last">last</span>` : r.night}<div class="sub">~${fmt(r.calls)} calls</div></td>
+      <td class="why">${r.fetchLast ? `<span class="chip last">${esc(r.fetchLast)}</span> ` : ''}${why}</td>
+    </tr>`;
+  }).join('');
+}
+$('q').addEventListener('input', renderRows);
+$('sort').addEventListener('change', renderRows);
+renderFilter(); renderRows();
+
+// ---------- validation ----------
+const lo = DATA.leftOut;
+const level4 = Object.entries(lo.skipCountries).filter(([, v]) => v === 'Level 4').map(([k]) => k);
+$('leftout-summary').innerHTML = `Besides the ${fmt(lo.suburbs)} suburbs (a bigger city in the same US metro, or a much bigger one close by abroad) and the ${fmt(lo.muggy)} places with more than ${lo.maxMuggy} muggy months, these were taken out by name after validating the ranked draft. Countries under a US Level 4 advisory are skipped entirely: <span class="mono">${level4.join(' ')}</span>.`;
+$('leftout').innerHTML = lo.byName.map(([city, why]) => `<li><b>${esc(city)}</b> <span>— ${esc(why)}</span></li>`).join('');
+$('next').innerHTML = REGIONS.map((k) => {
+  const list = DATA.nextInLine[k] ?? [];
+  return `<div><span class="cap">${k}</span>${list.length ? list.map((x) => `${esc(x.name)}${x.code && x.code.length === 2 && /^[A-Z]{2}$/.test(x.code) ? `, ${x.code}` : ''} <em>${x.score.toFixed(2)} · ${x.why}</em>`).join(' · ') : '<em>none left</em>'}</div>`;
+}).join('');
+</script>

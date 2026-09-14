@@ -9,6 +9,9 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "fetch-data": "node scripts/fetch-data.mjs",
+    "catalog": "node scripts/build-catalog.mjs",
+    "review-page": "node scripts/review-page.mjs",
+    "nightly": "node scripts/nightly.mjs",
     "manifest": "node scripts/build-manifest.mjs",
     "basemap": "node scripts/build-basemap.mjs",
     "test": "vitest run"

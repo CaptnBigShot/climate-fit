@@ -35,9 +35,10 @@ Compare, Discover and the opening ranking score every loaded city on each change
 `npm run fetch-data` pulls 1991–2025 daily data from the [Open-Meteo Historical Weather API](https://open-meteo.com/en/docs/historical-weather-api) for every city in `src/data/catalog.json`, and ERA5-Land snow depth for every ski-terrain reference. It writes compact JSON to `public/data/` and rebuilds `public/data/manifest.json` (the set-relative Solar Intensity and four-season indices). Feb 29 is dropped so every year is 365 columns.
 
 - **The fetch can be resumed.** Existing files are skipped. Pass city ids to fetch only those: `npm run fetch-data -- calgary prague`.
-- **Rate limits.** The free tier counts one 35-year request as roughly 900 "calls", against limits of 600 per minute, 5,000 per hour and 10,000 per day. The script waits out the per-minute and per-hour limits on its own. It stops cleanly at the daily limit, so re-run it the next day. Growing to the spec's "few hundred metros" will need an Open-Meteo API key (commercial tier) or a direct ERA5 download from Copernicus CDS.
+- **Rate limits.** The free tier counts one 35-year request as roughly 900 "calls", against limits of 600 per minute, 5,000 per hour and 10,000 per day. The script waits out the per-minute and per-hour limits on its own. It stops cleanly at the daily limit, so re-run it the next day.
+- **Run budget.** Every request is priced the way Open-Meteo counts it (`weight` in `scripts/open-meteo.mjs`: per location, per 10 variables, per 14 days) and metered against `--budget` (default 9,000, leaving headroom for the app's own live fetches). A city is started only if its whole cost fits, so a run stops between cities. A new city costs ~950 calls in the US, ~1,050–1,300 elsewhere (CAMS air quality), plus ~913 for each ski-terrain reference it brings that isn't already fetched.
 - **Two shorter tiers** are fetched alongside, each labelled as its own tier wherever it appears:
-  - `public/data/hourly/` — hourly temperature for the last 10 years (base64 Int16, ~230 KB/city, loaded only by the Typical day panel).
+  - `public/data/hourly/` — hourly temperature for the last 10 years (base64 Int16, ~230 KB/city, loaded only by the Typical day panel). Only the cities fetched before the queue have a file (the manifest lists them). A city added since fetches its decade live from Open-Meteo the first time its panel opens (~261 free-tier calls, labelled as live) and keeps it in the browser's Cache Storage. That saves ~261 calls per city at fetch time. `npm run fetch-data -- --hourly` writes files anyway.
   - `public/data/aq/` — air quality, one file shape for every city (`src/lib/aq.ts`) from one of two sources:
     - **US cities: EPA monitors, 2000 onward.** Validated daily AQI from [EPA AirData](https://aqs.epa.gov/aqsweb/airdata/download_files.html) for ozone, PM2.5, PM10 and NO₂, from monitors within 50 km. Ozone takes each day's highest monitor, the way the EPA and AirNow report a metro: ozone is regional, and downtown monitors read low because fresh traffic exhaust destroys it at street level. With three or more monitors reporting, a lone top reading more than 50 AQI points above the next is treated as a faulty monitor and skipped. Without that guard, one bad monitor (Fort McDowell, AZ, 2020–21) gave Phoenix 137 "unhealthy" ozone days in 2020, and the EPA's own metro AQI counts it too. PM2.5, PM10 and NO₂ are local, so each day takes the nearest monitor that reported. The rule per pollutant is `epaPick` in `src/lib/aq.ts`.
     - **Everywhere else: the CAMS model** via Open-Meteo, Aug 2022 onward globally and 2013 onward in Europe. A US city with no monitor in range falls back to it too.
@@ -49,7 +50,7 @@ Compare, Discover and the opening ranking score every loaded city on each change
 The archive is whole years (1991–2025). The current year (2026) is **partial**, so it is kept out of every lookback window. A year missing its autumn and winter would skew every per-year mean. Instead it's shown alongside the window and only ever compared like for like: Jan 1 → the last observed day, against the same dates in each window year.
 
 - **Live:** the app fetches the current year from Open-Meteo in the browser when a city loads. That's two small requests, cached for the day in `localStorage`. The dashboard never waits for it.
-- **Fallback:** if the live fetch fails, the app uses `public/data/ytd/<city>.json`, a snapshot that `npm run fetch-data` re-writes on every run. It's labelled with its date.
+- **Fallback:** if the live fetch fails, the app uses `public/data/ytd/<city>.json`, a snapshot labelled with its date. `npm run fetch-data` writes one for each new city, then refreshes any older than a week, stalest first, with whatever budget is left (`--refresh-ytd` refreshes them all).
 - **Partial-data rules** (`src/lib/ytd.ts`):
   - "Observed" is the unbroken run of days from Jan 1 that have a high and a low, ending at the city's **local** yesterday (today isn't over).
   - Anything after a gap is dropped.
@@ -61,7 +62,34 @@ The archive is whole years (1991–2025). The current year (2026) is **partial**
 - **Where it appears:** the hero ("2026 so far" vs typical-by-this-date), an extra calendar row below the window (unobserved days are outlined, never coloured), a "2026 so far" mode on the temperature chart (with counts above p90 and below p10), and a 2026 / typical column on the threshold counters.
 - The live fetch means the deployed app calls Open-Meteo from users' browsers. The free tier is for non-commercial use; a commercial deployment needs an API key or a server-side cache.
 
-To add a city, append it to `catalog.json` (with its continent, any terrain references and drive minutes), then run `npm run fetch-data`.
+### Adding cities
+
+`src/data/catalog.json` is the set the app shows. `src/data/queue.json` is the cities waiting for data. `npm run fetch-data` works through the queue in order and moves each city into the catalogue once all its files are written, so the app never lists a city it can't load.
+
+- **One city by hand:** append it to `catalog.json` (with its continent, any terrain references and drive minutes), then run `npm run fetch-data -- <id>`.
+- **Many:** `npm run catalog -- --force` drafts the queue from `scripts/catalog.config.mjs`, then ranks it. It spends no Open-Meteo calls. Review the queue, then let the nightly job drain it (~5 cities a night on the free tier). The config says who the set is for: a software engineer choosing where to move, leaning cold and snowy, mostly North America. It shapes which cities are in the set and the order they're fetched, never how the app scores days.
+  - **Candidates.** [GeoNames](https://download.geonames.org/export/dump/) towns over the population floor (150k; 75k in the US and Canada), one per 25 km. Suburbs are left out:
+    - **US:** a city is a suburb if its metro area (CBSA, from NBER's copy of the Census delineation) has a city 1.5× bigger. Minneapolis and St. Paul both stay; Aurora (Denver) and Kent (Seattle) don't. Boulder, Provo and Ann Arbor are their own metros.
+    - **Elsewhere:** within 50 km of a place 4× bigger, or 70 km of one 15× bigger.
+    - **Filters:** places with more than two muggy months (mean dew point ≥ 65°F) are out. So are countries under a US State Department Level 4 advisory. Russia, Belarus and Ukraine keep one city each, fetched last.
+  - **Named cities.** `include` and `exclude` in the config, each with its reason. The exclusions came from validating the ranked draft: suburbs the rules miss, and places with little to recommend them as a home (high crime, decline, remoteness). Named includes skip every filter (Portland ME, Burlington, Bozeman, Missoula and Flagstaff are under the floor).
+  - **Choice.** Named cities first. Then every European country gets its best-fitting city, capital preferred. Then the rest, inside continent quotas (`shares`) and country caps, each pick the best fit, with a place whose climate is already in the set counting half. The set stays varied without passing over a major city just because its neighbour is similar. A continent without enough cities fitting better than `minFit` stays short rather than handing its places to another.
+  - **Ranking (the fetch order).** Fit = 0.5 climate + 0.35 tech + 0.15 walkability, each 0–1 (`scripts/fit-score.mjs`):
+    - **Climate:** cool summers, few muggy months, a real winter, and ski terrain by drive time.
+    - **Tech:** software jobs within commuting reach, full within 40 km and gone by 100 km. For the US it's measured: BLS QCEW private employment in NAICS 5132/5182/5192/5415 by county. Elsewhere it's an estimate: hub tiers in the config.
+    - **Walkability:** the share of commuters who take transit, walk or cycle. For the US it's measured: ACS table B08301 by place. Elsewhere it's an estimate by country, adjusted for size.
+    - **Climate data:** [CRU CL 2.0](https://crudata.uea.ac.uk/cru/data/hrg/tmc/) (New et al. 2002), 1961–1990 monthly normals on a 10′ grid, used for choosing and ranking only. It's bulk files, so it's repeatable and never rate-limited; NASA POWER throttled the run after about 850 points.
+  - **Ski terrain.** [OpenSkiMap](https://openskimap.org/) operating downhill areas with at least 150 m of vertical, at least one operating lift, and nothing summer-only or private. The reference elevation is mid-mountain (the midpoint of the runs), which matches every hand-set entry to within a few hundred feet.
+    - **Drive times** come from the [OSRM](https://project-osrm.org/) demo server, routed to each area's lift bottom stations with the quickest one winning. Routing to the area's centre snaps to mountain tracks, and routing to the lowest lift can land on a back side.
+    - OSRM's demo profile runs slow on highways, so its minutes are scaled by 0.86. That's the median ratio against the seed's 18 hand-set routes (range 0.71–1.04). With the scale, the rules reproduce the hand-set references closely: Denver gets Echo 55 / Loveland 65, Prague gets Špindlerův Mlýn 110, Phoenix gets Snowbowl 160.
+    - **One reference per band** (≤1, ≤2, ≤3 hr): the highest in the band, with bigger resorts counted 40 m higher per doubling of their run count. A farther band only adds one if it's 200 m higher than anything closer, and an already-fetched reference wins unless a new one sits 300 m higher. Each new reference costs ~913 calls; these rules took the queue from 225 new references to about 165.
+  - **Coastal:** within 20 km of the Natural Earth 1:10m coastline.
+  - **Review.** Each queue entry carries a `note` (fit, its parts, Köppen class, why it's there) that is dropped on promotion. Reorder, edit or delete entries freely.
+    - `--dry-run` prints the choice and ranking in seconds, with the best candidates just below each continent's line.
+    - `--check` prints what the terrain and coastal rules give for the seed cities, next to their hand-set values.
+    - Everything else about the draft goes to `.cache/catalog/review.json`. `npm run review-page` turns it into `.cache/catalog/queue-review.html`: a map, the ranked table with each fit's parts and whether they're measured or estimated, what was left out and why, and the best cities just below each region's line.
+  - Downloads are cached in `.cache/catalog/`. Delete a file there to refresh it.
+- **Nightly:** `npm run nightly -- install` schedules `fetch-data` daily at 03:00 through launchd (a run missed while the Mac slept happens on wake), logging to `.cache/nightly.log`. `npm run nightly -- status` shows the last run; `uninstall` removes it. It only writes files; commit them when you like.
 
 The Discover map's land comes from [Natural Earth](https://www.naturalearthdata.com/) 1:110m (public domain). `npm run basemap` flattens it into one SVG path in `public/data/land.json` (~21 KB, committed like the rest), loaded only by Discover.
 
@@ -86,9 +114,16 @@ src/lib/        pure logic, no React
   extras.ts     spec §5 features: best time, extremes, warming sensitivity, typical day, mosquito
   aq.ts         air-quality tier: pollutants, thresholds, file format, stats (shared with the fetch script)
   ytd.ts        current-year fetch (shared by the browser and the fetch script)
+  hourly.ts     hourly tier: request, 365 × 24 grid, live fetch (shared the same way)
   current.ts    current-year loading, fallback, and like-for-like comparisons
 src/components/ one file per screen or dashboard region; calendars are canvases (≤11k cells redrawn per drag)
 scripts/        build-time data fetch (fetch-data.mjs; air-quality.mjs for EPA + CAMS), manifest, basemap
+  open-meteo.mjs     request pricing (weight), the run budget, the archive requests
+  catalog-file.mjs   catalog.json / queue.json layout and promotion
+  build-catalog.mjs  drafts and ranks the queue; catalog.config.mjs says for whom
+  fit-score.mjs      the ranking's climate / tech / walk parts; us-metrics.mjs (BLS, ACS, Census) feeds it
+  koppen.mjs         Köppen–Geiger classes, for labelling the queue
+  nightly.mjs        installs the daily fetch in launchd
 ```
 
 ## Where the mockup and spec disagreed

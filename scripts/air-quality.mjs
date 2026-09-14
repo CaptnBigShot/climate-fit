@@ -32,10 +32,8 @@ const iso = (t) => new Date(t).toISOString().slice(0, 10)
 /** Writes every city whose file is missing or from an older AQ_FORMAT. */
 export async function fetchAirQuality(cities, { out, cache, endYear }) {
   const todo = []
-  for (const city of cities) {
-    if (await isCurrent(join(out, `${city.id}.json`))) console.log(`✓ aq/${city.id} (cached)`)
-    else todo.push(city)
-  }
+  for (const city of cities) if (!(await isCurrent(join(out, `${city.id}.json`)))) todo.push(city)
+  if (cities.length > todo.length) console.log(`✓ aq: ${cities.length - todo.length} cities current`)
   if (!todo.length) return
   const epa = await fetchEpa(todo, join(cache, 'airdata'), endYear)
   for (const city of todo) {
@@ -45,7 +43,7 @@ export async function fetchAirQuality(cities, { out, cache, endYear }) {
   }
 }
 
-async function isCurrent(file) {
+export async function isCurrent(file) {
   try { return JSON.parse(await readFile(file, 'utf8')).v === AQ_FORMAT } catch { return false }
 }
 
@@ -203,15 +201,20 @@ function distanceKm(a, b) {
 
 // ---------- CAMS via Open-Meteo ----------
 
-/** Daily max of each pollutant's hourly US AQI sub-index (Open-Meteo's rolling averages). */
-async function fetchCams(city, endYear) {
+/** The CAMS request for a city — exported so a fetch run can price it before starting. */
+export function camsRequest(city, endYear) {
   const europe = city.lon >= -25 && city.lon <= 45 && city.lat >= 30 && city.lat <= 72
-  const source = europe ? 'cams_europe' : 'cams_global'
-  const data = await get({
-    latitude: city.lat, longitude: city.lon, timezone: 'auto', domains: source,
+  return {
+    latitude: city.lat, longitude: city.lon, timezone: 'auto', domains: europe ? 'cams_europe' : 'cams_global',
     start_date: europe ? CAMS_EUROPE_START : CAMS_GLOBAL_START, end_date: `${endYear}-12-31`,
     hourly: POLLUTANTS.map((p) => p.cams).join(','),
-  }, AQ_API)
+  }
+}
+
+/** Daily max of each pollutant's hourly US AQI sub-index (Open-Meteo's rolling averages). */
+async function fetchCams(city, endYear) {
+  const params = camsRequest(city, endYear), source = params.domains
+  const data = await get(params, AQ_API)
   const dates = [...new Set(data.hourly.time.map((t) => t.slice(0, 10)))]
   const index = new Map(dates.map((d, i) => [d, i]))
   const daily = Object.fromEntries(POLLUTANTS.map((p) => [p.key, new Array(dates.length).fill(null)]))

@@ -80,6 +80,14 @@
    "seasonStdF": 7.41,
    "demElevM": 7,
    "gridElevM": 61
+  },
+  "seattle": {
+   "solarIdx": 40,
+   "seasonsIdx": 42,
+   "meanRadMJ": 12.35,
+   "seasonStdF": 9.59,
+   "demElevM": 59,
+   "gridElevM": -2
   }
  },
  "terrain": [
@@ -95,6 +103,21 @@
   "louise",
   "spindleruv",
   "snowbowl",
-  "blafjoll"
+  "blafjoll",
+  "alpental",
+  "mission-ridge"
+ ],
+ "hourly": [
+  "tacoma",
+  "denver",
+  "bellingham",
+  "lynnwood",
+  "calgary",
+  "prague",
+  "wellington",
+  "phoenix",
+  "miami",
+  "reykjavik",
+  "seattle"
  ]
 }
