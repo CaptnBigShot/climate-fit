@@ -1,19 +1,34 @@
 # Climate Fit
 
-A historical weather browser that scores cities against **your** definition of comfortable. Implements the City Dashboard from the Claude Design mockup (`Climate Fit - Mockups.dc.html`, option 1a) against `climate-fit-app-spec.md` v4, using real ERA5 reanalysis data.
+A historical weather browser that scores cities against **your** definition of comfortable. Implements the Claude Design mockups (`Climate Fit - Mockups.dc.html`) against `climate-fit-app-spec.md` v4, using real ERA5 reanalysis data: the City Dashboard (option 1a), and the second round's Compare (2a), Discover (2b), Data & Methods (2c) and opening state (2d).
 
 ## Run
 
 ```sh
 npm install
 npm run dev          # http://localhost:5173
-npm test             # scoring engine + URL-state tests (uses the real Tacoma data file)
+npm test             # scoring engine, screens' logic and URL-state tests (on the real data files)
 npm run build        # static site in dist/ — host anywhere, no server
 ```
 
 ## Stack
 
 React 19 + TypeScript + Vite. No backend: the spec puts all scoring on the client with no network round trip, so the app is a static site plus pre-fetched JSON. There are no runtime dependencies beyond React.
+
+## Screens
+
+One control bar, four screens. Tabs in the bar switch between them (the mockup's navigation option F1), and every screen reads the same session state: drag a handle on Compare and every city in the set re-scores.
+
+| Screen | What it shows |
+|---|---|
+| **City** | One city in full depth. With nothing set it opens in the **opening state**: starting points (alphabetical, equal weight), the record as measured on a raw-temperature calendar, and every city ranked by walk-viable days — a published physical threshold, so no preference is needed. The raw-temperature ramp is never used for comfort; the calendar keeps it as a TEMPERATURE view once a band is set. |
+| **Compare** | Two to four cities: day budgets on one shared scale, why days fall short and the compromise profile per city, calendars stacked on one day-of-year axis, and a pivoted monthly table with a differences-only mode. Ordered by comfortable days; no winner is picked. With nothing set it compares walk-viable days and the raw record instead. |
+| **Discover** | The whole set, ranked by comfort (five sorts) or by outdoor days (no input needed). Filters for region, population, snow access and coast; a map; and "like [city] but ___" similarity search. **Never empty**: if no city reaches 100 comfortable days the comfortable-days sort falls back to fewest unbearable days and says so; if no city passes the filters, the nearest misses are shown with the filter each one misses. |
+| **Methods** | Data & methods: sources and tiers, grid-cell vs city elevation for every city, observed vs derived with the formula for each, every scoring constant, the activity thresholds in your units, the terrain each drive stop resolves to, derived season boundaries, known limitations and the daily CSV export. The foot of each city page keeps a short strip for that city, linking here. |
+
+Everything is in the URL. On top of the preferences: `view` (`compare`, `discover` or `methods`; the city screen is the default), `cmp` (the compare set, up to four), and Discover's query — `rank`, `sort`, `reg`, `pop`, `snowf`, `coast`, `like`, `but`. Moving to another screen or city adds a history entry, so Back works; control-bar changes replace the current one.
+
+Compare, Discover and the opening ranking score every loaded city on each change (about 5 ms for ten cities over ten years, 20 ms over thirty). They render from a deferred copy of the settings, so a dragged handle stays live while the rest of the set catches up.
 
 ## Data pipeline
 
@@ -46,7 +61,9 @@ The archive is whole years (1991–2025). The current year (2026) is **partial**
 - **Where it appears:** the hero ("2026 so far" vs typical-by-this-date), an extra calendar row below the window (unobserved days are outlined, never coloured), a "2026 so far" mode on the temperature chart (with counts above p90 and below p10), and a 2026 / typical column on the threshold counters.
 - The live fetch means the deployed app calls Open-Meteo from users' browsers. The free tier is for non-commercial use; a commercial deployment needs an API key or a server-side cache.
 
-To add a city, append it to `catalog.json` (with any terrain references and drive minutes), then run `npm run fetch-data`.
+To add a city, append it to `catalog.json` (with its continent, any terrain references and drive minutes), then run `npm run fetch-data`.
+
+The Discover map's land comes from [Natural Earth](https://www.naturalearthdata.com/) 1:110m (public domain). `npm run basemap` flattens it into one SVG path in `public/data/land.json` (~21 KB, committed like the rest), loaded only by Discover.
 
 ### Updating air quality
 
@@ -60,15 +77,18 @@ To add a city, append it to `catalog.json` (with any terrain references and driv
 src/lib/        pure logic, no React
   scoring.ts    four-point ramps, seasons, apparent/in-sun temperature, per-day bands
   aggregate.ts  day budget, streaks, activities, monthly rollup, counters, facts
-  activities.ts fixed activity presets (every threshold published in Data & methods)
-  prefs.ts      session state, presets, URL encode/decode
-  model.ts      one call: series + prefs → everything the dashboard renders
+  activities.ts fixed activity presets as plain numbers; the day test and the published wording both derive from them
+  prefs.ts      preferences, presets, URL encode/decode
+  session.ts    the whole session (city, screen, prefs, compare set, Discover query) ↔ URL
+  model.ts      series + prefs → everything the city screen renders; per-city summaries for the other screens
+  compare.ts    compare set, monthly pivot and its tolerances
+  discover.ts   filters, rankings, the never-empty fallbacks, "like [city] but ___"
   extras.ts     spec §5 features: best time, extremes, warming sensitivity, typical day, mosquito
   aq.ts         air-quality tier: pollutants, thresholds, file format, stats (shared with the fetch script)
   ytd.ts        current-year fetch (shared by the browser and the fetch script)
   current.ts    current-year loading, fallback, and like-for-like comparisons
-src/components/ one file per dashboard region; the calendar is a canvas (≤11k cells redrawn per drag)
-scripts/        build-time data fetch (fetch-data.mjs; air-quality.mjs for EPA + CAMS) + manifest
+src/components/ one file per screen or dashboard region; calendars are canvases (≤11k cells redrawn per drag)
+scripts/        build-time data fetch (fetch-data.mjs; air-quality.mjs for EPA + CAMS), manifest, basemap
 ```
 
 ## Where the mockup and spec disagreed
@@ -87,6 +107,24 @@ Spec sections 2 and 9 are marked non-negotiable, so they won over the mockup:
 
 Kept from the mockup: open-ended bounds fade on a soft ramp rather than scoring as ideal. The spec's literal reading ("colder is never a problem" = score 1.0) would make a 5°F day "comfortable" for anyone with no floor. Hatched unbearable = crossed a line drawn in the control bar. Solid unbearable = a deal-breaker from More controls.
 
+### Second round (Compare, Discover, Data & Methods, opening state)
+
+Some of these follow the same rule. The rest come from running on the real data and scoring engine, where the mockup ran on synthetic series.
+
+| Mockup | Built |
+|---|---|
+| Six activities (walk, hike, run, ride, patio, garden), wind caps tied to the control bar | The app's own three (walk, run/cycle, ride) with fixed thresholds, printed in your units, everywhere: Discover's outdoor table, Compare, Data & Methods |
+| Discover's fallback overrides whichever sort is chosen | Only the comfortable-days sort falls back, as spec 4.3 describes; a sort you choose is honoured |
+| Filters can empty the result set | Never empty: the cities missing the fewest filters are shown, with what each misses |
+| Trend slopes coloured by sign | Coloured only where R² ≥ 0.3; below that the fit is mostly year-to-year noise |
+| Map with a plain graticule, "basemap substituted in build" | Natural Earth land under the graticule; fill = comfortable share of your year, radius = outdoor days |
+| "Like [city] but" distance on hand-set climatology | Distance on the window's own mean high, dew point, cloud, shortwave and snow-sport days in reach; scales published in Data & Methods |
+| Compare's unset state not drawn | Compares walk-viable days, the raw record and raw-temperature calendars |
+| Compare chips re-sort as you drag | Chips stay in the order added, so they are stable to click; the rows below are ranked |
+| Grid-cell flag at 200 ft | 300 ft, the same threshold as the city page |
+| Opening state without the city header | The header stays (it is facts, not scoring), below the starting points |
+| Three navigation options (F1 tabs, F2 rail, F3 command bar) | F1: tabs in the control bar; ⌘K still opens the city picker |
+
 ## Secondary features (spec §5)
 
 | Spec | Where |
@@ -103,6 +141,6 @@ Kept from the mockup: open-ended bounds fade on a soft ramp rather than scoring 
 
 ## Not built yet
 
-- **Compare** and **Discover** screens: to be mocked up in Claude Design first. "Add to compare" already stores the set in the URL.
 - Mobile bottom-sheet control bar (the layout is desktop-first, min width 1100px) and a light theme.
 - Scoring on relative humidity, snowfall and daylight.
+- Discover's elevation-range and deal-breaker filters (spec 4.3), and an "improving / declining" split beyond sorting by trend.

@@ -31,9 +31,18 @@ const CRAMP = ['#2a2e36', '#3b4a63', '#3f6f86', '#3f9a8e', '#3ecfa4', '#8ef0cf']
 const hex = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16))
 const CRAMP_RGB = CRAMP.map(hex)
 
-export function contColor(score: number): string {
-  const t = Math.max(0, Math.min(1, score / 100)) * (CRAMP.length - 1)
-  const i = Math.min(CRAMP.length - 2, Math.floor(t)), f = t - i
-  const a = CRAMP_RGB[i], b = CRAMP_RGB[i + 1]
+function lerpRamp(ramp: number[][], t01: number): string {
+  const t = Math.max(0, Math.min(1, t01)) * (ramp.length - 1)
+  const i = Math.min(ramp.length - 2, Math.floor(t)), f = t - i
+  const a = ramp[i], b = ramp[i + 1]
   return `rgb(${a.map((v, k) => Math.round(v + (b[k] - v) * f)).join(',')})`
 }
+
+export const contColor = (score: number) => lerpRamp(CRAMP_RGB, score / 100)
+
+/** Raw daily temperature — observed data only, never comfort. Diverging cool→warm and
+ *  deliberately unlike the comfort ramp, so "warm" can never read as "good". Fixed
+ *  domain in °F so every city is drawn on the same scale; values beyond it clamp. */
+export const TEMP_DOMAIN: [number, number] = [10, 100]
+const TRAMP_RGB = ['#3f6fa8', '#79a6c8', '#bcc8d0', '#dcc48f', '#c9834e', '#a8452b'].map(hex)
+export const tempColor = (f: number) => lerpRamp(TRAMP_RGB, (f - TEMP_DOMAIN[0]) / (TEMP_DOMAIN[1] - TEMP_DOMAIN[0]))

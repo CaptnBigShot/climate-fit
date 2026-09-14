@@ -3,7 +3,7 @@ import type { AqSeries } from './aq'
 
 export interface CityMeta {
   id: string; name: string; code: string; region: string
-  lat: number; lon: number; pop: number; coastal: boolean
+  lat: number; lon: number; pop: number; coastal: boolean; continent: string
   /** [terrain id, drive minutes] */
   terrain: [string, number][]
 }
@@ -107,6 +107,15 @@ export function loadHourly(id: string): Promise<HourlySeries> {
     hourlyCache.set(id, p)
   }
   return p
+}
+
+/** Discover's basemap: Natural Earth land as one SVG path, in 1/scale degree (x = lon, y = −lat). */
+export interface Land { scale: number; d: string }
+let landP: Promise<Land> | null = null
+export function loadLand(): Promise<Land> {
+  landP ??= getJson<Land>('land.json')
+  landP.catch(() => { landP = null })
+  return landP
 }
 
 export function loadAq(id: string): Promise<AqSeries> {

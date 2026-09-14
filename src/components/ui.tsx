@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { CO } from '../lib/colors'
 import { ols } from '../lib/stats'
+import type { Budget } from '../lib/aggregate'
 
 export function Seg<T extends string | number>({ options, value, onChange, small, label }: {
   options: readonly T[] | { v: T; label: string }[]
@@ -61,6 +62,32 @@ export function HatchSwatch() {
     <svg width={22} height={9} viewBox="0 0 22 9" style={{ display: 'block' }}>
       <HatchDefs id="hatch-sw" />
       <rect width={22} height={9} fill="url(#hatch-sw)" />
+    </svg>
+  )
+}
+
+/** A one-line day budget for tables: the same three bands and hatch as the hero bar, unlabelled. */
+export function SplitBar({ b, width, height = 9, id }: { b: Budget; width: number; height?: number; id: string }) {
+  const x = (v: number) => (v / 365) * width
+  const [c, t, un] = b.counts
+  return (
+    <svg width={width} height={height} style={{ display: 'block', flex: 'none', shapeRendering: 'crispEdges' }}
+      data-tip={`${Math.round(c)} comfortable · ${Math.round(t)} tolerable · ${Math.round(un)} unbearable days/yr, ${Math.round(b.hard)} of them crossing a line you drew`}>
+      <HatchDefs id={id} />
+      <rect width={x(c)} height={height} fill={CO.comf} />
+      <rect x={x(c)} width={x(t)} height={height} fill={CO.tol} />
+      <rect x={x(c + t)} width={x(un)} height={height} fill={CO.unb} />
+      <rect x={x(c + t + un - b.hard)} width={x(b.hard)} height={height} fill={`url(#${id})`} />
+    </svg>
+  )
+}
+
+/** Days per year as a share of 365, on an empty track. Amber = the activity encoding. */
+export function DaysBar({ days, width, height = 8, color = CO.act }: { days: number; width: number; height?: number; color?: string }) {
+  return (
+    <svg width={width} height={height} style={{ display: 'block', flex: 'none', shapeRendering: 'crispEdges' }}>
+      <rect width={width} height={height} fill="#1c1f25" />
+      <rect width={Math.max(0, Math.min(1, days / 365)) * width} height={height} fill={color} />
     </svg>
   )
 }

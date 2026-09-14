@@ -1,4 +1,5 @@
 import type { CityMeta } from '../lib/data'
+import { MAX_COMPARE } from '../lib/compare'
 import type { Model } from '../lib/model'
 import type { Prefs } from '../lib/prefs'
 import type { Units } from '../lib/units'
@@ -8,6 +9,7 @@ export function Header({ city, m, p, u, elevFt, solarIdx, inCompare, compareCoun
   city: CityMeta; m: Model; p: Prefs; u: Units; elevFt: number; solarIdx: number | null
   inCompare: boolean; compareCount: number; toggleCompare: () => void; exportCsv: () => void
 }) {
+  const full = !inCompare && compareCount >= MAX_COMPARE
   return (
     <div className="header">
       <div>
@@ -24,9 +26,11 @@ export function Header({ city, m, p, u, elevFt, solarIdx, inCompare, compareCoun
         <div className="kv"><Cap tip="Mean daily shortwave radiation, normalised 0–100 across the city set. High-altitude, high-irradiance cities are flagged here; it is context, not part of the score.">SOLAR INTENSITY IDX</Cap><div className="v">{solarIdx ?? '—'} <small>/ 100</small></div></div>
       </div>
       <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-        <button className={`btn${inCompare ? ' on' : ''}`} onClick={toggleCompare}
-          data-tip="Add this city to the compare set. The set lives in the URL, so sharing the link shares the comparison — there are no accounts.">
-          {inCompare ? `✓ In compare (${compareCount})` : `+ Add to compare${compareCount ? ` (${compareCount})` : ''}`}
+        <button className={`btn${inCompare ? ' on' : ''}`} onClick={toggleCompare} disabled={full}
+          data-tip={full
+            ? `Compare holds up to ${MAX_COMPARE} cities. Remove one on the Compare screen first.`
+            : 'Add this city to the compare set. The set lives in the URL, so sharing the link shares the comparison — there are no accounts.'}>
+          {inCompare ? `✓ In compare (${compareCount})` : full ? `Compare full (${compareCount})` : `+ Add to compare${compareCount ? ` (${compareCount})` : ''}`}
         </button>
         <button className="btn" onClick={exportCsv} data-tip="Download the monthly table as CSV, in the units currently shown.">Export CSV</button>
       </div>

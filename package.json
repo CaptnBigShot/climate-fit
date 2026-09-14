@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "fetch-data": "node scripts/fetch-data.mjs",
     "manifest": "node scripts/build-manifest.mjs",
+    "basemap": "node scripts/build-basemap.mjs",
     "test": "vitest run"
   },
   "dependencies": {

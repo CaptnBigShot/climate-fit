@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { CITIES, type CityMeta } from '../lib/data'
 import { MN } from '../lib/calendar'
 import {
-  CUTOFF, EXAMPLE_STATE, presetNote, FIRST_YEAR, LAST_YEAR, LOOKBACKS, PRESETS, T_MAX, T_MIN, windowLabel, windowYears,
+  CUTOFF, EXAMPLE_STATE, presetNote, FIRST_YEAR, LAST_YEAR, LOOKBACKS, PRESETS, T_MAX, T_MIN, hasPreference, windowLabel, windowYears,
   type Prefs, type Weight,
 } from '../lib/prefs'
 import { DEW_HARD_GAP } from '../lib/scoring'
+import type { View } from '../lib/session'
 import type { Units } from '../lib/units'
 import { FourPointSlider } from './FourPointSlider'
 import { Cap, Seg } from './ui'
@@ -23,9 +24,32 @@ export interface BarProps {
   calFill: 'banded' | 'continuous'
   setCalFill: (v: 'banded' | 'continuous') => void
   comfByCity: Record<string, number | null>
+  view: View
+  setView: (v: View) => void
+  cmpCount: number
 }
 
 const WEIGHTS: { v: Weight; label: string }[] = [{ v: 'minor', label: 'Minor' }, { v: 'normal', label: 'Normal' }, { v: 'critical', label: 'Critical' }]
+
+const TABS: { v: View; label: string; tip: string }[] = [
+  { v: 'city', label: 'CITY', tip: 'One city in full depth.' },
+  { v: 'compare', label: 'COMPARE', tip: 'Two to four cities side by side on these same settings. The set lives in the URL, so a link carries the comparison.' },
+  { v: 'discover', label: 'DISCOVER', tip: 'Every city in the set ranked against these settings — or, with nothing set, by the days you could be outside.' },
+  { v: 'methods', label: 'METHODS', tip: 'Data & methods: every source, formula and threshold the app uses on your behalf.' },
+]
+
+/** Screen tabs. Every screen reads the one session state in this bar. */
+function Tabs({ view, setView, cmpCount }: { view: View; setView: (v: View) => void; cmpCount: number }) {
+  return (
+    <nav className="tabs" aria-label="Screens">
+      {TABS.map((t) => (
+        <button key={t.v} className="tab" aria-current={view === t.v ? 'page' : undefined} onClick={() => setView(t.v)} data-tip={t.tip}>
+          {t.label}{t.v === 'compare' && <span className={cmpCount ? 'n' : 'n zero'}>{cmpCount}</span>}
+        </button>
+      ))}
+    </nav>
+  )
+}
 
 export function ControlBar(props: BarProps) {
   const { prefs: p, set, u, city } = props
@@ -72,7 +96,8 @@ export function ControlBar(props: BarProps) {
 
   const bandReadout = t
     ? `${t.hardMin === null ? '−∞' : u.t(t.hardMin)} · ${u.t(t.idealMin)} – ${u.t(t.idealMax)} · ${t.hardMax === null ? '+∞' : u.t(t.hardMax)}`
-    : 'unset · drag to set'
+    : 'unset — no band stated'
+  const expand = () => { pinned.current = true; lastY.current = window.scrollY; setCollapsed(false) }
 
   const summary = [
     t ? `${u.t(t.idealMin)}–${u.t(t.idealMax)}${u.tu}` : 'band unset',
@@ -95,12 +120,14 @@ export function ControlBar(props: BarProps) {
   if (collapsed) {
     return (
       <div className="bar" ref={root}>
-        <div className="summary" onClick={() => { pinned.current = true; lastY.current = window.scrollY; setCollapsed(false) }} role="button" tabIndex={0}
-          onKeyDown={(e) => { if (e.key === 'Enter') { pinned.current = true; setCollapsed(false) } }}>
-          <span className="brand-mark" />
+        <div className="summary">
+          <span className={hasPreference(p) ? 'brand-mark' : 'brand-mark off'} />
           <span className="brand" style={{ fontSize: 10.5 }}>{city.name.toUpperCase()}</span>
-          <span className="summary-text">{summary}</span>
-          <span className="cap" style={{ marginLeft: 'auto', color: 'var(--accent)' }}>EDIT ▾</span>
+          <Tabs view={props.view} setView={props.setView} cmpCount={props.cmpCount} />
+          <button className="summary-btn" onClick={expand} aria-label="Expand the control bar">
+            <span className="summary-text">{summary}</span>
+            <span className="cap" style={{ marginLeft: 'auto', color: 'var(--accent)' }}>EDIT ▾</span>
+          </button>
         </div>
       </div>
     )
@@ -110,7 +137,7 @@ export function ControlBar(props: BarProps) {
     <div className="bar" ref={root}>
       <div className="bar-row">
         <div className="bar-cell row">
-          <span className="brand-mark" />
+          <span className={hasPreference(p) ? 'brand-mark' : 'brand-mark off'} data-tip={hasPreference(p) ? undefined : 'Grey until you state a preference: nothing is being scored yet.'} />
           <span className="brand">CLIMATE FIT</span>
         </div>
 
@@ -159,7 +186,7 @@ export function ControlBar(props: BarProps) {
         <div className="bar-cell" style={{ width: 150 }}>
           <Cap tip={`Humidity, measured as dew point rather than relative humidity. This sets the top of your ideal range; the hard limit sits ${DEW_HARD_GAP}°F above it. Roughly: under 55°F feels dry, 60–65°F sticky, above 70°F oppressive.`}>DEW PT CEILING</Cap>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-            <span className={p.dewMax === null ? 'readout big unset' : 'readout big'}>{p.dewMax === null ? 'off' : `< ${u.t(p.dewMax)}${u.tu}`}</span>
+            <span className={p.dewMax === null ? 'readout big unset' : 'readout big'}>{p.dewMax === null ? 'unset' : `< ${u.t(p.dewMax)}${u.tu}`}</span>
             {p.dewMax !== null && <button className="x-btn" onClick={() => set({ dewMax: null })} data-tip="Stop scoring dew point.">✕</button>}
           </div>
           <input type="range" min={30} max={78} step={1} value={p.dewMax ?? 78} className={p.dewMax === null ? 'unset' : ''}
@@ -209,8 +236,8 @@ export function ControlBar(props: BarProps) {
 
       </div>
       <div className="bar-row2">
-        <span className="cap" data-tip="State lives in the URL — bookmark the page to save the session, send the link to share it.">ON SCROLL COLLAPSES TO →</span>
-        <span className="summary-text">{summary}</span>
+        <Tabs view={props.view} setView={props.setView} cmpCount={props.cmpCount} />
+        <span className="summary-text" data-tip="The whole session in one line — the bar collapses to this on scroll. It all lives in the URL: bookmark the page to save the session, send the link to share it.">{summary}</span>
         <div className="bar-end">
           <div data-tip="Switch the whole page between °F / inches and °C / millimetres.">
             <Seg label="Units" value={p.metric ? 'm' : 'i'} onChange={(v) => set({ metric: v === 'm' })} options={[{ v: 'i', label: '°F/in' }, { v: 'm', label: '°C/mm' }]} />
@@ -306,6 +333,15 @@ export function ControlBar(props: BarProps) {
           )}
         </div>
       </div>
+      {!hasPreference(p) && (
+        <div className="bar-prompt">
+          <span className="lead">
+            State a comfort band, or <button className="inline-link" onClick={() => setMenu('presets')}>pick a starting point</button>, and every day in the record is scored against it.
+          </span>
+          <span className="rest">Until then the app shows the record as measured and ranks nothing by taste.</span>
+          <span className="cap" style={{ marginLeft: 'auto' }}>NO ACCOUNT · NO SAVED SETTINGS · STATE LIVES IN THE URL</span>
+        </div>
+      )}
     </div>
   )
 }

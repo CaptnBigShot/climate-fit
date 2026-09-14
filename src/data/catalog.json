@@ -18,52 +18,52 @@
   "cities": [
     {
       "id": "tacoma", "name": "Tacoma", "code": "WA", "region": "Washington · United States",
-      "lat": 47.2529, "lon": -122.4443, "pop": 219346, "coastal": true,
+      "lat": 47.2529, "lon": -122.4443, "pop": 219346, "coastal": true, "continent": "North America",
       "terrain": [["snoqualmie", 70], ["crystal", 110], ["stevens", 125]]
     },
     {
       "id": "denver", "name": "Denver", "code": "CO", "region": "Colorado · United States",
-      "lat": 39.7392, "lon": -104.9903, "pop": 715522, "coastal": false,
+      "lat": 39.7392, "lon": -104.9903, "pop": 715522, "coastal": false, "continent": "North America",
       "terrain": [["echo", 50], ["loveland", 65], ["vail", 115]]
     },
     {
       "id": "bellingham", "name": "Bellingham", "code": "WA", "region": "Washington · United States",
-      "lat": 48.7519, "lon": -122.4787, "pop": 91482, "coastal": true,
+      "lat": 48.7519, "lon": -122.4787, "pop": 91482, "coastal": true, "continent": "North America",
       "terrain": [["baker", 80], ["stevens", 150]]
     },
     {
       "id": "lynnwood", "name": "Lynnwood", "code": "WA", "region": "Washington · United States",
-      "lat": 47.8209, "lon": -122.3151, "pop": 38568, "coastal": true,
+      "lat": 47.8209, "lon": -122.3151, "pop": 38568, "coastal": true, "continent": "North America",
       "terrain": [["snoqualmie", 60], ["stevens", 85], ["baker", 125], ["crystal", 130]]
     },
     {
       "id": "calgary", "name": "Calgary", "code": "AB", "region": "Alberta · Canada",
-      "lat": 51.0447, "lon": -114.0719, "pop": 1306784, "coastal": false,
+      "lat": 51.0447, "lon": -114.0719, "pop": 1306784, "coastal": false, "continent": "North America",
       "terrain": [["nakiska", 60], ["sunshine", 95], ["louise", 115]]
     },
     {
       "id": "prague", "name": "Prague", "code": "CZ", "region": "Czechia",
-      "lat": 50.0755, "lon": 14.4378, "pop": 1357000, "coastal": false,
+      "lat": 50.0755, "lon": 14.4378, "pop": 1357000, "coastal": false, "continent": "Europe",
       "terrain": [["spindleruv", 110]]
     },
     {
       "id": "wellington", "name": "Wellington", "code": "NZ", "region": "New Zealand",
-      "lat": -41.2865, "lon": 174.7762, "pop": 212700, "coastal": true,
+      "lat": -41.2865, "lon": 174.7762, "pop": 212700, "coastal": true, "continent": "Oceania",
       "terrain": []
     },
     {
       "id": "phoenix", "name": "Phoenix", "code": "AZ", "region": "Arizona · United States",
-      "lat": 33.4484, "lon": -112.074, "pop": 1608139, "coastal": false,
+      "lat": 33.4484, "lon": -112.074, "pop": 1608139, "coastal": false, "continent": "North America",
       "terrain": [["snowbowl", 150]]
     },
     {
       "id": "miami", "name": "Miami", "code": "FL", "region": "Florida · United States",
-      "lat": 25.7617, "lon": -80.1918, "pop": 442241, "coastal": true,
+      "lat": 25.7617, "lon": -80.1918, "pop": 442241, "coastal": true, "continent": "North America",
       "terrain": []
     },
     {
       "id": "reykjavik", "name": "Reykjavík", "code": "IS", "region": "Iceland",
-      "lat": 64.1466, "lon": -21.9426, "pop": 139900, "coastal": true,
+      "lat": 64.1466, "lon": -21.9426, "pop": 139900, "coastal": true, "continent": "Europe",
       "terrain": [["blafjoll", 30]]
     }
   ]

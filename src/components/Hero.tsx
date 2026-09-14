@@ -1,16 +1,16 @@
 import { CO } from '../lib/colors'
-import { CUTOFF, EXAMPLE_STATE, PRESETS, presetNote, windowLabel, type Prefs } from '../lib/prefs'
+import { CUTOFF, windowLabel, type Prefs } from '../lib/prefs'
 import type { Model } from '../lib/model'
 import type { Budget } from '../lib/aggregate'
-import type { Units } from '../lib/units'
 import { Cap, Head, HatchDefs, Spark } from './ui'
 import { useWidth } from '../hooks/useWidth'
 import { YTD_MIN_DAYS, YTD_YEAR, fetchedDay, ytdBudget, ytdOutdoor, type Ytd } from '../lib/current'
 import { doyLabel } from '../lib/calendar'
 import type { Scored } from '../lib/scoring'
 
-export function Hero({ m, p, u, set, ytd, ytdSc, ytdError }: {
-  m: Model; p: Prefs; u: Units; set: (patch: Partial<Prefs>) => void; ytd: Ytd | null; ytdSc: Scored | null; ytdError: string | null
+/** The day budget. Only rendered once a preference exists — the unset page is the opening state. */
+export function Hero({ m, p, ytd, ytdSc, ytdError }: {
+  m: Model; p: Prefs; ytd: Ytd | null; ytdSc: Scored | null; ytdError: string | null
 }) {
   const [ref, width] = useWidth<HTMLDivElement>()
   const win = windowLabel(p.window)
@@ -19,7 +19,7 @@ export function Hero({ m, p, u, set, ytd, ytdSc, ytdError }: {
   return (
     <div className="grid-hero">
       <div className="section" style={{ borderBottom: 'none' }} ref={ref}>
-        {b ? (
+        {b && (
           <>
             <div className="section-head">
               <Head tip="Every day of the year sorted into three buckets by your own thresholds, averaged per year across the lookback window. The hatched slice inside unbearable is the days that crossed a line you drew in the control bar.">DAY BUDGET · YOUR FIT</Head>
@@ -40,14 +40,12 @@ export function Hero({ m, p, u, set, ytd, ytdSc, ytdError }: {
             </div>
             <Trend b={b} from={p.window.from} to={p.window.to} />
           </>
-        ) : (
-          <Unset p={p} m={m} u={u} set={set} />
         )}
         <YtdBlock m={m} p={p} ytd={ytd} ytdSc={ytdSc} error={ytdError} width={width} />
       </div>
 
       <div className="section" style={{ borderBottom: 'none', display: 'flex', flexDirection: 'column', gap: 18 }}>
-        {b ? (
+        {b && (
           <>
             <div>
               <div style={{ marginBottom: 10 }}>
@@ -83,8 +81,6 @@ export function Hero({ m, p, u, set, ytd, ytdSc, ytdError }: {
               )) : <div className="prose">No hard bounds set — no single line is writing days off.</div>}
             </div>
           </>
-        ) : (
-          <UnsetSide m={m} u={u} />
         )}
       </div>
     </div>
@@ -137,51 +133,6 @@ export function BudgetBar({ b, width, height, labels = true, id = 'hatch-bb' }: 
         <text key={d} x={x(d)} y={height + 15} textAnchor={d === 0 ? 'start' : d === 365 ? 'end' : 'middle'} fill="#5f6672" style={{ font: "400 9.5px 'JetBrains Mono', monospace" }}>{d}</text>
       ))}
     </svg>
-  )
-}
-
-function Unset({ p, m, u, set }: { p: Prefs; m: Model; u: Units; set: (patch: Partial<Prefs>) => void }) {
-  return (
-    <div className="empty-hero">
-      <div className="section-head" style={{ marginBottom: 0 }}>
-        <Head>DAY BUDGET · NOT SCORED</Head>
-        <span className="sub">no comfort preference stated</span>
-      </div>
-      <div className="title">This app has no opinion about good weather, so it won't score anything until you say what comfortable means to you.</div>
-      <div className="prose" style={{ fontSize: 12.5 }}>
-        Drag the green handles in the comfort band, set a dew-point ceiling, or start from a preset. Everything below re-scores live as you drag.
-        Until then the page shows the raw climate record for {windowLabel(p.window)} and outdoor days, which use fixed, published activity thresholds instead of taste.
-      </div>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        {PRESETS.map((pr) => (
-          <button key={pr.name} className="btn" onClick={() => set(pr.apply)} data-tip={presetNote(pr, u.t, u.tu)}>{pr.name}</button>
-        ))}
-        <button className="link-btn" onClick={() => set(EXAMPLE_STATE)} data-tip="Ideal 35–58°F, no floor, 68°F ceiling, seasonal bands with a colder winter band, dew point under 45°F, overcast preferred, walking and snowboarding enabled.">
-          SPEC EXAMPLE: COLD-PREFERRING · SEASONAL · OUTDOOR
-        </button>
-      </div>
-      <div style={{ display: 'flex', gap: 26, marginTop: 6 }}>
-        <Stat label="OUTDOOR DAYS" color={CO.act} n={m.act.outAny} d="≥1 enabled activity possible"
-          tip="Needs no preference: these are physical constraints with published thresholds (see Data & methods)." />
-        <Stat label="WALKABLE DAYS" color={CO.act} n={m.act.per.walk.days} d="the floor case"
-          tip="Days on which simply being outside is viable — the most permissive activity." />
-      </div>
-    </div>
-  )
-}
-
-function UnsetSide({ m, u }: { m: Model; u: Units }) {
-  const f = m.facts
-  return (
-    <div>
-      <div style={{ marginBottom: 10 }}><Head small>RAW RECORD · UNSCORED</Head></div>
-      <div className="list-row"><span className="k">Mean diurnal swing</span><span className="v">{u.dt(f.swing).replace('+', '')}{u.tu}</span></div>
-      <div className="list-row"><span className="k">Clear / partly / overcast days</span><span className="v">{Math.round(f.clear)} · {Math.round(f.partly)} · {Math.round(f.overcast)}</span></div>
-      <div className="list-row"><span className="k">Nights above {u.t(60)}{u.tu}</span><span className="v">{Math.round(f.warmNights)} /yr</span></div>
-      <div className="list-row"><span className="k">Snow days, city centre</span><span className="v">{Math.round(f.snowDays)} /yr</span></div>
-      <div className="list-row"><span className="k">Sunshine hours</span><span className="v">{Math.round(f.sunHours).toLocaleString()} /yr</span></div>
-      <div className="prose" style={{ marginTop: 12, fontSize: 10.5 }}>Colours on this page encode fit to your preferences, never temperature. With nothing stated, there is nothing to colour.</div>
-    </div>
   )
 }
 
