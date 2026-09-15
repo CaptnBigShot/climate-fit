@@ -18,8 +18,8 @@
 //   npm run fetch-data -- calgary prague       only these ids (catalogue or queue)
 //   npm run fetch-data -- --budget 20000       spend more (or less) this run
 //   npm run fetch-data -- --refresh-ytd        re-fetch every current-year snapshot
-//   npm run fetch-data -- --hourly             also write hourly files (the app otherwise
-//                                              fetches a new city's hourly tier live)
+//   npm run fetch-data -- --no-hourly          skip hourly files (written by default from S3;
+//                                              with --source api only when --hourly is given)
 //   npm run fetch-data -- --rebuild            rewrite existing archive files (cities,
 //                                              terrain, hourly) instead of skipping them
 //   npm run fetch-data -- --source api         weather and air quality from the API, not S3
@@ -39,7 +39,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const OUT = join(ROOT, 'public', 'data')
 
 const { values: opts, positionals: only } = parseArgs({
-  allowPositionals: true,
+  allowPositionals: true, allowNegative: true,
   options: {
     budget: { type: 'string' }, 'refresh-ytd': { type: 'boolean' }, hourly: { type: 'boolean' },
     rebuild: { type: 'boolean' }, source: { type: 'string', default: 's3' },
@@ -51,6 +51,9 @@ if (opts.budget !== undefined) {
 }
 if (!['s3', 'api'].includes(opts.source)) throw new Error(`--source must be s3 or api, not ${opts.source}`)
 const S3 = opts.source === 's3'
+/** Hourly files cost nothing from S3, so every city gets one unless --no-hourly; from the API
+ *  (~261 calls a city) only with --hourly. */
+const HOURLY = opts.hourly ?? S3
 /** An archive request, answered by S3 (free) or the API (metered). */
 const fetchArchive = (params) => (S3 ? archive(params) : get(params))
 const archiveCost = (params) => (S3 ? 0 : weight(params))
@@ -133,10 +136,15 @@ async function fetchTerrain(id) {
 }
 
 // Hourly temperature (src/lib/hourly.ts), stored as base64 Int16 tenths of °F — ~230 KB per
-// city, loaded only when the panel opens. Only with --hourly: without a file, the app fetches
-// a city's hourly tier live the first time its panel opens, which keeps public/data small.
+// city, loaded only when the panel opens. A city without a file (see HOURLY) has its hourly
+// tier fetched live from Open-Meteo the first time its panel opens.
 async function fetchHourly(city) {
-  const t = buildHourly(await fetchArchive(REQ.hourly(city)), endYear)
+  const data = await fetchArchive(REQ.hourly(city))
+  // buildHourly papers over a missing hour (a DST gap) with its neighbour; a missing value
+  // in the data itself is a bad read, not a gap, so refuse it.
+  const gap = data.hourly.temperature_2m.findIndex((v) => v === null || !(v >= -90 && v <= 135))
+  if (gap >= 0) throw new Error(`hourly/${city.id}: ${data.hourly.time[gap]} is ${data.hourly.temperature_2m[gap]}`)
+  const t = buildHourly(data, endYear)
   await writeFile(file('hourly', city.id), JSON.stringify({ id: city.id, startYear: t.startYear, years: t.years, timezone: t.timezone, temp10: Buffer.from(t.temp.buffer).toString('base64') }))
 }
 
@@ -189,7 +197,7 @@ async function missing(city) {
   for (const [tid] of city.terrain) {
     if (await needs('terrain', tid)) steps.push({ what: `terrain/${tid}`, cost: archiveCost(REQ.terrain(terrainOf(tid))), run: () => fetchTerrain(tid) })
   }
-  if (opts.hourly && (await needs('hourly', city.id))) steps.push({ what: `hourly/${city.id}`, cost: archiveCost(REQ.hourly(city)), run: () => fetchHourly(city) })
+  if (HOURLY && (await needs('hourly', city.id))) steps.push({ what: `hourly/${city.id}`, cost: archiveCost(REQ.hourly(city)), run: () => fetchHourly(city) })
   if (!(await exists(file('ytd', city.id)))) steps.push({ what: `ytd/${city.id}`, cost: ytdCost(city), run: () => fetchYtdSnapshot(city) })
   return steps
 }
