@@ -21,6 +21,7 @@ import { DEW_HARD_GAP } from '../lib/scoring'
 import type { View } from '../lib/session'
 import type { Units } from '../lib/units'
 import { useDismiss } from '../hooks/useDismiss'
+import { useSteadyHeight } from '../hooks/useSteadyHeight'
 import { CityList } from './CityPicker'
 import { FourPointSlider } from './FourPointSlider'
 import { Cap, Seg } from './ui'
@@ -94,7 +95,7 @@ export function ControlBar(props: BarProps) {
   const [collapsed, setCollapsed] = useState(false)
   const pinned = useRef(false)
   const lastY = useRef(0)
-  const root = useRef<HTMLDivElement>(null)
+  const root = useSteadyHeight<HTMLDivElement>(collapsed)
 
   // Collapse to a summary line once the page scrolls; tapping it re-expands until the next scroll away.
   useEffect(() => {
@@ -166,7 +167,7 @@ export function ControlBar(props: BarProps) {
 
   if (collapsed) {
     return (
-      <div className="bar" ref={root}>
+      <div className="bar collapsed" ref={root}>
         <div className="summary">
           <span className={hasPreference(p) ? 'brand-mark' : 'brand-mark off'} />
           <span className="brand" style={{ fontSize: 10.5 }}>

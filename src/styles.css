@@ -184,6 +184,13 @@ a {
   z-index: 20;
   background: var(--bar);
   border-bottom: 1px solid var(--line-2);
+  /* While the height animates, rows pack to the bottom edge; any overflow spills off-screen above. */
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+.bar > * {
+  flex-shrink: 0;
 }
 .bar-row {
   display: flex;
