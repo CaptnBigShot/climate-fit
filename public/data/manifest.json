@@ -5,7 +5,7 @@
    "solarIdx": 43,
    "seasonsIdx": 46,
    "meanRadMJ": 12.73,
-   "seasonStdF": 10.12,
+   "seasonStdF": 10.13,
    "demElevM": 85,
    "gridElevM": 89
   },
@@ -13,7 +13,7 @@
    "solarIdx": 82,
    "seasonsIdx": 98,
    "meanRadMJ": 17.83,
-   "seasonStdF": 16.49,
+   "seasonStdF": 16.52,
    "demElevM": 1599,
    "gridElevM": 1579
   },
@@ -67,9 +67,9 @@
   },
   "miami": {
    "solarIdx": 85,
-   "seasonsIdx": 0,
+   "seasonsIdx": 1,
    "meanRadMJ": 18.13,
-   "seasonStdF": 4.57,
+   "seasonStdF": 4.6,
    "demElevM": 5,
    "gridElevM": 5
   },
@@ -85,7 +85,7 @@
    "solarIdx": 40,
    "seasonsIdx": 42,
    "meanRadMJ": 12.35,
-   "seasonStdF": 9.59,
+   "seasonStdF": 9.6,
    "demElevM": 59,
    "gridElevM": -2
   }

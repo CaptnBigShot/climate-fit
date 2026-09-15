@@ -1,8 +1,10 @@
-// The data pipeline's pure parts: what a request costs, the catalogue's file layout and
-// queue promotion, and the Köppen classes used to label the draft queue.
+// The data pipeline's pure parts: what a request costs, the S3 source's time-zone rule,
+// the catalogue's file layout and queue promotion, and the Köppen classes used to label
+// the draft queue. (The S3 source itself is checked against the API by `npm run verify-s3`.)
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { archiveRequests, weight } from './open-meteo.mjs'
+import { standardOffsetSeconds } from './open-meteo-s3.mjs'
 import { CATALOG_FILE, format, promote } from './catalog-file.mjs'
 import { koppen } from './koppen.mjs'
 import { DAILY_VARS } from '../src/lib/ytd.ts'
@@ -26,6 +28,20 @@ describe('weight', () => {
 
   it('counts every location of a multi-location request', () => {
     expect(weight({ latitude: '1,2,3', daily: 'snow_depth_max', start_date: '2026-01-01', end_date: '2026-01-28' })).toBeCloseTo(6)
+  })
+})
+
+describe('S3 source time zones', () => {
+  it('uses the winter offset in both hemispheres, whatever the date', () => {
+    const h = (tz) => standardOffsetSeconds(tz, 2025) / 3600
+    expect(h('America/Denver')).toBe(-7)
+    expect(h('America/Phoenix')).toBe(-7)
+    expect(h('Pacific/Auckland')).toBe(12)
+    expect(h('Atlantic/Reykjavik')).toBe(0)
+    // tzdata models Irish time as summer-standard with "negative DST"; the winter offset is still GMT.
+    expect(h('Europe/Dublin')).toBe(0)
+    expect(h('America/St_Johns')).toBe(-3.5)
+    expect(h('Australia/Adelaide')).toBe(9.5)
   })
 })
 

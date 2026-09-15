@@ -55,7 +55,7 @@ export const MethodsPage = memo(function MethodsPage({ city, series, terrains, m
 
   const t = (f: number) => `${u.t(f)}${u.tu}`
   const derived: [string, 'Observed' | 'Derived' | 'Modelled' | 'Observed · modelled', string][] = [
-    ['Daily high / low', 'Observed', 'ERA5 2 m temperature, daily maximum and minimum, downscaled by Open-Meteo from the grid cell to the city\'s terrain height'],
+    ['Daily high / low', 'Observed', 'Reanalysis 2 m temperature, daily maximum and minimum of the hourly values, downscaled from the grid cell to the city\'s terrain height'],
     ['Dew point', 'Observed', 'Daily mean 2 m dew point, taken directly from the source'],
     ['Cloud cover', 'Observed', 'Daily mean total cloud cover, %'],
     ['Precipitation · snowfall', 'Observed', 'Daily sums from the reanalysis'],
@@ -83,8 +83,8 @@ export const MethodsPage = memo(function MethodsPage({ city, series, terrains, m
   ]
 
   const source: [string, string][] = [
-    ['Source', 'Open-Meteo Historical Weather API (/v1/archive) · ERA5 reanalysis; ERA5-Land for terrain snow depth'],
-    ['Native resolution', 'Hourly on a ~25 km grid (ERA5-Land ~9 km), aggregated to daily'],
+    ['Source', 'Open-Meteo\'s reanalysis archive, read from its public AWS bucket and computed as its Historical Weather API computes it · ECMWF IFS from 2017, ERA5-Land and ERA5 before; ERA5-Land for terrain snow depth'],
+    ['Native resolution', 'Hourly. From 2017 ~9 km (ECMWF IFS); before that ~9 km ERA5-Land for temperature and dew point, ~25 km ERA5 for the rest. Aggregated to daily over local standard-time days'],
     ['Record in this build', `${ARCHIVE.startYear}–${ARCHIVE.endYear}, whole years; Feb 29 dropped so every year has 365 columns. ERA5 itself reaches back to 1940`],
     ['Active window', `${windowLabel(w)} · ${(windowYears(w) * 365).toLocaleString()} days per city`],
     ['Scoring', 'In your browser, every day scored individually and then counted — never from monthly means'],
@@ -98,7 +98,7 @@ export const MethodsPage = memo(function MethodsPage({ city, series, terrains, m
   ]
 
   const limits = [
-    'ERA5 is a ~25 km reanalysis: a model of the atmosphere constrained by observations, not a weather station. In complex terrain and on coasts the grid cell approximates the city rather than measuring it.',
+    'This is reanalysis — ~9–25 km models of the atmosphere constrained by observations, not a weather station. In complex terrain and on coasts the grid cell approximates the city rather than measuring it. The source moves to the finer ECMWF IFS in 2017, so a step at that seam can look like part of a trend.',
     `Grid-cell elevation differs from city elevation by more than ${u.elev(GRID_FLAG_FT)} in ${flagged} of the ${CITIES.length} cities. Temperature is downscaled to the city's terrain height, and the deltas are published above rather than corrected silently.`,
     'Wind is the daily maximum of the hourly mean, not gusts. Cloud cover and dew point are daily means.',
     'Snow-sport days use snow depth at one reference point per terrain — not across a resort network — and temperature from the city. Drive times and reference elevations are hand-entered approximations. Three fixed drive stops are precomputed; a continuous slider is deferred to v2.',
@@ -303,8 +303,8 @@ export function MethodsStrip({ city, s, m, p, u, ytd, ytdError, openMethods }: {
   const delta = gridFt - demFt
   const significant = gridFlag(delta)
   const rows: [string, string][] = [
-    ['Source', 'Open-Meteo Historical Weather API (ERA5 reanalysis; ERA5-Land for terrain snow depth)'],
-    ['Grid cell', `~25 km ERA5 cell centred ${s.gridLat.toFixed(2)}, ${s.gridLon.toFixed(2)} at ${u.elev(gridFt)}; temperature downscaled to the city's ${u.elev(demFt)}`],
+    ['Source', 'Open-Meteo reanalysis archive (ECMWF IFS from 2017, ERA5-Land and ERA5 before; ERA5-Land for terrain snow depth)'],
+    ['Grid cell', `~9 km ECMWF IFS cell centred ${s.gridLat.toFixed(2)}, ${s.gridLon.toFixed(2)} at ${u.elev(gridFt)} (years before 2017 use the nearby ERA5-Land and ERA5 cells); temperature downscaled to the city's ${u.elev(demFt)}`],
     ['Active window', `${windowLabel(p.window)} (${(windowYears(p.window) * 365).toLocaleString()} days)`],
     ['Aggregation', 'Every day scored individually, then counted; per-year means. Never scored from monthly means'],
     ['Temperature basis', `${p.sun === 'sun' ? `In sun: daily high + ${u.dt(SUN_F_PER_MJ, 2).replace('+', '')}${u.tu} per MJ/m² of shortwave` : 'Shade: reported air temperature'} · scored on the ${{ high: 'daily high', low: 'daily low', apparent: 'apparent temperature', both: 'high and low' }[p.basis]}`],
@@ -317,7 +317,7 @@ export function MethodsStrip({ city, s, m, p, u, ytd, ytdError, openMethods }: {
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 22px', background: 'var(--bar-2)', flexWrap: 'wrap' }}>
         <span style={{ font: '500 11px/1 var(--sans)', whiteSpace: 'nowrap' }}>Data &amp; methods</span>
         <span className="mono" style={{ fontSize: 10.5, color: 'var(--dim)' }}>
-          ERA5 REANALYSIS VIA OPEN-METEO · GRID CELL {u.elev(gridFt).toUpperCase()} VS CITY {u.elev(demFt).toUpperCase()} · Δ {u.elev(Math.abs(delta)).toUpperCase()}
+          REANALYSIS VIA OPEN-METEO · GRID CELL {u.elev(gridFt).toUpperCase()} VS CITY {u.elev(demFt).toUpperCase()} · Δ {u.elev(Math.abs(delta)).toUpperCase()}
         </span>
         <span className="mono" style={{ fontSize: 10.5, color: significant ? 'var(--warn)' : 'var(--dim)' }}>
           {significant ? `▲ DELTA SIGNIFICANT — RAW GRID TEMPERATURES WOULD READ ${delta > 0 ? 'COOL' : 'WARM'}; DOWNSCALED TO CITY ELEVATION` : '✓ DELTA WITHIN TOLERANCE'}

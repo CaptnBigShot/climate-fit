@@ -9,6 +9,7 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "fetch-data": "node scripts/fetch-data.mjs",
+    "verify-s3": "node scripts/verify-s3.mjs",
     "catalog": "node scripts/build-catalog.mjs",
     "review-page": "node scripts/review-page.mjs",
     "nightly": "node scripts/nightly.mjs",
@@ -21,6 +22,8 @@
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
+    "@openmeteo/file-reader": "0.0.18",
+    "@photostructure/tz-lookup": "11.6.1",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",

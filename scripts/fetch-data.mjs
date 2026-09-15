@@ -1,11 +1,14 @@
-// Build-time data fetch: pulls the daily archive for every catalogue city and
-// snow-depth series for every terrain reference from the Open-Meteo Historical
-// Weather API, plus two separate data tiers — hourly temperature (for the
-// typical-day profile) and air quality (scripts/air-quality.mjs) — and writes
-// compact JSON into public/data/.
+// Build-time data fetch: the daily archive for every catalogue city and snow-depth
+// series for every terrain reference, plus two separate data tiers — hourly
+// temperature (for the typical-day profile) and air quality (scripts/air-quality.mjs) —
+// written as compact JSON into public/data/.
+//
+// Weather comes from Open-Meteo's public S3 bucket by default (scripts/open-meteo-s3.mjs):
+// the same data and the same computation as the Historical Weather API, without API
+// calls. --source api uses the API instead. Air quality always uses the API.
 //
 // Then it works through src/data/queue.json in order, moving each city into the
-// catalogue once all its files are written. Every request is metered against a
+// catalogue once all its files are written. Every API request is metered against a
 // per-run budget (--budget, default 9,000 of the free tier's 10,000 daily calls);
 // a city is only started if its whole cost fits, so a run stops between cities and
 // the next one carries on. Resumable: files that already exist are skipped.
@@ -16,6 +19,9 @@
 //   npm run fetch-data -- --refresh-ytd        re-fetch every current-year snapshot
 //   npm run fetch-data -- --hourly             also write hourly files (the app otherwise
 //                                              fetches a new city's hourly tier live)
+//   npm run fetch-data -- --rebuild            rewrite existing archive files (cities,
+//                                              terrain, hourly) instead of skipping them
+//   npm run fetch-data -- --source api         weather from the API, not S3
 import { mkdir, readFile, writeFile, access } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -23,6 +29,7 @@ import { parseArgs } from 'node:util'
 import { buildManifest } from './build-manifest.mjs'
 import { camsRequest, fetchAirQuality, isCurrent } from './air-quality.mjs'
 import { BudgetExhausted, archiveRequests, budget, budgetLeft, get, meteredFetch, weight } from './open-meteo.mjs'
+import { archive, s3Fetch, s3Stats } from './open-meteo-s3.mjs'
 import { promote, readCatalog, readQueue, writeCatalog, writeQueue } from './catalog-file.mjs'
 import { DAILY_VARS, fetchYtdRaw } from '../src/lib/ytd.ts'
 import { buildHourly } from '../src/lib/hourly.ts'
@@ -35,12 +42,20 @@ const YTD_MAX_AGE_DAYS = 7
 
 const { values: opts, positionals: only } = parseArgs({
   allowPositionals: true,
-  options: { budget: { type: 'string' }, 'refresh-ytd': { type: 'boolean' }, hourly: { type: 'boolean' } },
+  options: {
+    budget: { type: 'string' }, 'refresh-ytd': { type: 'boolean' }, hourly: { type: 'boolean' },
+    rebuild: { type: 'boolean' }, source: { type: 'string', default: 's3' },
+  },
 })
 if (opts.budget !== undefined) {
   budget.limit = Number(opts.budget)
   if (!(budget.limit > 0)) throw new Error(`--budget must be a positive number of calls, not ${opts.budget}`)
 }
+if (!['s3', 'api'].includes(opts.source)) throw new Error(`--source must be s3 or api, not ${opts.source}`)
+const S3 = opts.source === 's3'
+/** An archive request, answered by S3 (free) or the API (metered). */
+const fetchArchive = (params) => (S3 ? archive(params) : get(params))
+const archiveCost = (params) => (S3 ? 0 : weight(params))
 
 const catalog = await readCatalog()
 const queue = await readQueue()
@@ -71,8 +86,8 @@ function keepIndex(times) {
 const round = (v, dp) => (v === null || v === undefined ? null : Number(v.toFixed(dp)))
 
 async function fetchCity(city) {
-  const data = await get(REQ.daily(city, CITY_VARS.map((v) => v[0])))
-  const grid = await get(REQ.grid(city))
+  const data = await fetchArchive(REQ.daily(city, CITY_VARS.map((v) => v[0])))
+  const grid = await fetchArchive(REQ.grid(city))
   const keep = keepIndex(data.daily.time)
   const out = {
     id: city.id, startYear, years: endYear - startYear + 1,
@@ -90,7 +105,7 @@ async function fetchCity(city) {
 }
 
 async function fetchTerrain(id) {
-  const data = await get(REQ.terrain(terrainOf(id)))
+  const data = await fetchArchive(REQ.terrain(terrainOf(id)))
   const keep = keepIndex(data.daily.time)
   const depthIn = keep.map((i) => {
     const m = data.daily.snow_depth_max[i]
@@ -101,9 +116,9 @@ async function fetchTerrain(id) {
 
 // Hourly temperature (src/lib/hourly.ts), stored as base64 Int16 tenths of °F — ~230 KB per
 // city, loaded only when the panel opens. Only with --hourly: without a file, the app fetches
-// a city's hourly tier live the first time its panel opens, which saves ~261 calls a city here.
+// a city's hourly tier live the first time its panel opens, which keeps public/data small.
 async function fetchHourly(city) {
-  const t = buildHourly(await get(REQ.hourly(city)), endYear)
+  const t = buildHourly(await fetchArchive(REQ.hourly(city)), endYear)
   await writeFile(file('hourly', city.id), JSON.stringify({ id: city.id, startYear: t.startYear, years: t.years, timezone: t.timezone, temp10: Buffer.from(t.temp.buffer).toString('base64') }))
 }
 
@@ -112,7 +127,7 @@ async function fetchYtdSnapshot(city) {
   const raw = await fetchYtdRaw({
     year: endYear + 1, lat: city.lat, lon: city.lon,
     terrain: city.terrain.map(([id]) => ({ id, ...terrainOf(id) })),
-    fetchImpl: meteredFetch,
+    fetchImpl: S3 ? s3Fetch : meteredFetch,
   })
   await writeFile(file('ytd', city.id), JSON.stringify(raw))
 }
@@ -120,6 +135,7 @@ async function fetchYtdSnapshot(city) {
 /** What fetchYtdSnapshot will cost today: the city's daily variables plus one snow
  *  series per terrain point, Jan 1 → today. */
 function ytdCost(city) {
+  if (S3) return 0
   const start = `${endYear + 1}-01-01`
   const end = new Date().toISOString().slice(0, 10)
   const last = end < `${endYear + 1}-12-31` ? end : `${endYear + 1}-12-31`
@@ -138,16 +154,24 @@ async function ytdAge(city) {
   } catch { return Infinity }
 }
 
+/** --rebuild rewrites each archive file once per run; a terrain shared by several cities
+ *  isn't fetched again for each. */
+const rebuilt = new Set()
+async function needs(dir, id) {
+  if (opts.rebuild && !rebuilt.has(`${dir}/${id}`)) { rebuilt.add(`${dir}/${id}`); return true }
+  return !(await exists(file(dir, id)))
+}
+
 /** The files a city still needs, each with its cost in calls. */
 async function missing(city) {
   const steps = []
-  if (!(await exists(file('cities', city.id)))) {
-    steps.push({ what: city.id, cost: weight(REQ.daily(city, CITY_VARS.map((v) => v[0]))) + weight(REQ.grid(city)), run: () => fetchCity(city) })
+  if (await needs('cities', city.id)) {
+    steps.push({ what: city.id, cost: archiveCost(REQ.daily(city, CITY_VARS.map((v) => v[0]))) + archiveCost(REQ.grid(city)), run: () => fetchCity(city) })
   }
   for (const [tid] of city.terrain) {
-    if (!(await exists(file('terrain', tid)))) steps.push({ what: `terrain/${tid}`, cost: weight(REQ.terrain(terrainOf(tid))), run: () => fetchTerrain(tid) })
+    if (await needs('terrain', tid)) steps.push({ what: `terrain/${tid}`, cost: archiveCost(REQ.terrain(terrainOf(tid))), run: () => fetchTerrain(tid) })
   }
-  if (opts.hourly && !(await exists(file('hourly', city.id)))) steps.push({ what: `hourly/${city.id}`, cost: weight(REQ.hourly(city)), run: () => fetchHourly(city) })
+  if (opts.hourly && (await needs('hourly', city.id))) steps.push({ what: `hourly/${city.id}`, cost: archiveCost(REQ.hourly(city)), run: () => fetchHourly(city) })
   if (!(await exists(file('ytd', city.id)))) steps.push({ what: `ytd/${city.id}`, cost: ytdCost(city), run: () => fetchYtdSnapshot(city) })
   return steps
 }
@@ -160,7 +184,7 @@ async function aqCost(city) {
 }
 
 for (const dir of ['cities', 'terrain', 'hourly', 'aq', 'ytd']) await mkdir(join(OUT, dir), { recursive: true })
-console.log(`fetch-data ${new Date().toISOString()} · budget ${budget.limit} calls`)
+console.log(`fetch-data ${new Date().toISOString()} · weather from ${S3 ? 'S3' : 'the API'} · budget ${budget.limit} calls`)
 
 // A crash between the two writes of a promotion leaves a city in both files.
 if (queue && queue.cities.some((q) => catalog.cities.some((c) => c.id === q.id))) {
@@ -236,5 +260,5 @@ try {
   else { failed ??= e; console.error(`✗ air quality: ${e.message}`) }
 }
 await buildManifest()
-console.log(`${complete} of ${selected.length} cities complete · ${queue?.cities.length ?? 0} waiting in the queue · ~${Math.round(budget.spent)} calls spent`)
+console.log(`${complete} of ${selected.length} cities complete · ${queue?.cities.length ?? 0} waiting in the queue · ~${Math.round(budget.spent)} calls spent${S3 ? ` · ${(s3Stats.bytes / 1e6).toFixed(0)} MB from S3` : ''}`)
 if (failed) process.exit(1)
