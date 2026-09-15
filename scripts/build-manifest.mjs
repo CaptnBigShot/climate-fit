@@ -13,9 +13,13 @@ const MD = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 const REF_YEARS = 10
 
 const mean = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length
-const std = (xs) => { const m = mean(xs); return Math.sqrt(mean(xs.map((x) => (x - m) ** 2))) }
+const std = (xs) => {
+  const m = mean(xs)
+  return Math.sqrt(mean(xs.map((x) => (x - m) ** 2)))
+}
 const normalize = (vals) => {
-  const lo = Math.min(...vals), hi = Math.max(...vals)
+  const lo = Math.min(...vals),
+    hi = Math.max(...vals)
   return vals.map((v) => (hi === lo ? 50 : Math.round(((v - lo) / (hi - lo)) * 100)))
 }
 
@@ -51,9 +55,12 @@ export async function buildManifest() {
   const cities = {}
   rows.forEach((r, i) => {
     cities[r.id] = {
-      solarIdx: solar[i], seasonsIdx: seasons[i],
-      meanRadMJ: Number(r.meanRadMJ.toFixed(2)), seasonStdF: Number(r.seasonStd.toFixed(2)),
-      demElevM: r.demElevM, gridElevM: r.gridElevM,
+      solarIdx: solar[i],
+      seasonsIdx: seasons[i],
+      meanRadMJ: Number(r.meanRadMJ.toFixed(2)),
+      seasonStdF: Number(r.seasonStd.toFixed(2)),
+      demElevM: r.demElevM,
+      gridElevM: r.gridElevM,
     }
   })
   const terrain = Object.keys(catalog.terrain).filter((t) => terrainFiles.has(`${t}.json`))

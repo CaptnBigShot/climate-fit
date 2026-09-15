@@ -20,12 +20,22 @@ const PLIST = join(homedir(), 'Library', 'LaunchAgents', `${LABEL}.plist`)
 const LOG = join(ROOT, '.cache', 'nightly.log')
 const domain = `gui/${process.getuid()}`
 
-const { values: opts, positionals: [cmd] } = parseArgs({
+const {
+  values: opts,
+  positionals: [cmd],
+} = parseArgs({
   allowPositionals: true,
   options: { hour: { type: 'string', default: '3' }, budget: { type: 'string', default: String(DEFAULT_BUDGET) } },
 })
 const launchctl = (...args) => execFileSync('launchctl', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
-const loaded = () => { try { launchctl('print', `${domain}/${LABEL}`); return true } catch { return false } }
+const loaded = () => {
+  try {
+    launchctl('print', `${domain}/${LABEL}`)
+    return true
+  } catch {
+    return false
+  }
+}
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;')
 
 if (cmd === 'install') {
@@ -53,7 +63,9 @@ if (cmd === 'install') {
   if (loaded()) launchctl('bootout', `${domain}/${LABEL}`)
   await writeFile(PLIST, plist)
   launchctl('bootstrap', domain, PLIST)
-  console.log(`installed: fetch-data daily at ${String(hour).padStart(2, '0')}:00, budget ${opts.budget} calls, log ${LOG}`)
+  console.log(
+    `installed: fetch-data daily at ${String(hour).padStart(2, '0')}:00, budget ${opts.budget} calls, log ${LOG}`,
+  )
 } else if (cmd === 'uninstall') {
   if (loaded()) launchctl('bootout', `${domain}/${LABEL}`)
   await rm(PLIST, { force: true })
@@ -63,7 +75,9 @@ if (cmd === 'install') {
   else {
     const info = launchctl('print', `${domain}/${LABEL}`)
     const field = (k) => info.match(new RegExp(`${k} = (.*)`))?.[1]
-    console.log(`installed · state ${field('state') ?? '?'} · runs ${field('runs') ?? 0} · last exit ${field('last exit code') ?? '—'}`)
+    console.log(
+      `installed · state ${field('state') ?? '?'} · runs ${field('runs') ?? 0} · last exit ${field('last exit code') ?? '—'}`,
+    )
   }
   const log = await readFile(LOG, 'utf8').catch(() => '')
   if (log) console.log(`\n${log.trimEnd().split('\n').slice(-12).join('\n')}`)

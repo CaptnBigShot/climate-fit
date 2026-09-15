@@ -39,10 +39,14 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const OUT = join(ROOT, 'public', 'data')
 
 const { values: opts, positionals: only } = parseArgs({
-  allowPositionals: true, allowNegative: true,
+  allowPositionals: true,
+  allowNegative: true,
   options: {
-    budget: { type: 'string' }, 'refresh-ytd': { type: 'boolean' }, hourly: { type: 'boolean' },
-    rebuild: { type: 'boolean' }, source: { type: 'string', default: 's3' },
+    budget: { type: 'string' },
+    'refresh-ytd': { type: 'boolean' },
+    hourly: { type: 'boolean' },
+    rebuild: { type: 'boolean' },
+    source: { type: 'string', default: 's3' },
   },
 })
 if (opts.budget !== undefined) {
@@ -70,7 +74,11 @@ const REQ = archiveRequests(catalog.archive)
 // Open-Meteo name → our key, and decimals kept — shared with the live current-year fetch.
 const CITY_VARS = DAILY_VARS
 
-const exists = (p) => access(p).then(() => true, () => false)
+const exists = (p) =>
+  access(p).then(
+    () => true,
+    () => false,
+  )
 const file = (dir, id) => join(OUT, dir, `${id}.json`)
 const terrainOf = (tid) => {
   const t = catalog.terrain[tid] ?? queue?.terrain[tid]
@@ -82,7 +90,9 @@ const terrainOf = (tid) => {
 // day-of-year statistics assume a fixed 365-column year.
 function keepIndex(times) {
   const keep = []
-  times.forEach((t, i) => { if (!t.endsWith('-02-29')) keep.push(i) })
+  times.forEach((t, i) => {
+    if (!t.endsWith('-02-29')) keep.push(i)
+  })
   const expected = (endYear - startYear + 1) * 365
   if (keep.length !== expected) throw new Error(`expected ${expected} days, got ${keep.length}`)
   return keep
@@ -92,24 +102,44 @@ const round = (v, dp) => (v === null || v === undefined ? null : Number(v.toFixe
 
 /** Physical bounds every archived value must fall in (°F, inches, mph, MJ/m², hours). A gap
  *  or anything outside means a bad read, so the file is refused rather than written. */
-const BOUNDS = { high: [-90, 135], low: [-90, 135], dew: [-90, 135], cloud: [0, 100], precip: [0, 40], snow: [0, 100], wind: [0, 200], rad: [0, 45], sun: [0, 24] }
+const BOUNDS = {
+  high: [-90, 135],
+  low: [-90, 135],
+  dew: [-90, 135],
+  cloud: [0, 100],
+  precip: [0, 40],
+  snow: [0, 100],
+  wind: [0, 200],
+  rad: [0, 45],
+  sun: [0, 24],
+}
 function check(id, out) {
   for (const [key, [lo, hi]] of Object.entries(BOUNDS)) {
     const bad = out[key].findIndex((v) => v === null || !(v >= lo && v <= hi))
     if (bad >= 0) throw new Error(`${id}: ${key} day ${bad} is ${out[key][bad]}, outside ${lo}…${hi}`)
   }
   const bad = out.high.findIndex((h, i) => out.low[i] > h || out.dew[i] > h + 0.1)
-  if (bad >= 0) throw new Error(`${id}: day ${bad} has low ${out.low[bad]} / dew point ${out.dew[bad]} above high ${out.high[bad]}`)
+  if (bad >= 0)
+    throw new Error(`${id}: day ${bad} has low ${out.low[bad]} / dew point ${out.dew[bad]} above high ${out.high[bad]}`)
 }
 
 async function fetchCity(city) {
-  const data = await fetchArchive(REQ.daily(city, CITY_VARS.map((v) => v[0])))
+  const data = await fetchArchive(
+    REQ.daily(
+      city,
+      CITY_VARS.map((v) => v[0]),
+    ),
+  )
   const grid = await fetchArchive(REQ.grid(city))
   const keep = keepIndex(data.daily.time)
   const out = {
-    id: city.id, startYear, years: endYear - startYear + 1,
-    demElevM: data.elevation, gridElevM: grid.elevation,
-    gridLat: data.latitude, gridLon: data.longitude,
+    id: city.id,
+    startYear,
+    years: endYear - startYear + 1,
+    demElevM: data.elevation,
+    gridElevM: grid.elevation,
+    gridLat: data.latitude,
+    gridLon: data.longitude,
   }
   for (const [src, key, dp] of CITY_VARS) {
     const series = data.daily[src]
@@ -132,7 +162,10 @@ async function fetchTerrain(id) {
   // Glacier cells run to tens of metres of snow; nothing real goes negative or missing.
   const bad = depthIn.findIndex((v) => v === null || !(v >= 0 && v <= 3000))
   if (bad >= 0) throw new Error(`terrain/${id}: day ${bad} depth is ${depthIn[bad]}`)
-  await writeFile(file('terrain', id), JSON.stringify({ id, startYear, years: endYear - startYear + 1, depth: depthIn }))
+  await writeFile(
+    file('terrain', id),
+    JSON.stringify({ id, startYear, years: endYear - startYear + 1, depth: depthIn }),
+  )
 }
 
 // Hourly temperature (src/lib/hourly.ts), stored as base64 Int16 tenths of °F — ~230 KB per
@@ -145,13 +178,24 @@ async function fetchHourly(city) {
   const gap = data.hourly.temperature_2m.findIndex((v) => v === null || !(v >= -90 && v <= 135))
   if (gap >= 0) throw new Error(`hourly/${city.id}: ${data.hourly.time[gap]} is ${data.hourly.temperature_2m[gap]}`)
   const t = buildHourly(data, endYear)
-  await writeFile(file('hourly', city.id), JSON.stringify({ id: city.id, startYear: t.startYear, years: t.years, timezone: t.timezone, temp10: Buffer.from(t.temp.buffer).toString('base64') }))
+  await writeFile(
+    file('hourly', city.id),
+    JSON.stringify({
+      id: city.id,
+      startYear: t.startYear,
+      years: t.years,
+      timezone: t.timezone,
+      temp10: Buffer.from(t.temp.buffer).toString('base64'),
+    }),
+  )
 }
 
 // Current partial year: the app shows it while under a day old, else fetches live (and falls back to it).
 async function fetchYtdSnapshot(city) {
   const raw = await fetchYtdRaw({
-    year: endYear + 1, lat: city.lat, lon: city.lon,
+    year: endYear + 1,
+    lat: city.lat,
+    lon: city.lon,
     terrain: city.terrain.map(([id]) => ({ id, ...terrainOf(id) })),
     fetchImpl: S3 ? s3Fetch : meteredFetch,
   })
@@ -168,8 +212,10 @@ function ytdCost(city) {
   if (last < start) return 0
   const span = { start_date: start, end_date: last }
   const lats = city.terrain.map(([id]) => terrainOf(id).lat)
-  return weight({ latitude: city.lat, daily: CITY_VARS.map((v) => v[0]).join(','), ...span })
-    + (lats.length ? weight({ latitude: lats.join(','), daily: 'snow_depth_max', ...span }) : 0)
+  return (
+    weight({ latitude: city.lat, daily: CITY_VARS.map((v) => v[0]).join(','), ...span }) +
+    (lats.length ? weight({ latitude: lats.join(','), daily: 'snow_depth_max', ...span }) : 0)
+  )
 }
 
 /** Days since the snapshot was fetched; Infinity if there isn't a usable one. */
@@ -177,14 +223,19 @@ async function ytdAge(city) {
   try {
     const raw = JSON.parse(await readFile(file('ytd', city.id), 'utf8'))
     return raw.year === endYear + 1 ? (Date.now() - Date.parse(raw.fetchedAt)) / 86_400_000 : Infinity
-  } catch { return Infinity }
+  } catch {
+    return Infinity
+  }
 }
 
 /** --rebuild rewrites each archive file once per run; a terrain shared by several cities
  *  isn't fetched again for each. */
 const rebuilt = new Set()
 async function needs(dir, id) {
-  if (opts.rebuild && !rebuilt.has(`${dir}/${id}`)) { rebuilt.add(`${dir}/${id}`); return true }
+  if (opts.rebuild && !rebuilt.has(`${dir}/${id}`)) {
+    rebuilt.add(`${dir}/${id}`)
+    return true
+  }
   return !(await exists(file(dir, id)))
 }
 
@@ -192,13 +243,30 @@ async function needs(dir, id) {
 async function missing(city) {
   const steps = []
   if (await needs('cities', city.id)) {
-    steps.push({ what: city.id, cost: archiveCost(REQ.daily(city, CITY_VARS.map((v) => v[0]))) + archiveCost(REQ.grid(city)), run: () => fetchCity(city) })
+    steps.push({
+      what: city.id,
+      cost:
+        archiveCost(
+          REQ.daily(
+            city,
+            CITY_VARS.map((v) => v[0]),
+          ),
+        ) + archiveCost(REQ.grid(city)),
+      run: () => fetchCity(city),
+    })
   }
   for (const [tid] of city.terrain) {
-    if (await needs('terrain', tid)) steps.push({ what: `terrain/${tid}`, cost: archiveCost(REQ.terrain(terrainOf(tid))), run: () => fetchTerrain(tid) })
+    if (await needs('terrain', tid))
+      steps.push({
+        what: `terrain/${tid}`,
+        cost: archiveCost(REQ.terrain(terrainOf(tid))),
+        run: () => fetchTerrain(tid),
+      })
   }
-  if (HOURLY && (await needs('hourly', city.id))) steps.push({ what: `hourly/${city.id}`, cost: archiveCost(REQ.hourly(city)), run: () => fetchHourly(city) })
-  if (!(await exists(file('ytd', city.id)))) steps.push({ what: `ytd/${city.id}`, cost: ytdCost(city), run: () => fetchYtdSnapshot(city) })
+  if (HOURLY && (await needs('hourly', city.id)))
+    steps.push({ what: `hourly/${city.id}`, cost: archiveCost(REQ.hourly(city)), run: () => fetchHourly(city) })
+  if (!(await exists(file('ytd', city.id))))
+    steps.push({ what: `ytd/${city.id}`, cost: ytdCost(city), run: () => fetchYtdSnapshot(city) })
   return steps
 }
 
@@ -210,7 +278,9 @@ async function aqCost(city) {
 }
 
 for (const dir of ['cities', 'terrain', 'hourly', 'aq', 'ytd']) await mkdir(join(OUT, dir), { recursive: true })
-console.log(`fetch-data ${new Date().toISOString()} · weather from ${S3 ? 'S3' : 'the API'} · budget ${budget.limit} calls`)
+console.log(
+  `fetch-data ${new Date().toISOString()} · weather from ${S3 ? 'S3' : 'the API'} · budget ${budget.limit} calls`,
+)
 
 // A crash between the two writes of a promotion leaves a city in both files.
 if (queue && queue.cities.some((q) => catalog.cities.some((c) => c.id === q.id))) {
@@ -220,21 +290,30 @@ if (queue && queue.cities.some((q) => catalog.cities.some((c) => c.id === q.id))
 
 const queued = new Set((queue?.cities ?? []).map((c) => c.id))
 const selected = [...catalog.cities, ...(queue?.cities ?? [])].filter((c) => !only.length || only.includes(c.id))
-for (const id of only) if (!selected.some((c) => c.id === id)) console.warn(`? ${id} is in neither the catalogue nor the queue`)
+for (const id of only)
+  if (!selected.some((c) => c.id === id)) console.warn(`? ${id} is in neither the catalogue nor the queue`)
 
 // City by city, each with its terrain right after, so partial runs still leave
 // complete, usable cities behind.
-let failed = null, stoppedAt = null, complete = 0
+let failed = null,
+  stoppedAt = null,
+  complete = 0
 for (const city of selected) {
   const steps = await missing(city)
   const aq = await aqCost(city)
   const cost = steps.reduce((sum, s) => sum + s.cost, 0) + aq
-  if (cost > budgetLeft()) { stoppedAt = { city, cost }; break }
+  if (cost > budgetLeft()) {
+    stoppedAt = { city, cost }
+    break
+  }
   try {
     if (steps.length) console.log(`↓ ${city.id} · ${steps.map((s) => s.what).join(', ')} · ~${Math.round(cost)} calls`)
     for (const s of steps) await s.run()
   } catch (e) {
-    if (e instanceof BudgetExhausted) { stoppedAt = { city, cost }; break }
+    if (e instanceof BudgetExhausted) {
+      stoppedAt = { city, cost }
+      break
+    }
     failed = e
     console.error(`✗ ${city.id}: ${e.message}`)
     break
@@ -249,7 +328,9 @@ for (const city of selected) {
   complete++
 }
 if (stoppedAt) {
-  console.log(`budget: stopping before ${stoppedAt.city.id} (needs ~${Math.round(stoppedAt.cost)} calls, ~${Math.max(0, Math.round(budgetLeft()))} left); the next run carries on from there`)
+  console.log(
+    `budget: stopping before ${stoppedAt.city.id} (needs ~${Math.round(stoppedAt.cost)} calls, ~${Math.max(0, Math.round(budgetLeft()))} left); the next run carries on from there`,
+  )
 }
 
 // Refresh stale current-year snapshots, stalest first, with whatever budget is left.
@@ -269,7 +350,10 @@ if (!failed && !stoppedAt) {
       refreshed++
     }
   } catch (e) {
-    if (!(e instanceof BudgetExhausted)) { failed = e; console.error(`✗ ytd: ${e.message}`) }
+    if (!(e instanceof BudgetExhausted)) {
+      failed = e
+      console.error(`✗ ytd: ${e.message}`)
+    }
   }
   if (stale.length) console.log(`✓ ytd: ${refreshed} of ${stale.length} stale snapshots refreshed`)
 }
@@ -279,12 +363,18 @@ if (!failed && !stoppedAt) {
 budget.reserved = 0
 try {
   const ready = []
-  for (const c of catalog.cities) if ((!only.length || only.includes(c.id)) && (await exists(file('cities', c.id)))) ready.push(c)
+  for (const c of catalog.cities)
+    if ((!only.length || only.includes(c.id)) && (await exists(file('cities', c.id)))) ready.push(c)
   await fetchAirQuality(ready, { out: join(OUT, 'aq'), cache: join(ROOT, '.cache'), endYear, source: opts.source })
 } catch (e) {
   if (e instanceof BudgetExhausted) console.log(`air quality: ${e.message}; the rest next run`)
-  else { failed ??= e; console.error(`✗ air quality: ${e.message}`) }
+  else {
+    failed ??= e
+    console.error(`✗ air quality: ${e.message}`)
+  }
 }
 await buildManifest()
-console.log(`${complete} of ${selected.length} cities complete · ${queue?.cities.length ?? 0} waiting in the queue · ~${Math.round(budget.spent)} calls spent${S3 ? ` · ${(s3Stats.bytes / 1e6).toFixed(0)} MB from S3` : ''}`)
+console.log(
+  `${complete} of ${selected.length} cities complete · ${queue?.cities.length ?? 0} waiting in the queue · ~${Math.round(budget.spent)} calls spent${S3 ? ` · ${(s3Stats.bytes / 1e6).toFixed(0)} MB from S3` : ''}`,
+)
 if (failed) process.exit(1)

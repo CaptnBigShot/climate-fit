@@ -17,7 +17,12 @@ export const DAILY_VARS: [string, string, number][] = [
   ['sunshine_duration', 'sun', 1],
 ]
 
-export interface YtdTerrainRef { id: string; lat: number; lon: number; elevFt: number }
+export interface YtdTerrainRef {
+  id: string
+  lat: number
+  lon: number
+  elevFt: number
+}
 
 export interface YtdRaw {
   year: number
@@ -32,7 +37,8 @@ export interface YtdRaw {
 }
 
 const isoDay = (d: Date) => d.toISOString().slice(0, 10)
-const round = (v: number | null | undefined, dp: number) => (v === null || v === undefined ? null : Number(v.toFixed(dp)))
+const round = (v: number | null | undefined, dp: number) =>
+  v === null || v === undefined ? null : Number(v.toFixed(dp))
 
 /** Day-of-year index (0–364, Feb 29 → null) for an ISO date. */
 function doyOf(date: string): number | null {
@@ -45,22 +51,30 @@ function doyOf(date: string): number | null {
   return doy
 }
 
-interface OmResponse { utc_offset_seconds: number; daily: { time: string[]; [variable: string]: (number | null)[] | string[] } }
+interface OmResponse {
+  utc_offset_seconds: number
+  daily: { time: string[]; [variable: string]: (number | null)[] | string[] }
+}
 const series = (r: OmResponse, k: string) => r.daily[k] as (number | null)[]
 
 async function getJson(url: string, fetchImpl: typeof fetch): Promise<OmResponse | OmResponse[]> {
   const res = await fetchImpl(url)
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
+    const body = (await res.json().catch(() => ({}))) as { reason?: string }
     throw new Error(`${res.status} ${body.reason ?? res.statusText}`)
   }
-  return res.json()
+  return res.json() as Promise<OmResponse | OmResponse[]>
 }
 
 /** Fetch Jan 1 → yesterday of `year`, where "yesterday" is in the city's own time zone.
  *  Today is excluded — it isn't over — and so is anything the API returns past it. */
 export async function fetchYtdRaw(opts: {
-  year: number; lat: number; lon: number; terrain: YtdTerrainRef[]; now?: Date; fetchImpl?: typeof fetch
+  year: number
+  lat: number
+  lon: number
+  terrain: YtdTerrainRef[]
+  now?: Date
+  fetchImpl?: typeof fetch
 }): Promise<YtdRaw> {
   const f = opts.fetchImpl ?? fetch
   const now = opts.now ?? new Date()
@@ -73,9 +87,15 @@ export async function fetchYtdRaw(opts: {
   if (end < start) return out
 
   const q = new URLSearchParams({
-    latitude: String(opts.lat), longitude: String(opts.lon), start_date: start, end_date: end,
-    daily: DAILY_VARS.map((v) => v[0]).join(','), temperature_unit: 'fahrenheit', precipitation_unit: 'inch',
-    wind_speed_unit: 'mph', timezone: 'auto',
+    latitude: String(opts.lat),
+    longitude: String(opts.lon),
+    start_date: start,
+    end_date: end,
+    daily: DAILY_VARS.map((v) => v[0]).join(','),
+    temperature_unit: 'fahrenheit',
+    precipitation_unit: 'inch',
+    wind_speed_unit: 'mph',
+    timezone: 'auto',
   })
   const data = (await getJson(`${YTD_API}?${q}`, f)) as OmResponse
   const localToday = isoDay(new Date(now.getTime() + data.utc_offset_seconds * 1000))
@@ -94,27 +114,36 @@ export async function fetchYtdRaw(opts: {
   while (days <= last && daily.high[days] !== null && daily.low[days] !== null) days++
   for (const [, key] of DAILY_VARS) for (let d = days; d < 365; d++) daily[key][d] = null
   out.days = days
-  out.through = days ? data.daily.time.find((t) => doyOf(t) === days - 1) ?? null : null
+  out.through = days ? (data.daily.time.find((t) => doyOf(t) === days - 1) ?? null) : null
 
   if (opts.terrain.length) {
     // One request for every terrain point: Open-Meteo accepts comma-separated coordinates.
     const tq = new URLSearchParams({
-      latitude: opts.terrain.map((t) => t.lat).join(','), longitude: opts.terrain.map((t) => t.lon).join(','),
+      latitude: opts.terrain.map((t) => t.lat).join(','),
+      longitude: opts.terrain.map((t) => t.lon).join(','),
       elevation: opts.terrain.map((t) => Math.round(t.elevFt * 0.3048)).join(','),
-      models: 'era5_land', start_date: start, end_date: end, daily: 'snow_depth_max', timezone: 'auto',
+      models: 'era5_land',
+      start_date: start,
+      end_date: end,
+      daily: 'snow_depth_max',
+      timezone: 'auto',
     })
     const td = await getJson(`${YTD_API}?${tq}`, f)
     const list = Array.isArray(td) ? td : [td]
     opts.terrain.forEach((t, k) => {
-      const depth: (number | null)[] = new Array(365).fill(null)
+      const depth = new Array<number | null>(365).fill(null)
       let tl = -1
       list[k].daily.time.forEach((ts, i) => {
-        const d = doyOf(ts), m = series(list[k], 'snow_depth_max')[i]
+        const d = doyOf(ts),
+          m = series(list[k], 'snow_depth_max')[i]
         if (d === null || m === null || ts >= localToday) return
         depth[d] = Math.round(m * 39.37)
         tl = Math.max(tl, d)
       })
-      out.terrain[t.id] = { through: tl >= 0 ? list[k].daily.time.find((ts) => doyOf(ts) === tl) ?? null : null, depth }
+      out.terrain[t.id] = {
+        through: tl >= 0 ? (list[k].daily.time.find((ts) => doyOf(ts) === tl) ?? null) : null,
+        depth,
+      }
     })
   }
   return out

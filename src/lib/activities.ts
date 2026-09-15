@@ -8,7 +8,14 @@ import { units, type Units } from './units'
 export type LossReason = 0 | 1 | 2 | 3 | 4 | 5 // 0 viable · heat · cold · precip · wind/humidity · no snow
 export const LOSS_LABEL = ['viable', 'heat', 'cold', 'precip', 'wind / humidity', 'no snow in reach'] as const
 
-export interface DayInputs { hi: number; lo: number; dew: number; precip: number; wind: number; depth: number }
+export interface DayInputs {
+  hi: number
+  lo: number
+  dew: number
+  precip: number
+  wind: number
+  depth: number
+}
 
 /** Thresholds in °F / inches / mph. null = not a constraint for this activity. */
 export interface Limits {
@@ -48,17 +55,29 @@ function tester(l: Limits) {
 }
 
 type Fmt = Pick<Units, 't' | 'tu' | 'len' | 'speed' | 'depth'>
-export interface RuleParts { temp: string; precip: string; wind: string; other: string }
+export interface RuleParts {
+  temp: string
+  precip: string
+  wind: string
+  other: string
+}
 
 /** The thresholds split into the Data & Methods columns, in the caller's units. */
 export function ruleParts(l: Limits, u: Fmt): RuleParts {
-  const temp = l.hiMin !== null && l.hiMax !== null ? `daily high ${u.t(l.hiMin)}–${u.t(l.hiMax)}${u.tu}`
-    : l.hiMin !== null ? `daily high ≥ ${u.t(l.hiMin)}${u.tu}`
-    : l.hiMax !== null ? `daily high ≤ ${u.t(l.hiMax)}${u.tu}` : '—'
+  const temp =
+    l.hiMin !== null && l.hiMax !== null
+      ? `daily high ${u.t(l.hiMin)}–${u.t(l.hiMax)}${u.tu}`
+      : l.hiMin !== null
+        ? `daily high ≥ ${u.t(l.hiMin)}${u.tu}`
+        : l.hiMax !== null
+          ? `daily high ≤ ${u.t(l.hiMax)}${u.tu}`
+          : '—'
   const other = [
     l.dewBelow !== null ? `dew pt < ${u.t(l.dewBelow)}${u.tu}` : null,
     l.depthMin !== null ? `snow depth ≥ ${u.depth(l.depthMin)} at the reference terrain` : null,
-  ].filter(Boolean).join(' · ')
+  ]
+    .filter(Boolean)
+    .join(' · ')
   return {
     temp,
     precip: l.precipBelow !== null ? `< ${u.len(l.precipBelow)}` : '—',
@@ -70,7 +89,8 @@ export function ruleParts(l: Limits, u: Fmt): RuleParts {
 export function rulesText(l: Limits, u: Fmt): string {
   const r = ruleParts(l, u)
   return [r.temp, r.other, r.precip !== '—' ? `precip ${r.precip}` : null, r.wind !== '—' ? `max wind ${r.wind}` : null]
-    .filter((x) => x && x !== '—').join(' · ')
+    .filter((x) => x && x !== '—')
+    .join(' · ')
 }
 
 export const RIDE_DEPTH_IN = 18
@@ -83,12 +103,24 @@ function preset(id: ActivityId, name: string, why: string, limits: Partial<Limit
 }
 
 export const ACTIVITIES: Activity[] = [
-  preset('walk', 'Walk / be outside', 'The floor case — is being outdoors viable at all. Carries the zero-input rankings.',
-    { hiMin: 32, hiMax: 70, dewBelow: 55, precipBelow: 0.4 }),
-  preset('run', 'Running / cycling', 'Sustained effort makes heat, so the band sits cooler; dew point is the real limiter.',
-    { hiMin: 10, hiMax: 64, dewBelow: 55, precipBelow: 0.2, windBelow: 20 }),
-  preset('ride', 'Snowboard / ski', 'Snow on the ground somewhere reachable. Depth is measured at the resolved reference terrain; the temperature is the city’s.',
-    { hiMin: 0, depthMin: RIDE_DEPTH_IN }),
+  preset(
+    'walk',
+    'Walk / be outside',
+    'The floor case — is being outdoors viable at all. Carries the zero-input rankings.',
+    { hiMin: 32, hiMax: 70, dewBelow: 55, precipBelow: 0.4 },
+  ),
+  preset(
+    'run',
+    'Running / cycling',
+    'Sustained effort makes heat, so the band sits cooler; dew point is the real limiter.',
+    { hiMin: 10, hiMax: 64, dewBelow: 55, precipBelow: 0.2, windBelow: 20 },
+  ),
+  preset(
+    'ride',
+    'Snowboard / ski',
+    'Snow on the ground somewhere reachable. Depth is measured at the resolved reference terrain; the temperature is the city’s.',
+    { hiMin: 0, depthMin: RIDE_DEPTH_IN },
+  ),
 ]
 
 /** Outdoor season: the longest run of days on which walking is viable in at least

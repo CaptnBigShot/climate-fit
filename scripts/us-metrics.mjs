@@ -18,7 +18,8 @@ import { reach } from './fit-score.mjs'
 const TECH_NAICS = ['5132', '5182', '5192', '5415']
 const QCEW_YEAR = 2024
 const GAZ = 'https://www2.census.gov/geo/docs/maps-data/data/gazetteer/2023_Gazetteer'
-const ACS = 'https://www2.census.gov/programs-surveys/acs/summary_file/2023/table-based-SF/data/5YRData/acsdt5y2023-b08301.dat'
+const ACS =
+  'https://www2.census.gov/programs-surveys/acs/summary_file/2023/table-based-SF/data/5YRData/acsdt5y2023-b08301.dat'
 const CBSA = 'https://data.nber.org/cbsa-csa-fips-county-crosswalk/2023/cbsa2fipsxw_2023.csv'
 /** How a Gazetteer place name continues after the city's own name ("Boise City city", "Nashville-Davidson metropolitan government (balance)"). */
 const NAME_TAIL = /^([\s/-]|$)/
@@ -31,20 +32,31 @@ export async function loadUsMetrics(download, km) {
     const zip = await download(`gaz_${kind}.zip`, `${GAZ}/2023_Gaz_${kind}_national.zip`)
     const txt = join(dirname(zip), `2023_Gaz_${kind}_national.txt`)
     execFileSync('unzip', ['-o', '-q', zip, '-d', dirname(zip)])
-    const [head, ...rows] = (await readFile(txt, 'utf8')).trim().split('\n').map((l) => l.split('\t').map((f) => f.trim()))
+    const [head, ...rows] = (await readFile(txt, 'utf8'))
+      .trim()
+      .split('\n')
+      .map((l) => l.split('\t').map((f) => f.trim()))
     return rows.map((r) => Object.fromEntries(head.map((h, i) => [h, r[i]])))
   }
 
   const countyRows = await gazetteer('counties')
-  const counties = new Map(countyRows.map((c) => [c.GEOID, { lat: Number(c.INTPTLAT), lon: Number(c.INTPTLONG), jobs: 0 }]))
+  const counties = new Map(
+    countyRows.map((c) => [c.GEOID, { lat: Number(c.INTPTLAT), lon: Number(c.INTPTLONG), jobs: 0 }]),
+  )
   const stateFips = new Map(countyRows.map((c) => [c.USPS, c.GEOID.slice(0, 2)]))
   const metroOfCounty = new Map()
-  const [cbsaHead, ...cbsaRows] = (await readFile(await download('cbsa2fips.csv', CBSA), 'utf8')).trim().split('\n').map((l) => l.split(',').map((f) => f.replaceAll('"', '')))
+  const [cbsaHead, ...cbsaRows] = (await readFile(await download('cbsa2fips.csv', CBSA), 'utf8'))
+    .trim()
+    .split('\n')
+    .map((l) => l.split(',').map((f) => f.replaceAll('"', '')))
   const col = Object.fromEntries(cbsaHead.map((h, i) => [h, i]))
   // Titles contain commas ("Seattle-Tacoma-Bellevue, WA"), which the plain split breaks; only codes are read.
   for (const r of cbsaRows) metroOfCounty.set(r.at(-2), r[col.cbsacode])
   for (const naics of TECH_NAICS) {
-    const csv = await readFile(await download(`qcew_${naics}.csv`, `https://data.bls.gov/cew/data/api/${QCEW_YEAR}/a/industry/${naics}.csv`), 'utf8')
+    const csv = await readFile(
+      await download(`qcew_${naics}.csv`, `https://data.bls.gov/cew/data/api/${QCEW_YEAR}/a/industry/${naics}.csv`),
+      'utf8',
+    )
     for (const line of csv.split('\n').slice(1)) {
       const f = line.split(',').map((x) => x.replaceAll('"', ''))
       // Private ownership, county rows (5-digit FIPS); suppressed cells report 0.
@@ -61,9 +73,15 @@ export async function loadUsMetrics(download, km) {
   }
   const commute = new Map()
   let cols = null
-  for await (const line of createInterface({ input: createReadStream(await download('acs_b08301.dat', ACS)), crlfDelay: Infinity })) {
+  for await (const line of createInterface({
+    input: createReadStream(await download('acs_b08301.dat', ACS)),
+    crlfDelay: Infinity,
+  })) {
     const f = line.split('|')
-    if (!cols) { cols = Object.fromEntries(f.map((h, i) => [h, i])); continue }
+    if (!cols) {
+      cols = Object.fromEntries(f.map((h, i) => [h, i]))
+      continue
+    }
     if (!f[0].startsWith('1600000US')) continue
     const n = (k) => Number(f[cols[`B08301_E0${k}`]])
     const commuters = n('01') - n('21')
@@ -84,7 +102,9 @@ export async function loadUsMetrics(download, km) {
     activeCommute: (p, code) => {
       const inState = (places.get(code) ?? []).filter((q) => commute.has(q.geoid))
       const names = [p.name, p.ascii].map((s) => s.toLowerCase())
-      const named = inState.filter((q) => names.some((n) => q.name.startsWith(n) && NAME_TAIL.test(q.name.slice(n.length))) && km(p, q) < NAME_KM)
+      const named = inState.filter(
+        (q) => names.some((n) => q.name.startsWith(n) && NAME_TAIL.test(q.name.slice(n.length))) && km(p, q) < NAME_KM,
+      )
       const near = (qs) => qs.reduce((b, q) => (!b || km(p, q) < km(p, b) ? q : b), null)
       const match = near(named) ?? near(inState.filter((q) => km(p, q) < 5))
       return match ? { share: commute.get(match.geoid), place: match.name } : null

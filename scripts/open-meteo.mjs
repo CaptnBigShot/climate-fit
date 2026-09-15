@@ -19,9 +19,8 @@ const count = (v) => (v === undefined || v === '' ? 0 : String(v).split(',').len
  *  variables is ~913 calls. https://open-meteo.com/en/pricing */
 export function weight(params) {
   const vars = count(params.daily) + count(params.hourly) + count(params.current)
-  const days = params.start_date && params.end_date
-    ? (Date.parse(params.end_date) - Date.parse(params.start_date)) / DAY + 1
-    : 1
+  const days =
+    params.start_date && params.end_date ? (Date.parse(params.end_date) - Date.parse(params.start_date)) / DAY + 1 : 1
   return count(params.latitude) * Math.max(1, vars / 10) * Math.max(1, days / 14)
 }
 
@@ -68,20 +67,30 @@ async function request(url) {
 /** The archive requests fetch-data makes, as parameters — so a run can price a city
  *  before starting it, and the catalogue builder can price its queue. */
 export function archiveRequests({ startYear, endYear }) {
-  const start = `${startYear}-01-01`, end = `${endYear}-12-31`
+  const start = `${startYear}-01-01`,
+    end = `${endYear}-12-31`
   const at = (p) => ({ latitude: p.lat, longitude: p.lon, timezone: 'auto' })
   return {
     daily: (city, vars) => ({
-      ...at(city), start_date: start, end_date: end, daily: vars.join(','),
-      temperature_unit: 'fahrenheit', precipitation_unit: 'inch', wind_speed_unit: 'mph',
+      ...at(city),
+      start_date: start,
+      end_date: end,
+      daily: vars.join(','),
+      temperature_unit: 'fahrenheit',
+      precipitation_unit: 'inch',
+      wind_speed_unit: 'mph',
     }),
     // elevation=nan disables downscaling, so the response reports the raw grid-cell height.
     grid: (city) => ({ ...at(city), start_date: end, end_date: end, daily: 'temperature_2m_max', elevation: 'nan' }),
     // ERA5-Land (~9 km) resolves mountain snowpack far better than ERA5 (~25 km);
     // elevation is set to the reference elevation so the series is downscaled to it.
     terrain: (t) => ({
-      ...at(t), elevation: String(Math.round(t.elevFt * 0.3048)),
-      models: 'era5_land', start_date: start, end_date: end, daily: 'snow_depth_max',
+      ...at(t),
+      elevation: String(Math.round(t.elevFt * 0.3048)),
+      models: 'era5_land',
+      start_date: start,
+      end_date: end,
+      daily: 'snow_depth_max',
     }),
     hourly: (city) => hourlyParams(city.lat, city.lon, endYear),
   }

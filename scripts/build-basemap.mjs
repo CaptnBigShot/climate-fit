@@ -21,7 +21,8 @@ for (const f of geo.features) {
   for (const poly of polys) for (const ring of poly) rings.push(ring)
 }
 
-let d = '', points = 0
+let d = '',
+  points = 0
 for (const ring of rings) {
   const pts = []
   for (const [lon, lat] of ring) {
@@ -32,12 +33,21 @@ for (const ring of rings) {
   if (pts.length < 4) continue
   d += `M${pts[0][0]} ${pts[0][1]}l`
   for (let i = 1; i < pts.length; i++) {
-    const dx = pts[i][0] - pts[i - 1][0], dy = pts[i][1] - pts[i - 1][1]
+    const dx = pts[i][0] - pts[i - 1][0],
+      dy = pts[i][1] - pts[i - 1][1]
     d += `${i > 1 && dx >= 0 ? ' ' : ''}${dx}${dy >= 0 ? ' ' : ''}${dy}`
   }
   d += 'z'
   points += pts.length
 }
 
-await writeFile(OUT, JSON.stringify({ source: 'Natural Earth 1:110m land, public domain', units: `1/${K} degree; x = lon, y = -lat`, scale: K, d }))
+await writeFile(
+  OUT,
+  JSON.stringify({
+    source: 'Natural Earth 1:110m land, public domain',
+    units: `1/${K} degree; x = lon, y = -lat`,
+    scale: K,
+    d,
+  }),
+)
 console.log(`basemap: ${rings.length} rings, ${points} points, ${(d.length / 1024).toFixed(1)} KB → ${OUT}`)

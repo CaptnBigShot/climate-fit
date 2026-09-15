@@ -1,27 +1,56 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { SERIES_KEYS, cityById, type CitySeries, type TerrainSeries } from './data'
+import { SERIES_KEYS, cityById, type CityFile, type CitySeries, type TerrainFile, type TerrainSeries } from './data'
 import { ACTIVITIES, ruleParts, type DayInputs } from './activities'
 import { activities } from './aggregate'
 import { DEFAULT_PREFS, EXAMPLE_STATE, lookbackWindow, type Prefs } from './prefs'
 import { units } from './units'
 import { climateOf, fitOf, outdoorOf } from './model'
-import { DEFAULT_DISCOVER, FALLBACK_COMF, REGIONS, climateDistance, decodeDiscover, encodeDiscover, likeBut, matchPct, rank, shiftClimate, type Candidate, type DiscoverQuery } from './discover'
+import {
+  DEFAULT_DISCOVER,
+  FALLBACK_COMF,
+  REGIONS,
+  climateDistance,
+  decodeDiscover,
+  encodeDiscover,
+  likeBut,
+  matchPct,
+  rank,
+  shiftClimate,
+  type Candidate,
+  type DiscoverQuery,
+} from './discover'
 import { MAX_COMPARE, PIVOT, pivot, toggleCompare } from './compare'
 import { decodeSession, encodeSession, sessionSearch, type Session } from './session'
 
-const json = (path: string) => JSON.parse(readFileSync(new URL(`../../public/data/${path}`, import.meta.url), 'utf8'))
+const json = <T>(path: string) =>
+  JSON.parse(readFileSync(new URL(`../../public/data/${path}`, import.meta.url), 'utf8')) as T
 const f32 = (xs: (number | null)[]) => Float32Array.from(xs, (v) => (v === null ? NaN : v))
 function loadSeries(id: string): CitySeries {
-  const raw = json(`cities/${id}.json`)
-  for (const k of SERIES_KEYS) raw[k] = f32(raw[k])
-  return raw
+  const raw = json<CityFile>(`cities/${id}.json`)
+  const out: Record<string, unknown> = { ...raw }
+  for (const k of SERIES_KEYS) out[k] = f32(raw[k])
+  return out as unknown as CitySeries
 }
-const loadTerrain = (id: string): TerrainSeries => { const t = json(`terrain/${id}.json`); return { ...t, depth: f32(t.depth) } }
+const loadTerrain = (id: string): TerrainSeries => {
+  const t = json<TerrainFile>(`terrain/${id}.json`)
+  return { ...t, depth: f32(t.depth) }
+}
 
 // The spec's ten seed cities. The assertions below are about these (which pass a filter,
 // who neighbours whom), so cities added to the catalogue later don't move them.
-const SEED = ['tacoma', 'denver', 'bellingham', 'lynnwood', 'calgary', 'prague', 'wellington', 'phoenix', 'miami', 'reykjavik']
+const SEED = [
+  'tacoma',
+  'denver',
+  'bellingham',
+  'lynnwood',
+  'calgary',
+  'prague',
+  'wellington',
+  'phoenix',
+  'miami',
+  'reykjavik',
+]
 const CITIES = SEED.map((id) => cityById(id)!)
 const series = Object.fromEntries(CITIES.map((c) => [c.id, loadSeries(c.id)]))
 const terrains: Record<string, TerrainSeries> = {}
@@ -30,7 +59,11 @@ const example: Prefs = { ...structuredClone(DEFAULT_PREFS), ...structuredClone(E
 const w = lookbackWindow(10)
 
 function candidates(p: Prefs): Candidate[] {
-  return CITIES.map((city) => ({ city, b: fitOf(series[city.id], p)?.b ?? null, act: outdoorOf(city, series[city.id], terrains, p.window, p.acts, p.drive).act }))
+  return CITIES.map((city) => ({
+    city,
+    b: fitOf(series[city.id], p)?.b ?? null,
+    act: outdoorOf(city, series[city.id], terrains, p.window, p.acts, p.drive).act,
+  }))
 }
 
 describe('activity presets', () => {
@@ -44,9 +77,17 @@ describe('activity presets', () => {
 
   it('give the same loss reason as the hand-written tests on every real day', () => {
     for (const id of ['tacoma', 'denver', 'miami', 'reykjavik']) {
-      const s = series[id], t = terrains[cityById(id)!.terrain[0]?.[0] ?? ''] ?? null
+      const s = series[id],
+        t = terrains[cityById(id)!.terrain[0]?.[0] ?? ''] ?? null
       for (let j = 0; j < s.high.length; j++) {
-        const d = { hi: s.high[j], lo: s.low[j], dew: s.dew[j], precip: s.precip[j], wind: s.wind[j], depth: t ? t.depth[j] : NaN }
+        const d = {
+          hi: s.high[j],
+          lo: s.low[j],
+          dew: s.dew[j],
+          precip: s.precip[j],
+          wind: s.wind[j],
+          depth: t ? t.depth[j] : NaN,
+        }
         for (const a of ACTIVITIES) expect(a.test(d)).toBe(legacy[a.id](d))
       }
     }
@@ -78,7 +119,11 @@ describe('discover', () => {
   })
 
   it('falls back to fewest unbearable when no city reaches the comfortable-day floor', () => {
-    const strict: Prefs = { ...example, strict: 'strict', temp: { hardMin: null, idealMin: 20, idealMax: 24, hardMax: 30 } }
+    const strict: Prefs = {
+      ...example,
+      strict: 'strict',
+      temp: { hardMin: null, idealMin: 20, idealMax: 24, hardMax: 30 },
+    }
     const r = rank(candidates(strict), DEFAULT_DISCOVER, 2)
     expect(Math.max(...r.rows.map((x) => x.c.b!.counts[0]))).toBeLessThan(FALLBACK_COMF)
     expect(r.fallback).toBe(true)
@@ -120,11 +165,24 @@ describe('discover', () => {
     expect(climateDistance(target, target)).toBe(0)
     expect(matchPct(0)).toBe(100)
     // Its nearest neighbours in climate space are its Puget Sound neighbours.
-    expect(likeBut('tacoma', 'cooler', { ...climates, tacoma: { ...climates.tacoma, hi: climates.tacoma.hi + 12 } }, 2).map((x) => x.id).sort()).toEqual(['bellingham', 'lynnwood'])
+    expect(
+      likeBut('tacoma', 'cooler', { ...climates, tacoma: { ...climates.tacoma, hi: climates.tacoma.hi + 12 } }, 2)
+        .map((x) => x.id)
+        .sort(),
+    ).toEqual(['bellingham', 'lynnwood'])
   })
 
   it('round-trips its query through the URL', () => {
-    const q: DiscoverQuery = { rank: 'outdoor', sort: 'trend', region: REGIONS[0].slug, pop: 'small', snow: true, coast: 'coastal', like: 'denver', but: 'drier' }
+    const q: DiscoverQuery = {
+      rank: 'outdoor',
+      sort: 'trend',
+      region: REGIONS[0].slug,
+      pop: 'small',
+      snow: true,
+      coast: 'coastal',
+      like: 'denver',
+      but: 'drier',
+    }
     const u = new URLSearchParams()
     encodeDiscover(q, u)
     expect(decodeDiscover(u)).toEqual(q)
@@ -165,7 +223,13 @@ describe('compare', () => {
 
 describe('session URL', () => {
   it('round-trips screen, compare set and discover query alongside the preferences', () => {
-    const s: Session = { city: 'denver', prefs: example, cmp: ['tacoma', 'prague'], view: 'compare', disc: { ...DEFAULT_DISCOVER, rank: 'outdoor', like: 'miami' } }
+    const s: Session = {
+      city: 'denver',
+      prefs: example,
+      cmp: ['tacoma', 'prague'],
+      view: 'compare',
+      disc: { ...DEFAULT_DISCOVER, rank: 'outdoor', like: 'miami' },
+    }
     expect(decodeSession(new URLSearchParams(sessionSearch(s)))).toEqual(s)
   })
 

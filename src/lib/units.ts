@@ -23,7 +23,10 @@ export function units(metric: boolean): Units {
     metric,
     tu: metric ? '°C' : '°F',
     t: (f, dp = 0) => (metric ? c(f) : f).toFixed(dp).replace(/^-0$/, '0'),
-    dt: (f, dp = 1) => { const v = metric ? (f * 5) / 9 : f; return (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(dp) },
+    dt: (f, dp = 1) => {
+      const v = metric ? (f * 5) / 9 : f
+      return (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(dp)
+    },
     len: (i, dp) => (metric ? `${(i * 25.4).toFixed(dp ?? 0)} mm` : `${i.toFixed(dp ?? 2)}"`),
     depth: (i) => (metric ? `${Math.round(i * 2.54)} cm` : `${Math.round(i)}"`),
     elev: (ft) => (metric ? `${Math.round(ft * 0.3048).toLocaleString()} m` : `${Math.round(ft).toLocaleString()} ft`),

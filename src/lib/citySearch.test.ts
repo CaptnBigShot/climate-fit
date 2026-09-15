@@ -30,16 +30,33 @@ describe('city search', () => {
     const r = searchCities('wa')
     expect(r[0].name.toLowerCase().startsWith('wa')).toBe(true)
     expect(r.map((c) => c.id)).toContain('tacoma') // code WA
-    const firstCodeOnly = r.findIndex((c) => !c.name.toLowerCase().split(/\W+/).some((w) => w.startsWith('wa')))
-    expect(r.slice(0, firstCodeOnly).every((c) => c.name.toLowerCase().split(/\W+/).some((w) => w.startsWith('wa')))).toBe(true)
+    const firstCodeOnly = r.findIndex(
+      (c) =>
+        !c.name
+          .toLowerCase()
+          .split(/\W+/)
+          .some((w) => w.startsWith('wa')),
+    )
+    expect(
+      r.slice(0, firstCodeOnly).every((c) =>
+        c.name
+          .toLowerCase()
+          .split(/\W+/)
+          .some((w) => w.startsWith('wa')),
+      ),
+    ).toBe(true)
   })
 
   it('matches inside a name from three letters, never on shorter fragments', () => {
     expect(ids('ville')).toEqual(expect.arrayContaining(['asheville']))
-    expect(ids('ll').every((id) => {
-      const c = CITIES.find((x) => x.id === id)!
-      return fold(`${c.name} ${c.code} ${c.region}`).split(/[^\p{L}\p{N}]+/u).some((w) => w.startsWith('ll'))
-    })).toBe(true)
+    expect(
+      ids('ll').every((id) => {
+        const c = CITIES.find((x) => x.id === id)!
+        return fold(`${c.name} ${c.code} ${c.region}`)
+          .split(/[^\p{L}\p{N}]+/u)
+          .some((w) => w.startsWith('ll'))
+      }),
+    ).toBe(true)
   })
 
   it('drops excluded cities and returns nothing for a miss', () => {

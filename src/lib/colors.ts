@@ -33,8 +33,10 @@ const CRAMP_RGB = CRAMP.map(hex)
 
 function lerpRamp(ramp: number[][], t01: number): string {
   const t = Math.max(0, Math.min(1, t01)) * (ramp.length - 1)
-  const i = Math.min(ramp.length - 2, Math.floor(t)), f = t - i
-  const a = ramp[i], b = ramp[i + 1]
+  const i = Math.min(ramp.length - 2, Math.floor(t)),
+    f = t - i
+  const a = ramp[i],
+    b = ramp[i + 1]
   return `rgb(${a.map((v, k) => Math.round(v + (b[k] - v) * f)).join(',')})`
 }
 

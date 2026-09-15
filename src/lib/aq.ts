@@ -32,14 +32,44 @@ export interface PollutantMeta {
  *  low because fresh traffic exhaust destroys ozone at street level. The rest are local,
  *  so they take the nearest. */
 export const POLLUTANTS: PollutantMeta[] = [
-  { key: 'o3', label: 'Ozone', epa: '44201', cams: 'us_aqi_ozone', epaPick: 'highest', at100: '70 ppb (8-hour mean)',
-    about: 'A gas formed in sunlight from vehicle, industry and oil-and-gas emissions (and wildfire smoke), so it peaks on hot, still summer afternoons.' },
-  { key: 'pm25', label: 'PM2.5', epa: '88101', cams: 'us_aqi_pm2_5', epaPick: 'nearest', at100: '35.4 µg/m³ (24-hour mean)',
-    about: 'Fine particles. Wildfire smoke in summer; wood- and coal-heating smog trapped under winter inversions; traffic, industry, dust, fireworks.' },
-  { key: 'pm10', label: 'PM10', epa: '81102', cams: 'us_aqi_pm10', epaPick: 'nearest', at100: '154 µg/m³ (24-hour mean)',
-    about: 'Coarse particles, mostly dust: desert dust storms, construction, unpaved and sanded roads.' },
-  { key: 'no2', label: 'NO₂', epa: '42602', cams: 'us_aqi_nitrogen_dioxide', epaPick: 'nearest', at100: '100 ppb (1-hour peak)',
-    about: 'Nitrogen dioxide, mostly from traffic exhaust; highest near busy roads.' },
+  {
+    key: 'o3',
+    label: 'Ozone',
+    epa: '44201',
+    cams: 'us_aqi_ozone',
+    epaPick: 'highest',
+    at100: '70 ppb (8-hour mean)',
+    about:
+      'A gas formed in sunlight from vehicle, industry and oil-and-gas emissions (and wildfire smoke), so it peaks on hot, still summer afternoons.',
+  },
+  {
+    key: 'pm25',
+    label: 'PM2.5',
+    epa: '88101',
+    cams: 'us_aqi_pm2_5',
+    epaPick: 'nearest',
+    at100: '35.4 µg/m³ (24-hour mean)',
+    about:
+      'Fine particles. Wildfire smoke in summer; wood- and coal-heating smog trapped under winter inversions; traffic, industry, dust, fireworks.',
+  },
+  {
+    key: 'pm10',
+    label: 'PM10',
+    epa: '81102',
+    cams: 'us_aqi_pm10',
+    epaPick: 'nearest',
+    at100: '154 µg/m³ (24-hour mean)',
+    about: 'Coarse particles, mostly dust: desert dust storms, construction, unpaved and sanded roads.',
+  },
+  {
+    key: 'no2',
+    label: 'NO₂',
+    epa: '42602',
+    cams: 'us_aqi_nitrogen_dioxide',
+    epaPick: 'nearest',
+    at100: '100 ppb (1-hour peak)',
+    about: 'Nitrogen dioxide, mostly from traffic exhaust; highest near busy roads.',
+  },
 ]
 
 /** EPA category edges. A day counts at a level when its AQI is strictly above it. */
@@ -66,7 +96,12 @@ export const AQ_SOURCE_LABEL: Record<AqSource, string> = {
   cams_europe: 'CAMS Europe model · ~10 km grid',
 }
 
-export interface AqSite { id: string; name: string; km: number; days: number }
+export interface AqSite {
+  id: string
+  name: string
+  km: number
+  days: number
+}
 
 /** One value per calendar day from `start` to `end` inclusive (Feb 29 kept — this tier
  *  is not on the weather archive's 365-day grid). */
@@ -94,7 +129,9 @@ export interface AqRow {
 
 export interface AqStats {
   source: AqSource
-  from: string; to: string; years: number
+  from: string
+  to: string
+  years: number
   /** 'any' first (the day's AQI: the worst pollutant), then each measured pollutant. */
   rows: AqRow[]
   /** Days per year above AQI_TRACKED, by month, split by the pollutant that set the day's AQI. */
@@ -112,12 +149,16 @@ const iso = (t: number) => new Date(t).toISOString().slice(0, 10)
 /** Counts over the lookback window, clipped to the record. Null when they don't overlap. */
 export function aqStats(aq: AqSeries, w: Window): AqStats | null {
   const t0 = ms(aq.start)
-  const from = Math.max(t0, ms(`${w.from}-01-01`)), to = Math.min(ms(aq.end), ms(`${w.to}-12-31`))
+  const from = Math.max(t0, ms(`${w.from}-01-01`)),
+    to = Math.min(ms(aq.end), ms(`${w.to}-12-31`))
   if (from > to) return null
-  const i0 = (from - t0) / DAY, n = (to - from) / DAY + 1, years = n / 365.25
+  const i0 = (from - t0) / DAY,
+    n = (to - from) / DAY + 1,
+    years = n / 365.25
   const measured = POLLUTANTS.filter((p) => aq.aqi[p.key])
   const counts = new Map<AqRow['key'], { above: number[]; seen: number }>(
-    ['any' as const, ...measured.map((p) => p.key)].map((k) => [k, { above: AQI_LEVELS.map(() => 0), seen: 0 }]))
+    ['any' as const, ...measured.map((p) => p.key)].map((k) => [k, { above: AQI_LEVELS.map(() => 0), seen: 0 }]),
+  )
   const months = { o3: new Array(12).fill(0), pm25: new Array(12).fill(0), other: new Array(12).fill(0) }
   const yearDays = new Map<number, { days: number; bad: number }>()
   let worst: AqStats['worst'] = null
@@ -125,16 +166,23 @@ export function aqStats(aq: AqSeries, w: Window): AqStats | null {
   const tally = (key: AqRow['key'], v: number) => {
     const c = counts.get(key)!
     c.seen++
-    AQI_LEVELS.forEach((l, k) => { if (v > l.at) c.above[k]++ })
+    AQI_LEVELS.forEach((l, k) => {
+      if (v > l.at) c.above[k]++
+    })
   }
   for (let d = 0; d < n; d++) {
-    const i = i0 + d, date = new Date(from + d * DAY)
-    let top = -1, by: Pollutant = 'o3'
+    const i = i0 + d,
+      date = new Date(from + d * DAY)
+    let top = -1,
+      by: Pollutant = 'o3'
     for (const p of measured) {
       const v = aq.aqi[p.key]![i]
       if (v === null) continue
       tally(p.key, v)
-      if (v > top) { top = v; by = p.key }
+      if (v > top) {
+        top = v
+        by = p.key
+      }
     }
     const y = date.getUTCFullYear()
     const yd = yearDays.get(y) ?? { days: 0, bad: 0 }
@@ -151,9 +199,21 @@ export function aqStats(aq: AqSeries, w: Window): AqStats | null {
 
   const label = (k: AqRow['key']) => (k === 'any' ? 'Any pollutant' : POLLUTANTS.find((p) => p.key === k)!.label)
   return {
-    source: aq.source, from: iso(from), to: iso(to), years,
-    rows: [...counts].map(([key, c]) => ({ key, label: label(key), perYear: c.above.map((v) => v / years), coverage: c.seen / n })),
-    months: { o3: months.o3.map((v) => v / years), pm25: months.pm25.map((v) => v / years), other: months.other.map((v) => v / years) },
+    source: aq.source,
+    from: iso(from),
+    to: iso(to),
+    years,
+    rows: [...counts].map(([key, c]) => ({
+      key,
+      label: label(key),
+      perYear: c.above.map((v) => v / years),
+      coverage: c.seen / n,
+    })),
+    months: {
+      o3: months.o3.map((v) => v / years),
+      pm25: months.pm25.map((v) => v / years),
+      other: months.other.map((v) => v / years),
+    },
     byYear: [...yearDays].filter(([, v]) => v.days >= 0.9 * 365).map(([year, v]) => ({ year, days: v.bad })),
     worst,
     sites: aq.sites,

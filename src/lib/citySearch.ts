@@ -2,7 +2,14 @@ import { CITIES, type CityMeta } from './data'
 
 /** Lowercase, accents off, and the punctuation people skip when typing ("St. John's" → "st johns"). */
 export const fold = (s: string) =>
-  s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/ł/g, 'l').replace(/ø/g, 'o').replace(/ß/g, 'ss').replace(/[.'’]/g, '')
+  s
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/ł/g, 'l')
+    .replace(/ø/g, 'o')
+    .replace(/ß/g, 'ss')
+    .replace(/[.'’]/g, '')
 
 const words = (s: string) => s.split(/[^\p{L}\p{N}]+/u).filter(Boolean)
 
