@@ -6,7 +6,10 @@
 // come out of a single pass over each file. Per pollutant, each day picks among the
 // monitors within EPA_RADIUS_KM by that pollutant's epaPick rule (src/lib/aq.ts).
 //
-// Everywhere else — and any US city with no monitor in range — CAMS via Open-Meteo.
+// Everywhere else — and any US city with no monitor in range — CAMS via Open-Meteo: from the
+// API, or computed from Open-Meteo's S3 bucket (scripts/open-meteo-s3.mjs airQuality). The
+// two agree exactly where the bucket has the data — global from Aug 2022, Europe from 2024;
+// Europe's 2013–2023 reanalysis is API-only, so an S3 fetch starts European cities in 2024.
 //
 // Zips are cached in .cache/airdata/ (~350 MB for the full history) and revalidated on
 // every run with a conditional request, so EPA's twice-yearly revisions are picked up
@@ -21,23 +24,26 @@ import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { AQ_FORMAT, EPA_OUTLIER_AQI, EPA_RADIUS_KM, EPA_START_YEAR, POLLUTANTS } from '../src/lib/aq.ts'
 import { AQ_API, get } from './open-meteo.mjs'
+import { airQuality } from './open-meteo-s3.mjs'
 
 const AIRDATA = 'https://aqs.epa.gov/aqsweb/airdata'
-/** CAMS history via Open-Meteo: global from Aug 2022, Europe from 2013. */
+/** CAMS history via Open-Meteo: global from Aug 2022, Europe from 2013 through the API but
+ *  only from 2024 in the bucket (see the header). */
 const CAMS_GLOBAL_START = '2022-08-01'
-const CAMS_EUROPE_START = '2013-01-01'
+const CAMS_EUROPE_START = { api: '2013-01-01', s3: '2024-01-01' }
 const DAY = 86_400_000
 const iso = (t) => new Date(t).toISOString().slice(0, 10)
 
-/** Writes every city whose file is missing or from an older AQ_FORMAT. */
-export async function fetchAirQuality(cities, { out, cache, endYear }) {
+/** Writes every city whose file is missing or from an older AQ_FORMAT. `source` ('s3' or
+ *  'api') only affects the CAMS cities. */
+export async function fetchAirQuality(cities, { out, cache, endYear, source = 'api' }) {
   const todo = []
   for (const city of cities) if (!(await isCurrent(join(out, `${city.id}.json`)))) todo.push(city)
   if (cities.length > todo.length) console.log(`✓ aq: ${cities.length - todo.length} cities current`)
   if (!todo.length) return
   const epa = await fetchEpa(todo, join(cache, 'airdata'), endYear)
   for (const city of todo) {
-    const data = epa.get(city.id) ?? await fetchCams(city, endYear)
+    const data = epa.get(city.id) ?? await fetchCams(city, endYear, source)
     await writeFile(join(out, `${city.id}.json`), JSON.stringify({ v: AQ_FORMAT, id: city.id, ...data }))
     console.log(`✓ aq/${city.id} · ${data.source} · ${data.start} → ${data.end}`)
   }
@@ -202,19 +208,19 @@ function distanceKm(a, b) {
 // ---------- CAMS via Open-Meteo ----------
 
 /** The CAMS request for a city — exported so a fetch run can price it before starting. */
-export function camsRequest(city, endYear) {
+export function camsRequest(city, endYear, source = 'api') {
   const europe = city.lon >= -25 && city.lon <= 45 && city.lat >= 30 && city.lat <= 72
   return {
     latitude: city.lat, longitude: city.lon, timezone: 'auto', domains: europe ? 'cams_europe' : 'cams_global',
-    start_date: europe ? CAMS_EUROPE_START : CAMS_GLOBAL_START, end_date: `${endYear}-12-31`,
+    start_date: europe ? CAMS_EUROPE_START[source] : CAMS_GLOBAL_START, end_date: `${endYear}-12-31`,
     hourly: POLLUTANTS.map((p) => p.cams).join(','),
   }
 }
 
 /** Daily max of each pollutant's hourly US AQI sub-index (Open-Meteo's rolling averages). */
-async function fetchCams(city, endYear) {
-  const params = camsRequest(city, endYear), source = params.domains
-  const data = await get(params, AQ_API)
+async function fetchCams(city, endYear, from) {
+  const params = camsRequest(city, endYear, from), source = params.domains
+  const data = from === 's3' ? await airQuality(params) : await get(params, AQ_API)
   const dates = [...new Set(data.hourly.time.map((t) => t.slice(0, 10)))]
   const index = new Map(dates.map((d, i) => [d, i]))
   const daily = Object.fromEntries(POLLUTANTS.map((p) => [p.key, new Array(dates.length).fill(null)]))
@@ -230,5 +236,9 @@ async function fetchCams(city, endYear) {
   if (first < 0) throw new Error(`no ${source} air-quality data for ${city.id}`)
   const aqi = {}
   for (const p of POLLUTANTS) if (daily[p.key].some((v) => v !== null)) aqi[p.key] = daily[p.key].slice(first)
+  for (const [k, v] of Object.entries(aqi)) {
+    const bad = v.findIndex((x) => x !== null && !(x >= 0 && x <= 1000))
+    if (bad >= 0) throw new Error(`aq/${city.id}: ${k} day ${bad} is ${v[bad]}`)
+  }
   return { source, start: dates[first], end: dates[dates.length - 1], aqi }
 }

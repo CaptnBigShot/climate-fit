@@ -3,15 +3,16 @@
 // temperature (for the typical-day profile) and air quality (scripts/air-quality.mjs) —
 // written as compact JSON into public/data/.
 //
-// Weather comes from Open-Meteo's public S3 bucket by default (scripts/open-meteo-s3.mjs):
-// the same data and the same computation as the Historical Weather API, without API
-// calls. --source api uses the API instead. Air quality always uses the API.
+// Weather and CAMS air quality come from Open-Meteo's public S3 bucket by default
+// (scripts/open-meteo-s3.mjs): the same data and the same computation as the API, with no
+// API calls. --source api uses the API instead — the one way to get European air quality
+// before 2024, which the bucket doesn't have.
 //
 // Then it works through src/data/queue.json in order, moving each city into the
-// catalogue once all its files are written. Every API request is metered against a
-// per-run budget (--budget, default 9,000 of the free tier's 10,000 daily calls);
-// a city is only started if its whole cost fits, so a run stops between cities and
-// the next one carries on. Resumable: files that already exist are skipped.
+// catalogue once all its files are written. With --source api, every request is metered
+// against a per-run budget (--budget, default 9,000 of the free tier's 10,000 daily calls);
+// a city is only started if its whole cost fits, so a run stops between cities and the
+// next one carries on. Resumable: files that already exist are skipped.
 //
 //   npm run fetch-data                         catalogue gaps, then the queue
 //   npm run fetch-data -- calgary prague       only these ids (catalogue or queue)
@@ -21,7 +22,7 @@
 //                                              fetches a new city's hourly tier live)
 //   npm run fetch-data -- --rebuild            rewrite existing archive files (cities,
 //                                              terrain, hourly) instead of skipping them
-//   npm run fetch-data -- --source api         weather from the API, not S3
+//   npm run fetch-data -- --source api         weather and air quality from the API, not S3
 import { mkdir, readFile, writeFile, access } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -36,9 +37,6 @@ import { buildHourly } from '../src/lib/hourly.ts'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const OUT = join(ROOT, 'public', 'data')
-/** The current-year snapshot is only a fallback for the app's live fetch, so refresh it
- *  weekly, with whatever budget is left after new cities. */
-const YTD_MAX_AGE_DAYS = 7
 
 const { values: opts, positionals: only } = parseArgs({
   allowPositionals: true,
@@ -56,6 +54,10 @@ const S3 = opts.source === 's3'
 /** An archive request, answered by S3 (free) or the API (metered). */
 const fetchArchive = (params) => (S3 ? archive(params) : get(params))
 const archiveCost = (params) => (S3 ? 0 : weight(params))
+/** The app shows the current-year snapshot instead of fetching live while it's under a day
+ *  old (src/lib/current.ts). From S3 a refresh is free, so every run more than 20 hours after
+ *  the last refreshes them all; from the API, weekly with whatever budget is left. */
+const YTD_MAX_AGE_DAYS = S3 ? 20 / 24 : 7
 
 const catalog = await readCatalog()
 const queue = await readQueue()
@@ -85,6 +87,18 @@ function keepIndex(times) {
 
 const round = (v, dp) => (v === null || v === undefined ? null : Number(v.toFixed(dp)))
 
+/** Physical bounds every archived value must fall in (°F, inches, mph, MJ/m², hours). A gap
+ *  or anything outside means a bad read, so the file is refused rather than written. */
+const BOUNDS = { high: [-90, 135], low: [-90, 135], dew: [-90, 135], cloud: [0, 100], precip: [0, 40], snow: [0, 100], wind: [0, 200], rad: [0, 45], sun: [0, 24] }
+function check(id, out) {
+  for (const [key, [lo, hi]] of Object.entries(BOUNDS)) {
+    const bad = out[key].findIndex((v) => v === null || !(v >= lo && v <= hi))
+    if (bad >= 0) throw new Error(`${id}: ${key} day ${bad} is ${out[key][bad]}, outside ${lo}…${hi}`)
+  }
+  const bad = out.high.findIndex((h, i) => out.low[i] > h || out.dew[i] > h + 0.1)
+  if (bad >= 0) throw new Error(`${id}: day ${bad} has low ${out.low[bad]} / dew point ${out.dew[bad]} above high ${out.high[bad]}`)
+}
+
 async function fetchCity(city) {
   const data = await fetchArchive(REQ.daily(city, CITY_VARS.map((v) => v[0])))
   const grid = await fetchArchive(REQ.grid(city))
@@ -101,6 +115,7 @@ async function fetchCity(city) {
       return key === 'sun' ? round(v / 3600, dp) : round(v, dp)
     })
   }
+  check(city.id, out)
   await writeFile(file('cities', city.id), JSON.stringify(out))
 }
 
@@ -111,6 +126,9 @@ async function fetchTerrain(id) {
     const m = data.daily.snow_depth_max[i]
     return m === null ? null : Math.round(m * 39.37)
   })
+  // Glacier cells run to tens of metres of snow; nothing real goes negative or missing.
+  const bad = depthIn.findIndex((v) => v === null || !(v >= 0 && v <= 3000))
+  if (bad >= 0) throw new Error(`terrain/${id}: day ${bad} depth is ${depthIn[bad]}`)
   await writeFile(file('terrain', id), JSON.stringify({ id, startYear, years: endYear - startYear + 1, depth: depthIn }))
 }
 
@@ -122,7 +140,7 @@ async function fetchHourly(city) {
   await writeFile(file('hourly', city.id), JSON.stringify({ id: city.id, startYear: t.startYear, years: t.years, timezone: t.timezone, temp10: Buffer.from(t.temp.buffer).toString('base64') }))
 }
 
-// Current partial year: an offline fallback for the app's live fetch.
+// Current partial year: the app shows it while under a day old, else fetches live (and falls back to it).
 async function fetchYtdSnapshot(city) {
   const raw = await fetchYtdRaw({
     year: endYear + 1, lat: city.lat, lon: city.lon,
@@ -176,11 +194,11 @@ async function missing(city) {
   return steps
 }
 
-/** Calls the air-quality batch will spend on this city: none for US cities (EPA monitors,
- *  not Open-Meteo), a CAMS request for everyone else. */
+/** Calls the air-quality batch will spend on this city: none from S3, none for US cities
+ *  (EPA monitors, not Open-Meteo), a CAMS request for everyone else. */
 async function aqCost(city) {
   if (city.region.endsWith('United States') || (await isCurrent(file('aq', city.id)))) return 0
-  return weight(camsRequest(city, endYear))
+  return S3 ? 0 : weight(camsRequest(city, endYear))
 }
 
 for (const dir of ['cities', 'terrain', 'hourly', 'aq', 'ytd']) await mkdir(join(OUT, dir), { recursive: true })
@@ -254,7 +272,7 @@ budget.reserved = 0
 try {
   const ready = []
   for (const c of catalog.cities) if ((!only.length || only.includes(c.id)) && (await exists(file('cities', c.id)))) ready.push(c)
-  await fetchAirQuality(ready, { out: join(OUT, 'aq'), cache: join(ROOT, '.cache'), endYear })
+  await fetchAirQuality(ready, { out: join(OUT, 'aq'), cache: join(ROOT, '.cache'), endYear, source: opts.source })
 } catch (e) {
   if (e instanceof BudgetExhausted) console.log(`air quality: ${e.message}; the rest next run`)
   else { failed ??= e; console.error(`✗ air quality: ${e.message}`) }

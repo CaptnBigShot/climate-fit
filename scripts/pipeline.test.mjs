@@ -54,23 +54,24 @@ describe('catalogue file', () => {
 
   it('promotes a queued city with the terrain it needs', () => {
     const catalog = JSON.parse(text)
+    // Fixture ids, so they never collide with cities the real queue has since promoted.
     const queue = {
       generated: { on: '2026-09-14' },
-      terrain: { hood: { name: 'Mt Hood Meadows', lat: 45.33, lon: -121.66, elevFt: 6200 }, bachelor: { name: 'Mt Bachelor', lat: 44, lon: -121.68, elevFt: 7400 } },
+      terrain: { 'fixture-hood': { name: 'Mt Hood Meadows', lat: 45.33, lon: -121.66, elevFt: 6200 }, 'fixture-bachelor': { name: 'Mt Bachelor', lat: 44, lon: -121.68, elevFt: 7400 } },
       cities: [
-        { id: 'portland', name: 'Portland', code: 'OR', region: 'Oregon · United States', lat: 45.52, lon: -122.68, pop: 652503, coastal: false, continent: 'North America', terrain: [['hood', 95], ['crystal', 180]], note: 'Csb' },
-        { id: 'bend', name: 'Bend', code: 'OR', region: 'Oregon · United States', lat: 44.06, lon: -121.31, pop: 100421, coastal: false, continent: 'North America', terrain: [['bachelor', 35]], note: 'Csb' },
+        { id: 'fixture-portland', name: 'Portland', code: 'OR', region: 'Oregon · United States', lat: 45.52, lon: -122.68, pop: 652503, coastal: false, continent: 'North America', terrain: [['fixture-hood', 95], ['crystal', 180]], note: 'Csb' },
+        { id: 'fixture-bend', name: 'Bend', code: 'OR', region: 'Oregon · United States', lat: 44.06, lon: -121.31, pop: 100421, coastal: false, continent: 'North America', terrain: [['fixture-bachelor', 35]], note: 'Csb' },
       ],
     }
-    promote(catalog, queue, 'portland')
+    promote(catalog, queue, 'fixture-portland')
     const added = catalog.cities.at(-1)
-    expect(added.id).toBe('portland')
+    expect(added.id).toBe('fixture-portland')
     expect(added).not.toHaveProperty('note')
-    expect(catalog.terrain.hood.name).toBe('Mt Hood Meadows')
-    expect(queue.cities.map((c) => c.id)).toEqual(['bend'])
+    expect(catalog.terrain['fixture-hood'].name).toBe('Mt Hood Meadows')
+    expect(queue.cities.map((c) => c.id)).toEqual(['fixture-bend'])
     // hood moved to the catalogue; bachelor still waits with bend.
-    expect(Object.keys(queue.terrain)).toEqual(['bachelor'])
-    expect(() => promote(catalog, queue, 'portland')).toThrow()
+    expect(Object.keys(queue.terrain)).toEqual(['fixture-bachelor'])
+    expect(() => promote(catalog, queue, 'fixture-portland')).toThrow()
     // The queue's review note survives formatting on its own line.
     expect(format(queue)).toContain('\n      "note": "Csb"\n')
     expect(JSON.parse(format(queue))).toEqual(queue)

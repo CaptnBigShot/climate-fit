@@ -26,7 +26,12 @@ export interface Ytd {
 const base = import.meta.env.BASE_URL
 const memo = new Map<string, Promise<{ raw: YtdRaw; source: 'live' | 'snapshot' }>>()
 
-/** Live fetch (cached per city per day), falling back to the build-time snapshot. */
+/** A build-time snapshot this recent is as current as a live fetch: both end at the city's
+ *  local yesterday. fetch-data refreshes every snapshot on each daily run (free from S3). */
+const SNAPSHOT_FRESH_MS = 24 * 3_600_000
+
+/** The build-time snapshot while it's under a day old; otherwise a live fetch from Open-Meteo
+ *  (cached per city per day), falling back to the snapshot however old. */
 export function loadYtdRaw(city: CityMeta): Promise<{ raw: YtdRaw; source: 'live' | 'snapshot' }> {
   const day = new Date().toISOString().slice(0, 10)
   const key = `cf-ytd:${YTD_YEAR}:${city.id}:${day}`
@@ -37,14 +42,19 @@ export function loadYtdRaw(city: CityMeta): Promise<{ raw: YtdRaw; source: 'live
       const hit = localStorage.getItem(key)
       if (hit) return { raw: JSON.parse(hit) as YtdRaw, source: 'live' as const }
     } catch { /* storage unavailable */ }
+    const snapshot = await fetch(`${base}data/ytd/${city.id}.json`)
+      .then((res) => (res.ok ? (res.json() as Promise<YtdRaw>) : null))
+      .catch(() => null)
+    if (snapshot?.year === YTD_YEAR && Date.now() - Date.parse(snapshot.fetchedAt) < SNAPSHOT_FRESH_MS) {
+      return { raw: snapshot, source: 'snapshot' as const }
+    }
     try {
       const raw = await fetchYtdRaw({ year: YTD_YEAR, lat: city.lat, lon: city.lon, terrain: city.terrain.map(([id]) => ({ id, ...TERRAIN[id] })) })
       try { localStorage.setItem(key, JSON.stringify(raw)) } catch { /* quota or disabled */ }
       return { raw, source: 'live' as const }
     } catch {
-      const res = await fetch(`${base}data/ytd/${city.id}.json`)
-      if (!res.ok) throw new Error('current year unavailable (live fetch failed, no snapshot)')
-      return { raw: (await res.json()) as YtdRaw, source: 'snapshot' as const }
+      if (!snapshot) throw new Error('current year unavailable (live fetch failed, no snapshot)')
+      return { raw: snapshot, source: 'snapshot' as const }
     }
   })()
   p.catch(() => memo.delete(key))
@@ -124,3 +134,5 @@ export const isComplete = (y: Ytd) => y.raw.days >= 365
 
 /** Local calendar date a snapshot was taken, for labels (fetchedAt is stored in UTC). */
 export const fetchedDay = (y: Ytd) => new Date(y.raw.fetchedAt).toLocaleDateString('en-CA')
+/** A snapshot shown because it's current, not because the live fetch failed. */
+export const isFreshSnapshot = (y: Ytd) => y.source === 'snapshot' && Date.now() - Date.parse(y.raw.fetchedAt) < SNAPSHOT_FRESH_MS

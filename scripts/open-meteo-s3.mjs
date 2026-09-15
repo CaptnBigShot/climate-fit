@@ -29,7 +29,6 @@ import { sunshineDuration } from './solar.mjs'
 
 const BUCKET = 'https://openmeteo.s3.amazonaws.com'
 const HOUR = 3600
-const CHUNK_HOURS = 504 // chunk_N.om holds hours [N·504, (N+1)·504) since the epoch
 const f = Math.fround
 /** Foundation.round on Float: half away from zero. */
 const roundAway = (x) => Math.sign(x) * Math.round(Math.abs(x))
@@ -61,17 +60,34 @@ async function http(url, init) {
   }
 }
 
-/** OmFileReader backend reading byte ranges of one bucket object. */
+/** Open-Meteo rewrites its newest chunk files in place as data arrives. A reader built from
+ *  one version must never decode bytes of the next, so every range read is pinned to the
+ *  ETag the file was opened with; S3 answers 412 once the object has changed. */
+class ObjectChanged extends Error {}
+
+/** OmFileReader backend reading byte ranges of one bucket object (one version of it). The
+ *  decoder trusts what it's given, so a short or oversized body is retried, never passed on. */
 class RangeBackend {
-  constructor(url, size) { this.url = url; this.size = size }
+  constructor(url, size, etag) { this.url = url; this.size = size; this.etag = etag }
   async count() { return this.size }
   async getBytes(offset, size) {
-    const res = await http(this.url, { headers: { Range: `bytes=${offset}-${offset + size - 1}` } })
-    if (res.status !== 206 && res.status !== 200) throw new Error(`S3 ${this.url} ${res.status}`)
-    const buf = new Uint8Array(await res.arrayBuffer())
-    s3Stats.requests++
-    s3Stats.bytes += buf.length
-    return buf
+    for (let attempt = 0; ; attempt++) {
+      const res = await http(this.url, { headers: { Range: `bytes=${offset}-${offset + size - 1}`, 'If-Match': this.etag } })
+      if (res.status === 412) throw new ObjectChanged(`${this.url} changed while being read`)
+      if (res.status !== 206) throw new Error(`S3 ${this.url} bytes ${offset}+${size}: ${res.status}`)
+      try {
+        const buf = new Uint8Array(await res.arrayBuffer())
+        if (buf.length === size) {
+          s3Stats.requests++
+          s3Stats.bytes += buf.length
+          return buf
+        }
+        if (attempt >= 4) throw new Error(`S3 ${this.url} bytes ${offset}+${size}: got ${buf.length}`)
+      } catch (e) {
+        if (attempt >= 4) throw e
+      }
+      await new Promise((r) => setTimeout(r, 500 * 2 ** attempt))
+    }
   }
   async close() {}
 }
@@ -79,16 +95,55 @@ class RangeBackend {
 const readers = new Map()
 function open(path) {
   if (!readers.has(path)) {
-    readers.set(path, (async () => {
+    const p = (async () => {
       const res = await http(`${BUCKET}/${path}`, { method: 'HEAD' })
       if (!res.ok) throw new Error(`S3 ${path}: ${res.status}`)
-      return OmFileReader.create(new RangeBackend(`${BUCKET}/${path}`, Number(res.headers.get('content-length'))))
-    })())
+      return OmFileReader.create(new RangeBackend(`${BUCKET}/${path}`, Number(res.headers.get('content-length')), res.headers.get('etag')))
+    })()
+    p.catch(() => readers.delete(path)) // a failed open is retried next time, not cached
+    readers.set(path, p)
   }
   return readers.get(path)
 }
 
-const read = async (path, ranges) => (await open(path)).read({ type: OmDataType.FloatArray, ranges: ranges.map(([start, end]) => ({ start, end })) })
+/** Decodes in flight at once: each holds buffers in the reader's fixed 64 MB of WASM memory
+ *  while it waits on the network. */
+const MAX_READS = 32
+let reading = 0
+const readQueue = []
+
+/** A float read of one file; reopened (once, then again) if the file changes mid-run. */
+async function read(path, ranges) {
+  if (reading >= MAX_READS) await new Promise((r) => readQueue.push(r))
+  reading++
+  try {
+    for (let attempt = 0; ; attempt++) {
+      const reader = await open(path)
+      try {
+        return await reader.read({ type: OmDataType.FloatArray, ranges: ranges.map(([start, end]) => ({ start, end })) })
+      } catch (e) {
+        if (!(e instanceof ObjectChanged) || attempt >= 2) throw e
+        if (readers.get(path) && (await readers.get(path).catch(() => null)) === reader) readers.delete(path)
+      }
+    }
+  } finally {
+    reading--
+    readQueue.shift()?.()
+  }
+}
+
+const metas = new Map()
+/** A model's static/meta.json; chunk_N.om holds hours [N·L, (N+1)·L) since the epoch, L =
+ *  chunk_time_length (504 for ERA5 and IFS, 217 CAMS global, 193 CAMS Europe). */
+function meta(dir) {
+  if (!metas.has(dir)) {
+    metas.set(dir, http(`${BUCKET}/data/${dir}/static/meta.json`).then((res) => {
+      if (!res.ok) throw new Error(`S3 ${dir}/static/meta.json: ${res.status}`)
+      return res.json()
+    }))
+  }
+  return metas.get(dir)
+}
 
 const listings = new Map()
 /** File names under data/<dir>/<variable>/ — one listing per variable, cached for the run. */
@@ -99,7 +154,8 @@ function listFiles(dir, variable) {
       const names = new Set()
       let token = ''
       do {
-        const q = new URLSearchParams({ 'list-type': '2', prefix: `data/${key}/`, 'max-keys': '1000', ...(token && { 'continuation-token': token }) })
+        // delimiter=/ keeps subfolders (CAMS has old ensemble-member ones) out of the listing.
+        const q = new URLSearchParams({ 'list-type': '2', prefix: `data/${key}/`, delimiter: '/', 'max-keys': '1000', ...(token && { 'continuation-token': token }) })
         const res = await http(`${BUCKET}/?${q}`)
         if (!res.ok) throw new Error(`S3 listing ${key}: ${res.status}`)
         const xml = await res.text()
@@ -114,19 +170,19 @@ function listFiles(dir, variable) {
 
 // ---------- grids ----------
 
-/** Regular lat/lon grid (RegularGrid). Cells are {y, x}; data files are [ny, nx, time]. */
-function regularGrid(nx, ny, latMin, lonMin, d) {
+/** Regular lat/lon grid (RegularGrid). Cells are {y, x}; data files are [ny, nx, time].
+ *  A negative dy runs north to south (CAMS Europe). Global grids wrap at the edges;
+ *  regional ones return null outside. */
+function regularGrid(nx, ny, latMin, lonMin, dx, dy = dx) {
   return {
     nx, ny,
     nearest(lat, lon) {
-      let x = roundAway(f(f(lon - lonMin) / d)), y = roundAway(f(f(lat - latMin) / d))
-      if (x === -1) x = 0
-      if (x === nx || x === nx + 1) x = nx - 1
-      if (y === -1) y = 0
-      if (y === ny) y = ny - 1
-      return { y, x }
+      let x = roundAway(f(f(lon - lonMin) / dx)), y = roundAway(f(f(lat - latMin) / dy))
+      if (f(nx * dx) >= 359) { if (x === -1) x = 0; if (x === nx || x === nx + 1) x = nx - 1 }
+      if (f(ny * dy) >= 179) { if (y === -1) y = 0; if (y === ny) y = ny - 1 }
+      return y < 0 || x < 0 || y >= ny || x >= nx ? null : { y, x }
     },
-    coords: ({ y, x }) => ({ lat: f(latMin + f(y * f(d))), lon: f(lonMin + f(x * f(d))) }),
+    coords: ({ y, x }) => ({ lat: f(latMin + f(y * f(dy))), lon: f(lonMin + f(x * f(dx))) }),
     elevations: async (dir, { y, x }) => {
       const y0 = Math.max(0, y - 1), y1 = Math.min(ny, y + 2), x0 = Math.max(0, x - 1), x1 = Math.min(nx, x + 2)
       const v = await read(`data/${dir}/static/HSURF.om`, [[y0, y1], [x0, x1]])
@@ -174,6 +230,9 @@ const MODELS = {
   era5: { dir: 'copernicus_era5', grid: regularGrid(1440, 721, -90, -180, 0.25) },
   era5_land: { dir: 'copernicus_era5_land', grid: regularGrid(3600, 1801, -90, -180, 0.1) },
   ecmwf_ifs: { dir: 'ecmwf_ifs', grid: gaussianGrid },
+  // CAMS (CamsDomain): no elevation file, so the API takes the nearest cell.
+  cams_global: { dir: 'cams_global', grid: regularGrid(900, 451, -90, -180, 0.4), nearestOnly: true },
+  cams_europe: { dir: 'cams_europe', grid: regularGrid(700, 420, 71.95, -24.95, 0.1, -0.1), nearestOnly: true },
 }
 
 /** HSURF value → the elevation used for the lapse-rate correction: sea cells count as 0 m,
@@ -183,12 +242,17 @@ const numeric = (e) => (e <= -999 ? 0 : e >= 9999 ? NaN : e)
 /** The cell a model reads for a point, and the elevations the correction uses. Returns null
  *  where the model has no land cell nearby (the API refuses such a point). */
 async function findCell(model, lat, lon, elevation) {
-  const { dir, grid } = MODELS[model]
+  const { dir, grid, nearestOnly } = MODELS[model]
   const hsurf = `data/${dir}/static/HSURF.om`
+  if (nearestOnly) {
+    const cell = grid.nearest(lat, lon)
+    return cell && { cell, ...grid.coords(cell), modelElev: NaN, target: elevation }
+  }
   let cell, gridElev
   if (Number.isNaN(elevation)) {
     // No target: the nearest cell, and the target becomes that cell's own height.
     cell = grid.nearest(lat, lon)
+    if (!cell) return null
     gridElev = (await read(hsurf, [[cell.y, cell.y + 1], [cell.x, cell.x + 1]]))[0]
     if (Number.isNaN(gridElev)) return null
     return { cell, ...grid.coords(cell), modelElev: numeric(gridElev), target: numeric(gridElev) }
@@ -210,6 +274,7 @@ async function findCell(model, lat, lon, elevation) {
     return { cell: best.cell, ...grid.coords(best.cell), modelElev: numeric(best.e), target: elevation }
   }
   const center = grid.nearest(lat, lon)
+  if (!center) return null
   const block = await grid.elevations(dir, center)
   const c = block.find((b) => b.cell.y === center.y && b.cell.x === center.x)
   let best = c
@@ -245,6 +310,7 @@ async function series(model, variable, cell, h0, h1, need) {
   const out = new Float32Array(h1 - h0).fill(NaN)
   const have = await listFiles(dir, variable)
   if (!have.size) return out
+  const L = (await meta(dir)).chunk_time_length
   const jobs = []
   const add = (name, fileStart, a, b) => {
     if (a >= b || !have.has(name)) return
@@ -258,8 +324,8 @@ async function series(model, variable, cell, h0, h1, need) {
     add(`year_${y}.om`, ys, Math.max(ys, h0), Math.min(ye, h1))
     start = ye
   }
-  for (let c = Math.floor(start / CHUNK_HOURS); c * CHUNK_HOURS < h1; c++) {
-    add(`chunk_${c}.om`, c * CHUNK_HOURS, Math.max(c * CHUNK_HOURS, start), Math.min((c + 1) * CHUNK_HOURS, h1))
+  for (let c = Math.floor(start / L); c * L < h1; c++) {
+    add(`chunk_${c}.om`, c * L, Math.max(c * L, start), Math.min((c + 1) * L, h1))
   }
   await Promise.all(jobs)
   return out
@@ -405,13 +471,15 @@ async function location(params, lat, lon, elevation) {
 
   if (daily.length) {
     const h0 = first / HOUR - readHours(std), h1 = last / HOUR - readHours(std)
-    const raw = {}
-    for (const v of new Set(daily.flatMap((d) => DAILY[d].raw))) raw[v] = mixed(cells, v, h0, h1)
+    // All inputs at once, awaited together: one failing must reject this request, not
+    // surface later as an unhandled rejection that takes the process down.
+    const names = [...new Set(daily.flatMap((d) => DAILY[d].raw))]
+    const raw = Object.fromEntries((await Promise.all(names.map((v) => mixed(cells, v, h0, h1)))).map((d, i) => [names[i], d]))
     const ctx = { lat: top.lat, lon: top.lon, h0 }
     res.daily = { time: Array.from({ length: (h1 - h0) / 24 }, (_, d) => new Date((first + d * 86400) * 1000).toISOString().slice(0, 10)) }
     for (const v of daily) {
       const spec = DAILY[v], dp = typeof spec.dp === 'function' ? spec.dp(params) : spec.dp
-      const agg = spec.agg(await Promise.all(spec.raw.map((r) => raw[r])), ctx)
+      const agg = spec.agg(spec.raw.map((r) => raw[r]), ctx)
       res.daily[v] = Array.from(agg, (x) => emit(spec.unit(x, params), dp))
     }
   }
@@ -426,6 +494,89 @@ async function location(params, lat, lon, elevation) {
       const d = await mixed(cells, v, h0, h1)
       res.hourly[v] = Array.from(d, (x) => emit(HOURLY[v].unit(x, params), HOURLY[v].dp)).filter((_, i) => keep[i])
     }
+  }
+  return res
+}
+
+// ---------- air quality (the /v1/air-quality API) ----------
+
+/** UnitedStatesAirQuality: EPA breakpoints; a concentration's position between them (0…6,
+ *  linear inside a band, extrapolated past the last) scales to the AQI. */
+const BREAKS = {
+  o3Hourly: [NaN, NaN, 125, 165, 205, 405, 605].map(f), // ppb, 1-hour: only counts from 125
+  o3Mean8h: [0, 55, 70, 85, 105, 200, NaN].map(f),
+  pm25Mean24h: [0, 9, 35.5, 55.5, 125.5, 225.5, 325.5].map(f),
+  pm10Mean24h: [0, 55, 155, 255, 355, 425, 605].map(f),
+  no2Hourly: [0, 54, 100, 360, 650, 1250, 2050].map(f), // ppb
+}
+function position(breaks, v) {
+  let prev = NaN, slope = NaN
+  for (let i = 0; i < breaks.length; i++) {
+    slope = f(breaks[i] - prev)
+    if (v < breaks[i]) return f((i - 1) + f(f(v - prev) / slope))
+    prev = breaks[i]
+  }
+  return f((breaks.length - 1) + f(f(v - prev) / slope))
+}
+const aqiScale = (x) => (x <= 4 ? f(x * 50) : x <= 5 ? f(f(x * 100) - 200) : f(f(x * 200) - 700))
+
+/** Mean of the `w` hours *before* output hour k (slidingAverageDroppingFirstDt): the series
+ *  starts LOOKBACK hours ahead of the output, so hour k sits at index LOOKBACK + k. */
+const LOOKBACK = 24
+function runningMean(a, k, w) {
+  let s = 0
+  for (let i = LOOKBACK + k - w; i < LOOKBACK + k; i++) s = f(s + a[i])
+  return f(s / w)
+}
+
+/** US AQI sub-indices from CAMS concentrations (µg/m³); NO₂ and ozone to ppb first. */
+const AQI = {
+  us_aqi_pm2_5: { raw: ['pm2_5'], at: ({ pm2_5 }, k) => aqiScale(position(BREAKS.pm25Mean24h, runningMean(pm2_5, k, 24))) },
+  us_aqi_pm10: { raw: ['pm10'], at: ({ pm10 }, k) => aqiScale(position(BREAKS.pm10Mean24h, runningMean(pm10, k, 24))) },
+  us_aqi_nitrogen_dioxide: { raw: ['nitrogen_dioxide'], at: ({ nitrogen_dioxide: no2 }, k) => aqiScale(position(BREAKS.no2Hourly, f(no2[LOOKBACK + k] / f(1.88)))) },
+  us_aqi_ozone: {
+    raw: ['ozone'],
+    at: ({ ozone }, k) => {
+      const x1 = position(BREAKS.o3Hourly, f(ozone[LOOKBACK + k] / f(1.96)))
+      const mean8 = f(runningMean(ozone, k, 8) / f(1.96))
+      const x2 = mean8 >= 200 ? 5 : position(BREAKS.o3Mean8h, mean8)
+      return Number.isNaN(x1) ? aqiScale(x2) : Number.isNaN(x2) ? aqiScale(x1) : aqiScale(Math.max(x1, x2))
+    },
+  },
+}
+
+/** Answers one Open-Meteo air-quality request (domains=cams_global or cams_europe, hourly
+ *  US AQI sub-indices). CAMS Europe here is the operational model only, from Aug 2022: the
+ *  API layers the European reanalysis (2013 on) over it, and that isn't in the bucket. */
+export async function airQuality(params) {
+  const lats = list(params.latitude).map(Number), lons = list(params.longitude).map(Number)
+  const out = await Promise.all(lats.map((lat, i) => airQualityAt(params, lat, lons[i])))
+  return out.length === 1 ? out[0] : out
+}
+
+async function airQualityAt(params, lat, lon) {
+  const model = params.domains
+  if (!['cams_global', 'cams_europe'].includes(model)) throw new Error(`S3 source: unsupported domains=${model}`)
+  const hourly = list(params.hourly)
+  for (const v of hourly) if (!AQI[v]) throw new Error(`S3 source: unsupported air-quality variable ${v}`)
+  const target = await dem90(lat, lon)
+  const cell = await findCell(model, lat, lon, target)
+  if (!cell) throw new Error(`S3 source: ${lat}, ${lon} is outside ${model}`)
+  const timezone = zoneOf(params.timezone, lat, lon)
+  const std = standardOffsetSeconds(timezone, +params.end_date.slice(0, 4))
+  const first = dayMs(params.start_date) / 1000, last = dayMs(params.end_date) / 1000 + 86400
+  // Local clock time, as for hourly weather: a margin either side, then keep the dates asked for.
+  const clock = localClock(timezone)
+  const h0 = first / HOUR - readHours(std) - 26, h1 = last / HOUR - readHours(std) + 26
+  const times = Array.from({ length: h1 - h0 }, (_, i) => clock((h0 + i) * HOUR))
+  const keep = times.map((t) => t >= params.start_date && t.slice(0, 10) <= params.end_date)
+  const names = [...new Set(hourly.flatMap((h) => AQI[h].raw))]
+  const raw = Object.fromEntries((await Promise.all(names.map((v) => series(model, v, cell.cell, h0 - LOOKBACK, h1)))).map((d, i) => [names[i], d]))
+  const res = { latitude: float32(cell.lat), longitude: float32(cell.lon), elevation: float32(target), utc_offset_seconds: std, timezone, hourly: { time: times.filter((_, i) => keep[i]) } }
+  for (const v of hourly) {
+    const values = []
+    for (let k = 0; k < times.length; k++) if (keep[k]) values.push(emit(AQI[v].at(raw, k), 0))
+    res.hourly[v] = values
   }
   return res
 }

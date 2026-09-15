@@ -1,16 +1,19 @@
 // Checks that the S3 source (scripts/open-meteo-s3.mjs) still reproduces the Open-Meteo
 // API: for each city, the requests fetch-data makes — daily archive, grid cell, terrain snow
-// depth, hourly temperature — are sent both ways over a short random window and compared
-// value by value. Both sides use timezone=GMT, so the S3 source's own time-zone convention
-// doesn't enter into it. Costs ~5 API calls per city and ~4 per terrain point (60 days).
+// depth, hourly temperature, CAMS air quality — are sent both ways over a short random
+// window and compared value by value. Air quality is checked where the bucket has it
+// (global from Aug 2022, Europe from 2024), and on values only: the API reports another
+// model's grid point for it. Both sides use timezone=GMT, so the S3 source's own time-zone convention
+// doesn't enter into it. Costs ~6 API calls per city and ~4 per terrain point (60 days).
 // Exits non-zero on any mismatch beyond one rounding step.
 //
 //   npm run verify-s3                        6 random cities from the catalogue and queue
 //   npm run verify-s3 -- st-john-s adelaide  these cities
 //   npm run verify-s3 -- --days 365 --n 10
 import { parseArgs } from 'node:util'
-import { archiveRequests, budget, get } from './open-meteo.mjs'
-import { archive } from './open-meteo-s3.mjs'
+import { AQ_API, archiveRequests, budget, get } from './open-meteo.mjs'
+import { airQuality, archive } from './open-meteo-s3.mjs'
+import { camsRequest } from './air-quality.mjs'
 import { readCatalog, readQueue } from './catalog-file.mjs'
 import { DAILY_VARS } from '../src/lib/ytd.ts'
 
@@ -27,9 +30,9 @@ const picked = ids.length
 
 const DAY = 86_400_000
 const iso = (t) => new Date(t).toISOString().slice(0, 10)
-/** A random window between 1991 and a week ago, so it can land in any model era. */
-function window(days) {
-  const lo = Date.UTC(1991, 0, 1), hi = Date.now() - 7 * DAY - days * DAY
+/** A random window between `from` and a week ago, so it can land in any model era. */
+function window(days, from = '1991-01-01') {
+  const lo = Date.parse(`${from}T00:00:00Z`), hi = Date.now() - 7 * DAY - days * DAY
   const start = lo + Math.floor(Math.random() * ((hi - lo) / DAY)) * DAY
   return { start_date: iso(start), end_date: iso(start + (days - 1) * DAY) }
 }
@@ -41,9 +44,9 @@ const NOISE = { sunshine_duration: 1 }
 
 /** Compare two responses' series; a difference of one unit in the last printed digit is
  *  rounding at a .5 boundary and passes. Returns the problems found. */
-function compare(what, api, s3, block, vars) {
+function compare(what, api, s3, block, vars, coords = true) {
   const problems = []
-  for (const k of ['latitude', 'longitude', 'elevation']) if (api[k] !== s3[k]) problems.push(`${what} ${k} ${s3[k]} ≠ API ${api[k]}`)
+  for (const k of coords ? ['latitude', 'longitude', 'elevation'] : []) if (api[k] !== s3[k]) problems.push(`${what} ${k} ${s3[k]} ≠ API ${api[k]}`)
   if (api[block].time.join() !== s3[block].time.join()) problems.push(`${what} ${block} times differ`)
   for (const v of vars) {
     const a = api[block][v], b = s3[block][v]
@@ -76,8 +79,11 @@ for (const city of picked) {
     const t = { ...R.terrain(terrain[tid]), ...w, ...gmt }
     problems.push(...compare(`terrain/${tid}`, await get(t), await archive(t), 'daily', ['snow_depth_max']))
   }
+  const cams = camsRequest(city, 2025, 's3')
+  const aq = { ...cams, ...window(14, cams.start_date), ...gmt }
+  problems.push(...compare(`aq/${cams.domains}`, await get(aq, AQ_API), await airQuality(aq), 'hourly', cams.hourly.split(','), false))
   if (problems.length) failed++
-  console.log(`${problems.length ? '✗' : '✓'} ${city.id} · ${w.start_date} → ${w.end_date} · ${city.terrain.length} terrain${problems.length ? `\n    ${problems.join('\n    ')}` : ''}`)
+  console.log(`${problems.length ? '✗' : '✓'} ${city.id} · ${w.start_date} → ${w.end_date} · ${city.terrain.length} terrain · aq ${cams.domains} from ${aq.start_date}${problems.length ? `\n    ${problems.join('\n    ')}` : ''}`)
 }
 console.log(`${picked.length - failed} of ${picked.length} cities match the API · ~${Math.round(budget.spent)} API calls`)
 if (failed) process.exit(1)

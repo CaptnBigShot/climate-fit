@@ -11,7 +11,7 @@ import { terrainAt, type Model } from '../lib/model'
 import { MN } from '../lib/calendar'
 import type { Units } from '../lib/units'
 import { downloadDailyCsv } from '../lib/csv'
-import { DEPTH_CARRY_DAYS, YTD_MIN_DAYS, YTD_YEAR, fetchedDay, type Ytd } from '../lib/current'
+import { DEPTH_CARRY_DAYS, YTD_MIN_DAYS, YTD_YEAR, fetchedDay, isFreshSnapshot, type Ytd } from '../lib/current'
 import { MOSQUITO_DEW_F, MOSQUITO_LOW_F, SHIFTS } from '../lib/extras'
 import { AQI_LEVELS, EPA_OUTLIER_AQI, EPA_RADIUS_KM, EPA_START_YEAR, POLLUTANTS } from '../lib/aq'
 import { CLIMATE_SCALE } from '../lib/discover'
@@ -27,7 +27,7 @@ const gridFlag = (deltaFt: number) => Math.abs(deltaFt) > GRID_FLAG_FT
 
 function ytdText(ytd: Ytd | null, ytdError: string | null) {
   return ytd
-    ? `${ytd.source === 'live' ? 'Fetched live today' : `Build-time snapshot from ${fetchedDay(ytd)} (live fetch failed)`}; observed Jan 1 → ${ytd.raw.through ?? '—'} (${ytd.raw.days} days), ending at the city's local yesterday. Never folded into a lookback window: compared only with the same Jan 1 → date span of each window year (withheld below ${YTD_MIN_DAYS} days). Recent days are provisional. Terrain snow depth lags a few days and is carried forward up to ${DEPTH_CARRY_DAYS} days`
+    ? `${ytd.source === 'live' ? 'Fetched live today' : isFreshSnapshot(ytd) ? `Build-time snapshot from ${fetchedDay(ytd)}, under a day old` : `Build-time snapshot from ${fetchedDay(ytd)} (live fetch failed)`}; observed Jan 1 → ${ytd.raw.through ?? '—'} (${ytd.raw.days} days), ending at the city's local yesterday. Never folded into a lookback window: compared only with the same Jan 1 → date span of each window year (withheld below ${YTD_MIN_DAYS} days). Recent days are provisional. Terrain snow depth lags a few days and is carried forward up to ${DEPTH_CARRY_DAYS} days`
     : ytdError ? `Unavailable — ${ytdError}` : 'Loading…'
 }
 
@@ -89,9 +89,9 @@ export const MethodsPage = memo(function MethodsPage({ city, series, terrains, m
     ['Active window', `${windowLabel(w)} · ${(windowYears(w) * 365).toLocaleString()} days per city`],
     ['Scoring', 'In your browser, every day scored individually and then counted — never from monthly means'],
     ['Humidity basis', 'Dew point, not relative humidity'],
-    [`${YTD_YEAR}, partial`, `Live from Open-Meteo in the browser, a build-time snapshot if that fails. ${city.name}: ${ytdText(ytd, ytdError)}`],
+    [`${YTD_YEAR}, partial`, `The build-time snapshot while it's under a day old; otherwise live from Open-Meteo in the browser, falling back to the snapshot. ${city.name}: ${ytdText(ytd, ytdError)}`],
     ['Hourly tier', 'Hourly temperature for the last 10 archive years, local clock time — the typical-day panel only'],
-    ['Air-quality tier', `Separate and shorter: EPA AirData monitors for US cities from ${EPA_START_YEAR}; the CAMS model elsewhere (Europe from 2013, global from Aug 2022). The lookback window is clipped to it`],
+    ['Air-quality tier', `Separate and shorter: EPA AirData monitors for US cities from ${EPA_START_YEAR}; the CAMS model elsewhere (global from Aug 2022; Europe from 2013 for cities fetched from the API, from 2024 for those fetched from Open-Meteo's S3 bucket). The lookback window is clipped to it`],
     ['Cities ranked', `${CITIES.length} seed metros, chosen across climate space rather than by size · a few hundred at launch. Any coordinate can still be viewed; the curated set is only the universe for ranking`],
     ['Compare', `Up to ${MAX_COMPARE} cities. Differences-only hides months within ${u.dt(PIVOT.hi.tol, 1).replace('+', '')}${u.tu} (temperature), ${PIVOT.cloud.tol} pts (cloud), ${u.len(PIVOT.precip.tol, 1)} (precip) or ${PIVOT.comf.tol} days (counts)`],
     ['Map', 'Natural Earth 1:110m land, public domain, on a plain longitude / latitude grid'],

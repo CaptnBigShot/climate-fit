@@ -4,7 +4,7 @@ import type { Model } from '../lib/model'
 import type { Budget } from '../lib/aggregate'
 import { Cap, Head, HatchDefs, Spark } from './ui'
 import { useWidth } from '../hooks/useWidth'
-import { YTD_MIN_DAYS, YTD_YEAR, fetchedDay, ytdBudget, ytdOutdoor, type Ytd } from '../lib/current'
+import { YTD_MIN_DAYS, YTD_YEAR, fetchedDay, isFreshSnapshot, ytdBudget, ytdOutdoor, type Ytd } from '../lib/current'
 import { doyLabel } from '../lib/calendar'
 import type { Scored } from '../lib/scoring'
 
@@ -152,7 +152,9 @@ function YtdBlock({ m, p, ytd, ytdSc, error, width }: { m: Model; p: Prefs; ytd:
   const badge = (
     <span className="sub" style={{ marginLeft: 'auto' }} data-tip={ytd.source === 'live'
       ? 'Fetched live from Open-Meteo today. The most recent days are provisional reanalysis and can be revised slightly.'
-      : `Live fetch failed; showing the snapshot saved at build time (${fetchedDay(ytd)}).`}>
+      : isFreshSnapshot(ytd)
+        ? `Built from Open-Meteo data on ${fetchedDay(ytd)} — as current as a live fetch. The most recent days are provisional reanalysis and can be revised slightly.`
+        : `Live fetch failed; showing the snapshot saved at build time (${fetchedDay(ytd)}).`}>
       {ytd.source === 'live' ? '● live · recent days provisional' : `snapshot ${fetchedDay(ytd)}`}
     </span>
   )
