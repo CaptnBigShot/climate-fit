@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { CITIES, type CityMeta } from '../lib/data'
+import type { CityMeta } from '../lib/data'
 import { MN } from '../lib/calendar'
 import {
   CUTOFF, EXAMPLE_STATE, presetNote, FIRST_YEAR, LAST_YEAR, LOOKBACKS, PRESETS, T_MAX, T_MIN, hasPreference, windowLabel, windowYears,
@@ -8,6 +8,8 @@ import {
 import { DEW_HARD_GAP } from '../lib/scoring'
 import type { View } from '../lib/session'
 import type { Units } from '../lib/units'
+import { useDismiss } from '../hooks/useDismiss'
+import { CityList } from './CityPicker'
 import { FourPointSlider } from './FourPointSlider'
 import { Cap, Seg } from './ui'
 
@@ -72,14 +74,7 @@ export function ControlBar(props: BarProps) {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
-  useEffect(() => {
-    if (!menu) return
-    const close = (e: MouseEvent) => { if (!root.current?.contains(e.target as Node)) setMenu(null) }
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenu(null) }
-    document.addEventListener('mousedown', close)
-    document.addEventListener('keydown', esc)
-    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', esc) }
-  }, [menu])
+  useDismiss(menu !== null, root, () => setMenu(null))
 
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
@@ -148,14 +143,9 @@ export function ControlBar(props: BarProps) {
             <span className="mono" style={{ fontSize: 11, color: 'var(--accent)' }}>⌘K</span>
           </button>
           {menu === 'city' && (
-            <div className="pop" style={{ left: 8, width: 270 }}>
-              {CITIES.map((c) => (
-                <button key={c.id} className={`pop-item${c.id === city.id ? ' cur' : ''}`} style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}
-                  onClick={() => { props.setCity(c.id); setMenu(null) }}>
-                  <span className="name" style={{ flex: 1 }}>{c.name}, {c.code}</span>
-                  <span className="note">{props.comfByCity[c.id] != null ? `comf ${props.comfByCity[c.id]}` : c.region.split(' · ').pop()}</span>
-                </button>
-              ))}
+            <div className="pop" style={{ left: 8, width: 280 }}>
+              <CityList current={city.id} onPick={(id) => { props.setCity(id); setMenu(null) }}
+                note={(c) => (props.comfByCity[c.id] != null ? `comf ${props.comfByCity[c.id]}` : null)} />
             </div>
           )}
         </div>

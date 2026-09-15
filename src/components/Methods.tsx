@@ -17,6 +17,7 @@ import { AQI_LEVELS, EPA_OUTLIER_AQI, EPA_RADIUS_KM, EPA_START_YEAR, POLLUTANTS 
 import { CLIMATE_SCALE } from '../lib/discover'
 import { MAX_COMPARE, PIVOT } from '../lib/compare'
 import { Head } from './ui'
+import { CitySelect } from './CityPicker'
 
 const M_TO_FT = 3.28084
 /** Grid-cell vs city elevation difference worth flagging, ft. */
@@ -117,9 +118,7 @@ export const MethodsPage = memo(function MethodsPage({ city, series, terrains, m
         <span className="sub">someone deciding where to live is entitled to see the seams</span>
         <div className="view-end">
           <span className="cap">DAILY DATA · {windowLabel(w)}</span>
-          <select className="ctl" value={exportCity.id} onChange={(e) => setExportId(e.target.value)} aria-label="City to export">
-            {CITIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+          <CitySelect value={exportCity.id} onChange={setExportId} label="City to export" align="right" />
           <button className="btn primary" disabled={!exportSeries} onClick={() => exportSeries && downloadDailyCsv(exportCity, exportSeries, p, u)}
             data-tip={`Every day in ${windowLabel(w)} for ${exportCity.name}, in ${u.metric ? 'metric' : 'US'} units, with your band, score and shortfall reason per day.`}>
             {exportSeries ? 'Export daily CSV' : 'Loading…'}

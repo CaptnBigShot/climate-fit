@@ -2,8 +2,8 @@
 // never auto-picked — more snow against fewer heat days is not a trade the app is
 // entitled to settle (spec 4.2). With no preference stated, the same screen compares
 // the record as measured and the days you could be outside.
-import { memo, useEffect, useMemo, useRef, useState } from 'react'
-import { CITIES, cityById, type Manifest } from '../lib/data'
+import { memo, useMemo, useRef, useState } from 'react'
+import { cityById, type CityMeta, type Manifest } from '../lib/data'
 import { MN, windowRows } from '../lib/calendar'
 import { CO } from '../lib/colors'
 import { facts, monthly, terrainCover } from '../lib/aggregate'
@@ -14,6 +14,8 @@ import type { Units } from '../lib/units'
 import { BudgetBar } from './Hero'
 import { CalendarStrip, MonthAxis, TempLegend, type CalFill, type CalMode } from './ComfortCalendar'
 import { BandLegend, Cap, Head, Seg } from './ui'
+import { CityList } from './CityPicker'
+import { useDismiss } from '../hooks/useDismiss'
 import { useWidth } from '../hooks/useWidth'
 
 const FT = 3.28084
@@ -30,6 +32,8 @@ export const Compare = memo(function Compare({ ids, rows, p, u, fill, setCmp, op
     : (a, b) => b.out.act.per.walk.days - a.out.act.per.walk.days), [present, scored])
   const waiting = ids.filter((id) => !present.some((r) => r.city.id === id))
   const win = windowLabel(p.window)
+  const comf = useMemo(() => new Map(rows.flatMap((r) => (r.fit ? [[r.city.id, Math.round(r.fit.b.counts[0])] as const] : []))), [rows])
+  const note = (c: CityMeta) => (comf.has(c.id) ? `comf ${comf.get(c.id)}` : null)
 
   return (
     <main className="page">
@@ -47,7 +51,7 @@ export const Compare = memo(function Compare({ ids, rows, p, u, fill, setCmp, op
             )
           })}
         </div>
-        <AddCity ids={ids} setCmp={setCmp} rows={rows} />
+        <AddCity ids={ids} setCmp={setCmp} note={note} />
         <span className="sub view-end">
           {ids.length === 1 ? 'add at least one more city to compare' : scored ? 'ordered by comfortable days · no winner picked' : 'not scored · ordered by walk-viable days'}
         </span>
@@ -61,8 +65,8 @@ export const Compare = memo(function Compare({ ids, rows, p, u, fill, setCmp, op
               Add two to four cities — here, or with “+ Add to compare” on any city page. Every city is scored on the same settings in the control bar,
               and the set lives in the URL, so sending the link sends the comparison.
             </div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {CITIES.map((c) => <button key={c.id} className="btn" onClick={() => setCmp(toggleCompare(ids, c.id))}>+ {c.name}</button>)}
+            <div className="city-inline">
+              <CityList autoFocus={false} note={note} onPick={(id) => setCmp(toggleCompare(ids, id))} />
             </div>
           </div>
         </div>
@@ -104,32 +108,17 @@ export const Compare = memo(function Compare({ ids, rows, p, u, fill, setCmp, op
   )
 })
 
-function AddCity({ ids, setCmp, rows }: { ids: string[]; setCmp: (ids: string[]) => void; rows: CityRow[] }) {
+function AddCity({ ids, setCmp, note }: { ids: string[]; setCmp: (ids: string[]) => void; note: (c: CityMeta) => string | null }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!open) return
-    const close = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false) }
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
-    document.addEventListener('mousedown', close)
-    document.addEventListener('keydown', esc)
-    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', esc) }
-  }, [open])
+  useDismiss(open, ref, () => setOpen(false))
   const full = ids.length >= MAX_COMPARE
   return (
     <div className="add-city" ref={ref}>
       <button className="btn primary" disabled={full} aria-expanded={open} onClick={() => setOpen(!open)}>{full ? 'Set full' : '+ Add city'}</button>
       {open && (
-        <div className="pop" style={{ left: 0, width: 260 }}>
-          {CITIES.filter((c) => !ids.includes(c.id)).map((c) => {
-            const r = rows.find((x) => x.city.id === c.id)
-            return (
-              <button key={c.id} className="pop-item" style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }} onClick={() => { setCmp(toggleCompare(ids, c.id)); setOpen(false) }}>
-                <span className="name" style={{ flex: 1 }}>{c.name}, {c.code}</span>
-                <span className="note">{r?.fit ? `comf ${Math.round(r.fit.b.counts[0])}` : c.region.split(' · ').pop()}</span>
-              </button>
-            )
-          })}
+        <div className="pop" style={{ left: 0, width: 280 }}>
+          <CityList exclude={ids} note={note} onPick={(id) => { setCmp(toggleCompare(ids, id)); setOpen(false) }} />
         </div>
       )}
     </div>

@@ -9,6 +9,7 @@ import { climateOf, type CityRow } from '../lib/model'
 import { FALLBACK_COMF, POP_SPLIT, REGIONS, SHIFTS, SHIFT_LABEL, SORTS, SORT_LABEL, likeBut, rank, shiftClimate, type DiscoverQuery, type Ranked, type Ranking } from '../lib/discover'
 import type { Units } from '../lib/units'
 import { DaysBar, Seg, SplitBar } from './ui'
+import { CitySelect } from './CityPicker'
 import { useWidth } from '../hooks/useWidth'
 
 const FT = 3.28084
@@ -268,9 +269,7 @@ function LikeBut({ rows, byId, q, setQ, current, p, u, scored, openCity }: {
     <div style={{ borderTop: '1px solid var(--line)', paddingTop: 18 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
         <span className="h-sm">Like</span>
-        <select className="ctl" value={ref} onChange={(e) => setQ({ like: e.target.value })} aria-label="Reference city" style={{ font: '500 11px/1 var(--sans)' }}>
-          {CITIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
+        <CitySelect value={ref} onChange={(id) => setQ({ like: id })} label="Reference city" style={{ font: '500 11px/1 var(--sans)' }} />
         <span className="h-sm">but</span>
         <Seg small label="Shift" value={q.but} onChange={(v) => setQ({ but: v })} options={SHIFTS.map((s) => ({ v: s, label: SHIFT_LABEL[s].toUpperCase() }))} />
       </div>

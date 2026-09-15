@@ -252,9 +252,32 @@ table.aq .l { text-align: left; }
 .view-end { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 .view-note { margin-left: auto; font: 400 11px/1.4 var(--sans); color: var(--dim); max-width: 640px; text-align: right; }
 .sub.view-end { color: var(--mid); }
-select.ctl {
+select.ctl, button.ctl {
   padding: 4px 5px; background: var(--btn); border: 1px solid var(--line-2); color: var(--ink); font: 400 10.5px/1 var(--mono); cursor: pointer;
 }
+button.ctl { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+button.ctl:hover { border-color: var(--line-3); }
+button.ctl .caret { color: var(--dim); font-size: 9px; }
+
+/* ---------- city picker ---------- */
+.city-select { position: relative; }
+.city-list { display: flex; flex-direction: column; gap: 3px; }
+.city-search {
+  width: 100%; padding: 7px 8px; background: var(--bg); border: 1px solid var(--line-3); color: var(--ink);
+  font: 400 11.5px/1 var(--mono); outline: none;
+}
+.city-search:focus { border-color: var(--accent); }
+.city-search::placeholder { color: var(--faint); }
+.city-opts {
+  position: relative; display: flex; flex-direction: column; gap: 3px; max-height: min(360px, 55vh); overflow-y: auto;
+  overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--line-3) transparent;
+}
+.city-opts:empty { display: none; }
+.city-opt { flex: none; flex-direction: row; align-items: baseline; gap: 8px; }
+.city-opt .name { flex: 1; }
+.city-opt.on { border-color: var(--accent); }
+.city-none { padding: 10px 4px 6px; font: 400 10.5px/1.4 var(--mono); color: var(--dim); }
+.city-inline { max-width: 360px; padding: 6px; background: var(--pop); border: 1px solid var(--line-2); }
 .banner { display: flex; align-items: flex-start; gap: 10px; padding: 12px 22px; background: rgba(124, 196, 255, .07); border-bottom: 1px solid var(--accent-line); }
 .banner .tag { font: 500 11px/1.45 var(--mono); color: var(--accent); flex: none; }
 .banner > span:last-child { font: 400 12px/1.45 var(--sans); color: #cfd6e0; }
