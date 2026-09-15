@@ -57,6 +57,11 @@ const R = {
   wetDeal: 16,
 }
 
+/** Soft shortfalls only ever explain tolerable days; bounds (hatched) and deal-breakers
+ *  (solid) only unbearable ones — so each reason belongs to exactly one band. */
+export type ReasonKind = 'soft' | 'hard' | 'deal'
+export const reasonKind = (r: number): ReasonKind => (r >= R.cloudDeal ? 'deal' : r >= R.ceiling ? 'hard' : 'soft')
+
 export interface Scored {
   window: Window
   years: number

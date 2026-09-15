@@ -1,4 +1,4 @@
-import { CO } from '../lib/colors'
+import { CO, REASON_FILL, REASON_TIP } from '../lib/colors'
 import { CUTOFF, windowLabel, type Prefs } from '../lib/prefs'
 import type { Model } from '../lib/model'
 import type { Budget } from '../lib/aggregate'
@@ -83,16 +83,16 @@ export function Hero({
               <div style={{ marginBottom: 10 }}>
                 <Head
                   small
-                  tip="Of the days that were not comfortable, which single condition was most responsible — the variable with the largest weighted shortfall, or the bound the day crossed."
+                  tip="Of the days that were not comfortable, which single condition was most responsible — the variable with the largest weighted shortfall, or the bound the day crossed. Lavender rows are tolerable days; gray rows are unbearable — hatched where a day crossed a line you drew, solid for a deal-breaker."
                 >
                   WHY DAYS FALL SHORT
                 </Head>
               </div>
               <div className="bars">
                 {b.reasons.map((r) => (
-                  <div className="row" key={r.label}>
+                  <div className="row" key={r.label} data-tip={REASON_TIP[r.kind]}>
                     <span className="lab">{r.label}</span>
-                    <span style={{ height: 8, width: Math.max(1, r.pct * 1.3), background: CO.tol }} />
+                    <span style={{ height: 8, width: Math.max(1, r.pct * 1.3), background: REASON_FILL[r.kind] }} />
                     <span className="pct">{r.pct}%</span>
                   </div>
                 ))}

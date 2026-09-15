@@ -3,7 +3,7 @@
 import type { CitySeries, TerrainSeries } from './data'
 import { MD, MONTH_START, doyMonth } from './calendar'
 import { ACTIVITIES, RIDE_DEPTH_IN, SEASON_RELIABILITY, type DayInputs, type LossReason } from './activities'
-import { BAND, REASONS, type Scored } from './scoring'
+import { BAND, REASONS, reasonKind, type ReasonKind, type Scored } from './scoring'
 import { FIRST_YEAR, windowYears, type ActivityId, type Window } from './prefs'
 import { median, ols, type Fit } from './stats'
 
@@ -13,7 +13,7 @@ export interface Budget {
   perYear: number[]
   trend: Fit
   months: { c: number; t: number; u: number }[]
-  reasons: { label: string; pct: number }[]
+  reasons: { label: string; pct: number; kind: ReasonKind }[]
   nonComf: number
   compromise: { label: string; pct: number } | null
   bestStreak: number
@@ -89,7 +89,9 @@ export function budget(sc: Scored): Budget {
     perYear,
     trend: ols(perYear),
     months,
-    reasons: ranked.slice(0, 4).map(([r, n]) => ({ label: REASONS[r], pct: Math.round((n / nonComf) * 100) })),
+    reasons: ranked
+      .slice(0, 4)
+      .map(([r, n]) => ({ label: REASONS[r], pct: Math.round((n / nonComf) * 100), kind: reasonKind(r) })),
     nonComf: nonComf * k,
     compromise: cr && counts[1] ? { label: REASONS[cr[0]], pct: Math.round((cr[1] / counts[1]) * 100) } : null,
     bestStreak,

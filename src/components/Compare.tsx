@@ -5,7 +5,7 @@
 import { memo, useMemo, useRef, useState } from 'react'
 import { cityById, type CityMeta, type Manifest } from '../lib/data'
 import { MN, windowRows } from '../lib/calendar'
-import { CO } from '../lib/colors'
+import { CO, REASON_FILL, REASON_TIP } from '../lib/colors'
 import { cityPoint } from '../lib/mapView'
 import { facts, monthly, terrainCover } from '../lib/aggregate'
 import { MAX_COMPARE, PIVOT, pivot, toggleCompare, type PivotMetric } from '../lib/compare'
@@ -392,10 +392,10 @@ function WhyShort({ r, p, u }: { r: CityRow; p: Prefs; u: Units }) {
       </div>
       <div className="bars">
         {b.reasons.slice(0, 3).map((x) => (
-          <div className="row" key={x.label}>
+          <div className="row" key={x.label} data-tip={REASON_TIP[x.kind]}>
             <span className="lab">{x.label}</span>
             <span className="track">
-              <span style={{ width: `${Math.max(1, x.pct)}%` }} />
+              <span style={{ width: `${Math.max(1, x.pct)}%`, background: REASON_FILL[x.kind] }} />
             </span>
             <span className="pct">{x.pct}%</span>
           </div>

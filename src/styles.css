@@ -1274,7 +1274,6 @@ table.rank tbody tr:hover td {
 .cmp-col .track span {
   display: block;
   height: 8px;
-  background: var(--tol);
 }
 .cmp-sep {
   margin-top: 12px;
