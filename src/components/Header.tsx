@@ -19,6 +19,8 @@ export function Header({
   inCompare,
   compareCount,
   toggleCompare,
+  starred,
+  toggleStar,
   exportCsv,
   openCity,
 }: {
@@ -31,6 +33,8 @@ export function Header({
   inCompare: boolean
   compareCount: number
   toggleCompare: () => void
+  starred: boolean
+  toggleStar: () => void
   exportCsv: () => void
   openCity: (id: string) => void
 }) {
@@ -82,6 +86,14 @@ export function Header({
         </div>
       </div>
       <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+        <button
+          className="btn"
+          onClick={toggleStar}
+          aria-pressed={starred}
+          data-tip="Star this city to find it again under Discover's STARRED view. Stars live in the URL with the rest of the session, so a bookmark keeps them and a link shares them."
+        >
+          {starred ? '★ Starred' : '☆ Star'}
+        </button>
         <button
           className={`btn${inCompare ? ' on' : ''}`}
           onClick={toggleCompare}

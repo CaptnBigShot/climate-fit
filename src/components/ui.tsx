@@ -30,6 +30,21 @@ export function Seg<T extends string | number>({
   )
 }
 
+/** Star toggle for a table row. Neutral ink, not a band or activity colour: a star is not a score. */
+export function StarButton({ on, name, onClick }: { on: boolean; name: string; onClick: () => void }) {
+  return (
+    <button
+      className={on ? 'star-btn on' : 'star-btn'}
+      aria-pressed={on}
+      aria-label={`Star ${name}`}
+      data-tip={on ? `Unstar ${name}` : `Star ${name}`}
+      onClick={onClick}
+    >
+      {on ? '★' : '☆'}
+    </button>
+  )
+}
+
 /** Small caps label; with a tip it gets the dotted underline and the shared hover tooltip. */
 export function Cap({
   children,

@@ -20,7 +20,7 @@ Tabs in the control bar switch between four screens. They all share one session 
 
 - **City**: one city in depth, with a comfort calendar, day budget, temperature distribution, typical day, best time to visit, extremes, air quality and warming sensitivity. With no preference set it opens on starting presets and ranks cities by walk-viable days.
 - **Compare**: two to four cities on shared scales, with a map, stacked calendars and a monthly table. Ordered by comfortable days; it never picks a winner.
-- **Discover**: the whole set, ranked and filtered (region, population, snow access, coast), on a pan/zoom map, with "like [city] but ___" search. It's never empty: if nothing matches, it shows the nearest misses.
+- **Discover**: the whole set, ranked and filtered (region, population, snow access, coast), on a pan/zoom map, with "like [city] but ___" search. It's never empty: if nothing matches, it shows the nearest misses. Cities can be starred here or on the City screen, and the ranking scoped to starred or unstarred cities. Stars are kept in the URL like everything else.
 - **Methods**: data sources, every scoring constant and threshold, and a daily CSV export.
 
 ## Data

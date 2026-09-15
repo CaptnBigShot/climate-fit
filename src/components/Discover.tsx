@@ -23,7 +23,7 @@ import {
   type Ranking,
 } from '../lib/discover'
 import type { Units } from '../lib/units'
-import { DaysBar, Seg, SplitBar } from './ui'
+import { DaysBar, Seg, SplitBar, StarButton } from './ui'
 import { CitySelect } from './CityPicker'
 import { WorldMap } from './WorldMap'
 
@@ -40,6 +40,8 @@ export const Discover = memo(function Discover({
   openCity,
   current,
   failed,
+  stars,
+  toggleStar,
 }: {
   rows: CityRow[]
   p: Prefs
@@ -49,15 +51,26 @@ export const Discover = memo(function Discover({
   openCity: (id: string) => void
   current: string
   failed: Record<string, string>
+  stars: string[]
+  toggleStar: (id: string) => void
 }) {
   const cands = useMemo(() => rows.map((r) => ({ city: r.city, b: r.fit?.b ?? null, act: r.out.act })), [rows])
-  const R = useMemo(() => rank(cands, q, p.drive), [cands, q, p.drive])
+  const R = useMemo(() => rank(cands, q, p.drive, stars), [cands, q, p.drive, stars])
   const byId = useMemo(() => Object.fromEntries(rows.map((r) => [r.city.id, r])), [rows])
+  const starred = useMemo(() => new Set(stars), [stars])
   const scored = rows.some((r) => r.fit)
   const comfort = R.mode === 'comfort'
   const filtered = q.region !== 'all' || q.pop !== 'any' || q.snow || q.coast !== 'any'
   const loading = CITIES.length - rows.length - Object.keys(failed).length
   const win = windowLabel(p.window)
+  const scopeWord = q.scope === 'all' ? '' : `${q.scope} `
+  const inScope = { all: CITIES.length, starred: stars.length, unstarred: CITIES.length - stars.length }[q.scope]
+  const empty =
+    q.scope === 'starred' && !stars.length
+      ? 'No starred cities yet. Star one with ☆ under ALL, or on its city page.'
+      : q.scope === 'unstarred' && !inScope
+        ? 'Every city is starred.'
+        : 'Loading the city set…'
   const points = useMemo(() => R.rows.map((x, i) => cityPoint(x.c, comfort, current, i)), [R.rows, comfort, current])
 
   return (
@@ -72,8 +85,18 @@ export const Discover = memo(function Discover({
             OUTDOOR RANKING · NO INPUT
           </button>
         </div>
+        <Seg
+          label="Starred"
+          value={q.scope}
+          onChange={(v) => setQ({ scope: v })}
+          options={[
+            { v: 'all', label: 'ALL' },
+            { v: 'starred', label: `★ STARRED · ${stars.length}` },
+            { v: 'unstarred', label: 'UNSTARRED' },
+          ]}
+        />
         <span className="sub">
-          {R.passing} of {CITIES.length} cities pass the filters · {win}
+          {R.passing} of {inScope} {scopeWord}cities pass the filters · {win}
           {loading > 0 ? ` · ${loading} still loading` : ''}
         </span>
         <span className="view-note">
@@ -96,7 +119,7 @@ export const Discover = memo(function Discover({
         <div className="banner">
           <span className="tag">NEAREST</span>
           <span>
-            No city passes every filter. Showing the {R.rows.length} that miss{' '}
+            No {scopeWord}city passes every filter. Showing the {R.rows.length} that miss{' '}
             {R.rows[0]?.misses.length === 1 ? 'only one' : `${R.rows[0]?.misses.length}`}, with what each misses — RESET
             clears the filters.
           </span>
@@ -170,7 +193,16 @@ export const Discover = memo(function Discover({
       <div className="disc-grid">
         <div className="disc-main">
           <div className="table-scroll">
-            <RankTable R={R} byId={byId} u={u} current={current} openCity={openCity} />
+            <RankTable
+              R={R}
+              byId={byId}
+              u={u}
+              current={current}
+              openCity={openCity}
+              starred={starred}
+              toggleStar={toggleStar}
+              empty={empty}
+            />
           </div>
           <div className="prose" style={{ marginTop: 14, fontSize: 11, color: 'var(--dim)' }}>
             {comfort
@@ -214,14 +246,26 @@ function RankTable({
   u,
   current,
   openCity,
+  starred,
+  toggleStar,
+  empty,
 }: {
   R: Ranking
   byId: Record<string, CityRow>
   u: Units
   current: string
   openCity: (id: string) => void
+  starred: ReadonlySet<string>
+  toggleStar: (id: string) => void
+  /** What an empty table says: still loading, or nothing in the star scope. */
+  empty: string
 }) {
   const comfort = R.mode === 'comfort'
+  const star = (x: Ranked) => (
+    <td className="l" style={{ padding: '0 0 0 4px' }}>
+      <StarButton on={starred.has(x.c.city.id)} name={x.c.city.name} onClick={() => toggleStar(x.c.city.id)} />
+    </td>
+  )
   const name = (x: Ranked) => (
     <>
       {x.c.city.id === current && <span className="dot">●</span>}
@@ -248,6 +292,7 @@ function RankTable({
       <thead>
         {comfort ? (
           <tr>
+            <th />
             <th className="l">#</th>
             <th className="l">CITY</th>
             <th className="l">REGION</th>
@@ -270,6 +315,7 @@ function RankTable({
           </tr>
         ) : (
           <tr>
+            <th />
             <th className="l">#</th>
             <th className="l">CITY</th>
             <th className="l">REGION</th>
@@ -294,6 +340,7 @@ function RankTable({
           )
           return comfort && b ? (
             <tr key={city.id}>
+              {star(x)}
               {rk}
               <td className="l strong">{name(x)}</td>
               <td className="l" style={{ color: 'var(--dim)' }}>
@@ -328,6 +375,7 @@ function RankTable({
             </tr>
           ) : (
             <tr key={city.id}>
+              {star(x)}
               {rk}
               <td className="l strong">{name(x)}</td>
               <td className="l" style={{ color: 'var(--dim)' }}>
@@ -350,8 +398,8 @@ function RankTable({
         })}
         {!R.rows.length && (
           <tr>
-            <td className="l" colSpan={15} style={{ color: 'var(--dim)', padding: '12px 8px' }}>
-              Loading the city set…
+            <td className="l" colSpan={16} style={{ color: 'var(--dim)', padding: '12px 8px' }}>
+              {empty}
             </td>
           </tr>
         )}

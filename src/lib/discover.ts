@@ -11,10 +11,13 @@ export type SortKey = 'comf' | 'comftol' | 'unb' | 'outdoor' | 'trend'
 export type Shift = 'cooler' | 'warmer' | 'drier' | 'cloudier' | 'sunnier' | 'snowier'
 export type PopFilter = 'any' | 'big' | 'small'
 export type CoastFilter = 'any' | 'coastal' | 'inland'
+export type StarScope = 'all' | 'starred' | 'unstarred'
 
 export interface DiscoverQuery {
   rank: Rank
   sort: SortKey
+  /** Which cities are ranked at all, by star. Applied before the filters, never counted as a miss. */
+  scope: StarScope
   /** 'all' or a continent slug. */
   region: string
   pop: PopFilter
@@ -29,6 +32,7 @@ export interface DiscoverQuery {
 export const DEFAULT_DISCOVER: DiscoverQuery = {
   rank: 'comfort',
   sort: 'comf',
+  scope: 'all',
   region: 'all',
   pop: 'any',
   snow: false,
@@ -101,11 +105,18 @@ const KEY: Record<SortKey | 'walk', (c: Candidate) => number> = {
   walk: (c) => c.act.per.walk.days,
 }
 
-export function rank(cands: Candidate[], q: DiscoverQuery, drive: number): Ranking {
+export const inScope = (id: string, scope: StarScope, stars: ReadonlySet<string>) =>
+  scope === 'all' || stars.has(id) === (scope === 'starred')
+
+export function rank(cands: Candidate[], q: DiscoverQuery, drive: number, stars: readonly string[] = []): Ranking {
   const mode: Rank = q.rank === 'comfort' && cands.some((c) => c.b) ? 'comfort' : 'outdoor'
-  const all = cands.map((c) => ({ c, misses: filterMisses(c.city, q, drive) }))
+  const starred = new Set(stars)
+  const all = cands
+    .filter((c) => inScope(c.city.id, q.scope, starred))
+    .map((c) => ({ c, misses: filterMisses(c.city, q, drive) }))
   const passing = all.filter((r) => !r.misses.length)
   // Never empty: if nothing passes every filter, show the cities that miss the fewest, and say which.
+  // The nearest misses come from inside the star scope; an empty scope stays empty.
   const nearMiss = !passing.length && all.length > 0
   const least = nearMiss ? Math.min(...all.map((r) => r.misses.length)) : 0
   const rows = nearMiss ? all.filter((r) => r.misses.length === least) : passing
@@ -193,6 +204,7 @@ export function encodeDiscover(d: DiscoverQuery, q: URLSearchParams) {
   const z = DEFAULT_DISCOVER
   if (d.rank !== z.rank) q.set('rank', d.rank)
   if (d.sort !== z.sort) q.set('sort', d.sort)
+  if (d.scope !== z.scope) q.set('scope', d.scope)
   if (d.region !== z.region) q.set('reg', d.region)
   if (d.pop !== z.pop) q.set('pop', d.pop)
   if (d.snow) q.set('snowf', '1')
@@ -210,6 +222,7 @@ export function decodeDiscover(q: URLSearchParams): DiscoverQuery {
         q.get('sort'),
         SORTS.map((s) => s.v),
       ) ?? z.sort,
+    scope: oneOf(q.get('scope'), ['starred', 'unstarred'] as const) ?? z.scope,
     region:
       oneOf(
         q.get('reg'),

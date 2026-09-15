@@ -13,7 +13,7 @@ import { DEFAULT_PREFS, type Prefs } from './lib/prefs'
 import { seasonWeights } from './lib/scoring'
 import { buildModel, fitOf, outdoorOf, type CityRow, type Fit, type Outdoor } from './lib/model'
 import { units } from './lib/units'
-import { decodeSession, sessionSearch, type Session, type View } from './lib/session'
+import { decodeSession, sessionSearch, toggleStar, type Session, type View } from './lib/session'
 import { toggleCompare } from './lib/compare'
 import type { DiscoverQuery } from './lib/discover'
 import { ControlBar } from './components/ControlBar'
@@ -150,6 +150,7 @@ export default function App() {
   }, [])
   const openMethods = useCallback(() => setView('methods'), [setView])
   const setCmp = useCallback((cmp: string[]) => setSession((s) => ({ ...s, cmp })), [])
+  const star = useCallback((id: string) => setSession((s) => ({ ...s, stars: toggleStar(s.stars, id) })), [])
   const setDisc = useCallback(
     (patch: Partial<DiscoverQuery>) => setSession((s) => ({ ...s, disc: { ...s.disc, ...patch } })),
     [],
@@ -243,6 +244,8 @@ export default function App() {
           openCity={openCity}
           openMethods={openMethods}
           toggleCompare={() => setSession((x) => ({ ...x, cmp: toggleCompare(x.cmp, cityMeta.id) }))}
+          starred={session.stars.includes(cityMeta.id)}
+          toggleStar={() => star(cityMeta.id)}
         />
       )}
       {session.view === 'compare' && (
@@ -269,6 +272,8 @@ export default function App() {
           openCity={openCity}
           current={cityMeta.id}
           failed={failed}
+          stars={session.stars}
+          toggleStar={star}
         />
       )}
       {session.view === 'methods' && (

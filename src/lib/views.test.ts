@@ -21,7 +21,7 @@ import {
   type DiscoverQuery,
 } from './discover'
 import { MAX_COMPARE, PIVOT, pivot, toggleCompare } from './compare'
-import { decodeSession, encodeSession, sessionSearch, type Session } from './session'
+import { decodeSession, encodeSession, sessionSearch, toggleStar, type Session } from './session'
 
 const json = <T>(path: string) =>
   JSON.parse(readFileSync(new URL(`../../public/data/${path}`, import.meta.url), 'utf8')) as T
@@ -154,6 +154,32 @@ describe('discover', () => {
     expect(r.rows.map((x) => x.c.city.id).sort()).toEqual(['calgary', 'denver'])
   })
 
+  it('ranks only the starred or unstarred cities when scoped by star', () => {
+    const stars = ['tacoma', 'phoenix', 'miami']
+    const ids = (scope: DiscoverQuery['scope']) =>
+      rank(cands, { ...DEFAULT_DISCOVER, scope }, 2, stars)
+        .rows.map((x) => x.c.city.id)
+        .sort()
+    expect(ids('starred')).toEqual([...stars].sort())
+    expect(ids('unstarred')).toEqual(SEED.filter((id) => !stars.includes(id)).sort())
+    expect(ids('all')).toEqual([...SEED].sort())
+  })
+
+  it('takes near misses from inside the star scope, and never counts the scope as a miss', () => {
+    const europe = REGIONS.find((x) => x.name === 'Europe')!.slug
+    const r = rank(cands, { ...DEFAULT_DISCOVER, scope: 'starred', region: europe }, 2, ['tacoma', 'phoenix'])
+    expect(r.nearMiss).toBe(true)
+    expect(r.rows.map((x) => x.c.city.id).sort()).toEqual(['phoenix', 'tacoma'])
+    for (const row of r.rows) expect(row.misses).toEqual(['Europe'])
+  })
+
+  it('leaves an empty star scope empty rather than filling it with near misses', () => {
+    const r = rank(cands, { ...DEFAULT_DISCOVER, scope: 'starred' }, 2, [])
+    expect(r.rows).toEqual([])
+    expect(r.nearMiss).toBe(false)
+    expect(r.passing).toBe(0)
+  })
+
   it('like [city] but ___ excludes the reference and moves the target the chosen way', () => {
     const climates = Object.fromEntries(CITIES.map((c) => [c.id, climateOf(series[c.id], w, 0)]))
     const res = likeBut('tacoma', 'warmer', climates, 4)
@@ -176,6 +202,7 @@ describe('discover', () => {
     const q: DiscoverQuery = {
       rank: 'outdoor',
       sort: 'trend',
+      scope: 'starred',
       region: REGIONS[0].slug,
       pop: 'small',
       snow: true,
@@ -189,7 +216,7 @@ describe('discover', () => {
     const empty = new URLSearchParams()
     encodeDiscover(DEFAULT_DISCOVER, empty)
     expect(empty.toString()).toBe('')
-    expect(decodeDiscover(new URLSearchParams('rank=bogus&like=atlantis&reg=mars'))).toEqual(DEFAULT_DISCOVER)
+    expect(decodeDiscover(new URLSearchParams('rank=bogus&like=atlantis&reg=mars&scope=all'))).toEqual(DEFAULT_DISCOVER)
   })
 })
 
@@ -222,13 +249,14 @@ describe('compare', () => {
 })
 
 describe('session URL', () => {
-  it('round-trips screen, compare set and discover query alongside the preferences', () => {
+  it('round-trips screen, compare set, stars and discover query alongside the preferences', () => {
     const s: Session = {
       city: 'denver',
       prefs: example,
       cmp: ['tacoma', 'prague'],
+      stars: ['reykjavik', 'calgary'],
       view: 'compare',
-      disc: { ...DEFAULT_DISCOVER, rank: 'outdoor', like: 'miami' },
+      disc: { ...DEFAULT_DISCOVER, rank: 'outdoor', like: 'miami', scope: 'unstarred' },
     }
     expect(decodeSession(new URLSearchParams(sessionSearch(s)))).toEqual(s)
   })
@@ -237,6 +265,18 @@ describe('session URL', () => {
     const s = decodeSession(new URLSearchParams('cmp=tacoma,tacoma,atlantis,denver,miami,prague,phoenix&view=nowhere'))
     expect(s.cmp).toEqual(['tacoma', 'denver', 'miami', 'prague'])
     expect(s.view).toBe('city')
+  })
+
+  it('drops unknown and duplicate stars, keeps their order and does not cap them', () => {
+    const s = decodeSession(new URLSearchParams(`star=miami,atlantis,${SEED.join(',')}`))
+    expect(s.stars).toEqual(['miami', ...SEED.filter((id) => id !== 'miami')])
+    expect(decodeSession(new URLSearchParams('')).stars).toEqual([])
+  })
+
+  it('stars and unstars a city', () => {
+    const on = toggleStar(['tacoma'], 'prague')
+    expect(on).toEqual(['tacoma', 'prague'])
+    expect(toggleStar(on, 'tacoma')).toEqual(['prague'])
   })
 
   it('leaves the city view implicit', () => {

@@ -39,6 +39,8 @@ export function CityView({
   setCalFill,
   cmp,
   toggleCompare,
+  starred,
+  toggleStar,
   rows,
   openCity,
   openMethods,
@@ -57,6 +59,8 @@ export function CityView({
   setCalFill: (v: CalFill) => void
   cmp: string[]
   toggleCompare: () => void
+  starred: boolean
+  toggleStar: () => void
   rows: CityRow[]
   openCity: (id: string) => void
   openMethods: () => void
@@ -76,6 +80,8 @@ export function CityView({
         inCompare={cmp.includes(city.id)}
         compareCount={cmp.length}
         toggleCompare={toggleCompare}
+        starred={starred}
+        toggleStar={toggleStar}
         exportCsv={() => downloadMonthlyCsv(city, m.months, p, u)}
         openCity={openCity}
       />

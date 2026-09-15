@@ -1086,6 +1086,20 @@ table.plain td.wrap {
 table.rank tbody tr:hover td {
   background: #171a1f;
 }
+.star-btn {
+  font: 400 13px/1 var(--sans);
+  color: var(--faint);
+  background: transparent;
+  border: none;
+  padding: 2px 4px;
+  cursor: pointer;
+}
+.star-btn:hover {
+  color: var(--mid);
+}
+.star-btn.on {
+  color: var(--ink);
+}
 
 /* ---------- opening state ---------- */
 .preset-grid {
