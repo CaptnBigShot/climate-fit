@@ -3,7 +3,7 @@
  "cities": {
   "tacoma": {
    "solarIdx": 43,
-   "seasonsIdx": 46,
+   "seasonsIdx": 38,
    "meanRadMJ": 12.73,
    "seasonStdF": 10.13,
    "demElevM": 85,
@@ -11,7 +11,7 @@
   },
   "denver": {
    "solarIdx": 82,
-   "seasonsIdx": 98,
+   "seasonsIdx": 79,
    "meanRadMJ": 17.83,
    "seasonStdF": 16.52,
    "demElevM": 1599,
@@ -19,7 +19,7 @@
   },
   "bellingham": {
    "solarIdx": 43,
-   "seasonsIdx": 40,
+   "seasonsIdx": 33,
    "meanRadMJ": 12.68,
    "seasonStdF": 9.36,
    "demElevM": 23,
@@ -27,7 +27,7 @@
   },
   "lynnwood": {
    "solarIdx": 42,
-   "seasonsIdx": 37,
+   "seasonsIdx": 30,
    "meanRadMJ": 12.59,
    "seasonStdF": 8.99,
    "demElevM": 119,
@@ -35,7 +35,7 @@
   },
   "calgary": {
    "solarIdx": 50,
-   "seasonsIdx": 100,
+   "seasonsIdx": 81,
    "meanRadMJ": 13.61,
    "seasonStdF": 16.73,
    "demElevM": 1051,
@@ -43,7 +43,7 @@
   },
   "prague": {
    "solarIdx": 36,
-   "seasonsIdx": 68,
+   "seasonsIdx": 55,
    "meanRadMJ": 11.87,
    "seasonStdF": 12.85,
    "demElevM": 251,
@@ -51,7 +51,7 @@
   },
   "wellington": {
    "solarIdx": 62,
-   "seasonsIdx": 0,
+   "seasonsIdx": 1,
    "meanRadMJ": 15.17,
    "seasonStdF": 4.52,
    "demElevM": 20,
@@ -59,7 +59,7 @@
   },
   "phoenix": {
    "solarIdx": 100,
-   "seasonsIdx": 84,
+   "seasonsIdx": 68,
    "meanRadMJ": 20.1,
    "seasonStdF": 14.76,
    "demElevM": 333,
@@ -75,7 +75,7 @@
   },
   "reykjavik": {
    "solarIdx": 0,
-   "seasonsIdx": 24,
+   "seasonsIdx": 20,
    "meanRadMJ": 7.19,
    "seasonStdF": 7.41,
    "demElevM": 7,
@@ -83,11 +83,331 @@
   },
   "seattle": {
    "solarIdx": 40,
-   "seasonsIdx": 42,
+   "seasonsIdx": 34,
    "meanRadMJ": 12.35,
    "seasonStdF": 9.6,
    "demElevM": 59,
    "gridElevM": -2
+  },
+  "munich": {
+   "solarIdx": 41,
+   "seasonsIdx": 48,
+   "meanRadMJ": 12.45,
+   "seasonStdF": 11.79,
+   "demElevM": 524,
+   "gridElevM": 535
+  },
+  "toronto": {
+   "solarIdx": 53,
+   "seasonsIdx": 79,
+   "meanRadMJ": 14.01,
+   "seasonStdF": 16.53,
+   "demElevM": 165,
+   "gridElevM": 119
+  },
+  "vancouver": {
+   "solarIdx": 40,
+   "seasonsIdx": 37,
+   "meanRadMJ": 12.3,
+   "seasonStdF": 10.05,
+   "demElevM": 73,
+   "gridElevM": 70
+  },
+  "zuerich": {
+   "solarIdx": 42,
+   "seasonsIdx": 50,
+   "meanRadMJ": 12.59,
+   "seasonStdF": 11.98,
+   "demElevM": 442,
+   "gridElevM": 477
+  },
+  "berlin": {
+   "solarIdx": 31,
+   "seasonsIdx": 51,
+   "meanRadMJ": 11.24,
+   "seasonStdF": 12.15,
+   "demElevM": 46,
+   "gridElevM": 47
+  },
+  "montreal": {
+   "solarIdx": 48,
+   "seasonsIdx": 99,
+   "meanRadMJ": 13.37,
+   "seasonStdF": 19.5,
+   "demElevM": 226,
+   "gridElevM": 31
+  },
+  "new-york-city": {
+   "solarIdx": 56,
+   "seasonsIdx": 73,
+   "meanRadMJ": 14.39,
+   "seasonStdF": 15.52,
+   "demElevM": 51,
+   "gridElevM": 16
+  },
+  "boston": {
+   "solarIdx": 54,
+   "seasonsIdx": 75,
+   "meanRadMJ": 14.19,
+   "seasonStdF": 15.82,
+   "demElevM": 19,
+   "gridElevM": 0
+  },
+  "stockholm": {
+   "solarIdx": 23,
+   "seasonsIdx": 53,
+   "meanRadMJ": 10.14,
+   "seasonStdF": 12.46,
+   "demElevM": 24,
+   "gridElevM": 27
+  },
+  "oslo": {
+   "solarIdx": 19,
+   "seasonsIdx": 58,
+   "meanRadMJ": 9.7,
+   "seasonStdF": 13.29,
+   "demElevM": 27,
+   "gridElevM": 112
+  },
+  "ottawa": {
+   "solarIdx": 47,
+   "seasonsIdx": 97,
+   "meanRadMJ": 13.21,
+   "seasonStdF": 19.18,
+   "demElevM": 74,
+   "gridElevM": 86
+  },
+  "san-francisco": {
+   "solarIdx": 86,
+   "seasonsIdx": 0,
+   "meanRadMJ": 18.27,
+   "seasonStdF": 4.38,
+   "demElevM": 18,
+   "gridElevM": 6
+  },
+  "london": {
+   "solarIdx": 29,
+   "seasonsIdx": 28,
+   "meanRadMJ": 10.95,
+   "seasonStdF": 8.63,
+   "demElevM": 23,
+   "gridElevM": 24
+  },
+  "uppsala": {
+   "solarIdx": 21,
+   "seasonsIdx": 55,
+   "meanRadMJ": 9.89,
+   "seasonStdF": 12.8,
+   "demElevM": 17,
+   "gridElevM": 33
+  },
+  "krakow": {
+   "solarIdx": 35,
+   "seasonsIdx": 56,
+   "meanRadMJ": 11.7,
+   "seasonStdF": 12.95,
+   "demElevM": 214,
+   "gridElevM": 227
+  },
+  "halifax": {
+   "solarIdx": 45,
+   "seasonsIdx": 65,
+   "meanRadMJ": 13.04,
+   "seasonStdF": 14.36,
+   "demElevM": 44,
+   "gridElevM": 43
+  },
+  "boulder": {
+   "solarIdx": 82,
+   "seasonsIdx": 76,
+   "meanRadMJ": 17.83,
+   "seasonStdF": 16.07,
+   "demElevM": 1625,
+   "gridElevM": 1676
+  },
+  "worcester": {
+   "solarIdx": 53,
+   "seasonsIdx": 77,
+   "meanRadMJ": 14.08,
+   "seasonStdF": 16.13,
+   "demElevM": 153,
+   "gridElevM": 211
+  },
+  "paris": {
+   "solarIdx": 38,
+   "seasonsIdx": 37,
+   "meanRadMJ": 12.07,
+   "seasonStdF": 10.07,
+   "demElevM": 43,
+   "gridElevM": 76
+  },
+  "hamilton": {
+   "solarIdx": 53,
+   "seasonsIdx": 79,
+   "meanRadMJ": 13.99,
+   "seasonStdF": 16.5,
+   "demElevM": 92,
+   "gridElevM": 185
+  },
+  "cluj-napoca": {
+   "solarIdx": 49,
+   "seasonsIdx": 59,
+   "meanRadMJ": 13.53,
+   "seasonStdF": 13.48,
+   "demElevM": 349,
+   "gridElevM": 470
+  },
+  "frankfurt-am-main": {
+   "solarIdx": 36,
+   "seasonsIdx": 49,
+   "meanRadMJ": 11.81,
+   "seasonStdF": 11.92,
+   "demElevM": 117,
+   "gridElevM": 113
+  },
+  "vaduz": {
+   "solarIdx": 45,
+   "seasonsIdx": 49,
+   "meanRadMJ": 12.98,
+   "seasonStdF": 11.83,
+   "demElevM": 464,
+   "gridElevM": 1010
+  },
+  "freiburg": {
+   "solarIdx": 43,
+   "seasonsIdx": 46,
+   "meanRadMJ": 12.73,
+   "seasonStdF": 11.35,
+   "demElevM": 287,
+   "gridElevM": 558
+  },
+  "warsaw": {
+   "solarIdx": 32,
+   "seasonsIdx": 58,
+   "meanRadMJ": 11.31,
+   "seasonStdF": 13.26,
+   "demElevM": 113,
+   "gridElevM": 94
+  },
+  "wroclaw": {
+   "solarIdx": 34,
+   "seasonsIdx": 53,
+   "meanRadMJ": 11.56,
+   "seasonStdF": 12.42,
+   "demElevM": 119,
+   "gridElevM": 110
+  },
+  "sofia": {
+   "solarIdx": 62,
+   "seasonsIdx": 59,
+   "meanRadMJ": 15.16,
+   "seasonStdF": 13.43,
+   "demElevM": 555,
+   "gridElevM": 699
+  },
+  "basel": {
+   "solarIdx": 41,
+   "seasonsIdx": 48,
+   "meanRadMJ": 12.54,
+   "seasonStdF": 11.65,
+   "demElevM": 283,
+   "gridElevM": 305
+  },
+  "quebec": {
+   "solarIdx": 44,
+   "seasonsIdx": 100,
+   "meanRadMJ": 12.83,
+   "seasonStdF": 19.69,
+   "demElevM": 55,
+   "gridElevM": 41
+  },
+  "bielsko-biala": {
+   "solarIdx": 35,
+   "seasonsIdx": 54,
+   "meanRadMJ": 11.77,
+   "seasonStdF": 12.62,
+   "demElevM": 324,
+   "gridElevM": 465
+  },
+  "brno": {
+   "solarIdx": 39,
+   "seasonsIdx": 59,
+   "meanRadMJ": 12.26,
+   "seasonStdF": 13.46,
+   "demElevM": 234,
+   "gridElevM": 250
+  },
+  "provo": {
+   "solarIdx": 86,
+   "seasonsIdx": 85,
+   "meanRadMJ": 18.32,
+   "seasonStdF": 17.39,
+   "demElevM": 1392,
+   "gridElevM": 1832
+  },
+  "providence": {
+   "solarIdx": 54,
+   "seasonsIdx": 73,
+   "meanRadMJ": 14.16,
+   "seasonStdF": 15.48,
+   "demElevM": 10,
+   "gridElevM": 54
+  },
+  "seoul": {
+   "solarIdx": 58,
+   "seasonsIdx": 89,
+   "meanRadMJ": 14.66,
+   "seasonStdF": 18.02,
+   "demElevM": 27,
+   "gridElevM": 75
+  },
+  "edmonton": {
+   "solarIdx": 42,
+   "seasonsIdx": 100,
+   "meanRadMJ": 12.66,
+   "seasonStdF": 19.67,
+   "demElevM": 613,
+   "gridElevM": 664
+  },
+  "hamburg": {
+   "solarIdx": 26,
+   "seasonsIdx": 41,
+   "meanRadMJ": 10.6,
+   "seasonStdF": 10.61,
+   "demElevM": 11,
+   "gridElevM": 9
+  },
+  "budapest": {
+   "solarIdx": 48,
+   "seasonsIdx": 63,
+   "meanRadMJ": 13.34,
+   "seasonStdF": 14.05,
+   "demElevM": 124,
+   "gridElevM": 149
+  },
+  "amsterdam": {
+   "solarIdx": 33,
+   "seasonsIdx": 31,
+   "meanRadMJ": 11.42,
+   "seasonStdF": 9.05,
+   "demElevM": 14,
+   "gridElevM": -1
+  },
+  "bratislava": {
+   "solarIdx": 44,
+   "seasonsIdx": 60,
+   "meanRadMJ": 12.91,
+   "seasonStdF": 13.53,
+   "demElevM": 163,
+   "gridElevM": 162
+  },
+  "vienna": {
+   "solarIdx": 42,
+   "seasonsIdx": 58,
+   "meanRadMJ": 12.67,
+   "seasonStdF": 13.27,
+   "demElevM": 196,
+   "gridElevM": 212
   }
  },
  "terrain": [
@@ -105,7 +425,64 @@
   "snowbowl",
   "blafjoll",
   "alpental",
-  "mission-ridge"
+  "mission-ridge",
+  "oberer-maxlraineralm",
+  "kaunertaler-gletscher",
+  "blue-mountain",
+  "holiday-valley",
+  "cypress-mountain",
+  "whistler-blackcomb",
+  "biberegg",
+  "passo-stelvio-stilfserjoch",
+  "ski-elstra",
+  "wintersportgebiet-wurmberg",
+  "sommet-olympia",
+  "smugglers-notch",
+  "camelback-mountain",
+  "belleayre-mountain",
+  "mount-sunapee",
+  "cannon-mountain",
+  "romme-alpin",
+  "skimore-oslo",
+  "h-gevarde",
+  "sommet-edelweiss",
+  "mont-tremblant-station",
+  "soda-springs",
+  "kungsberget",
+  "kasina-ski",
+  "vysoke-tatry-tatranska",
+  "ski-martock",
+  "eldora",
+  "wachusett-mountain",
+  "kissing-bridge",
+  "buscat-baisoara",
+  "buscat",
+  "sureanu",
+  "winterloch-heigenbrucken",
+  "unterstmatt",
+  "malbun",
+  "diavolezza-lagalb",
+  "todtnauberg",
+  "mala-upa",
+  "vitosha",
+  "saint-luc-chandolin",
+  "mont-sainte-anne",
+  "massif-du-sud",
+  "szczyrk-mountain",
+  "martinske-hole",
+  "karlov",
+  "arabichl",
+  "alta",
+  "konjiam",
+  "pheonix-park",
+  "muju",
+  "canyon-ski-red",
+  "silver-summit",
+  "dobogoko-sipalya",
+  "kekesteto-sicentrum",
+  "stuhleck-semmering",
+  "pezinska-baba",
+  "lachtal"
  ],
  "hourly": [
   "tacoma",

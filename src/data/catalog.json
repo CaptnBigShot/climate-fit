@@ -15,7 +15,64 @@
     "snowbowl": { "name": "Arizona Snowbowl", "lat": 35.3306, "lon": -111.7117, "elevFt": 10000 },
     "blafjoll": { "name": "Bláfjöll", "lat": 63.9794, "lon": -21.6547, "elevFt": 1900 },
     "alpental": { "name": "Alpental", "lat": 47.4411, "lon": -121.4358, "elevFt": 4300 },
-    "mission-ridge": { "name": "Mission Ridge", "lat": 47.2834, "lon": -120.4117, "elevFt": 5700 }
+    "mission-ridge": { "name": "Mission Ridge", "lat": 47.2834, "lon": -120.4117, "elevFt": 5700 },
+    "oberer-maxlraineralm": { "name": "Oberer Maxlraineralm", "lat": 47.6601, "lon": 11.9048, "elevFt": 4800 },
+    "kaunertaler-gletscher": { "name": "Kaunertaler Gletscher", "lat": 46.8681, "lon": 10.7076, "elevFt": 8600 },
+    "blue-mountain": { "name": "Blue Mountain Ski Resort", "lat": 44.4996, "lon": -80.3178, "elevFt": 1100 },
+    "holiday-valley": { "name": "Holiday Valley", "lat": 42.2576, "lon": -78.677, "elevFt": 1900 },
+    "cypress-mountain": { "name": "Cypress Mountain", "lat": 49.392, "lon": -123.1917, "elevFt": 3700 },
+    "whistler-blackcomb": { "name": "Whistler Blackcomb", "lat": 50.0807, "lon": -122.9315, "elevFt": 4800 },
+    "biberegg": { "name": "Biberegg", "lat": 47.0877, "lon": 8.6822, "elevFt": 3700 },
+    "passo-stelvio-stilfserjoch": { "name": "Passo Stelvio - Stilfserjoch", "lat": 46.5112, "lon": 10.463, "elevFt": 10000 },
+    "ski-elstra": { "name": "Ski Elstra", "lat": 51.2177, "lon": 14.1165, "elevFt": 1000 },
+    "wintersportgebiet-wurmberg": { "name": "Wintersportgebiet Wurmberg", "lat": 51.744, "lon": 10.6159, "elevFt": 2500 },
+    "sommet-olympia": { "name": "Sommet Olympia", "lat": 45.9149, "lon": -74.1175, "elevFt": 1100 },
+    "smugglers-notch": { "name": "Smugglers' Notch Resort", "lat": 44.5733, "lon": -72.7701, "elevFt": 2400 },
+    "camelback-mountain": { "name": "Camelback Mountain Resort", "lat": 41.0483, "lon": -75.3527, "elevFt": 1600 },
+    "belleayre-mountain": { "name": "Belleayre Mountain Ski Center", "lat": 42.1309, "lon": -74.5115, "elevFt": 2700 },
+    "mount-sunapee": { "name": "Mount Sunapee", "lat": 43.3239, "lon": -72.0757, "elevFt": 2000 },
+    "cannon-mountain": { "name": "Cannon Mountain", "lat": 44.1685, "lon": -71.702, "elevFt": 2900 },
+    "romme-alpin": { "name": "Romme Alpin", "lat": 60.3851, "lon": 15.4044, "elevFt": 900 },
+    "skimore-oslo": { "name": "Skimore Oslo", "lat": 59.9915, "lon": 10.651, "elevFt": 1100 },
+    "h-gevarde": { "name": "Høgevarde", "lat": 60.2804, "lon": 9.4292, "elevFt": 3300 },
+    "sommet-edelweiss": { "name": "Sommet Edelweiss", "lat": 45.6409, "lon": -75.8501, "elevFt": 800 },
+    "mont-tremblant-station": { "name": "Mont Tremblant Resort, Station Mont Tremblant", "lat": 46.2165, "lon": -74.5561, "elevFt": 1900 },
+    "soda-springs": { "name": "Soda Springs", "lat": 39.3181, "lon": -120.3848, "elevFt": 7100 },
+    "kungsberget": { "name": "Kungsberget", "lat": 60.7533, "lon": 16.4971, "elevFt": 700 },
+    "kasina-ski": { "name": "Kasina SKI", "lat": 49.717, "lon": 20.1583, "elevFt": 2400 },
+    "vysoke-tatry-tatranska": { "name": "Vysoké Tatry - Tatranská Lomnica", "lat": 49.18, "lon": 20.2426, "elevFt": 5000 },
+    "ski-martock": { "name": "Ski Martock", "lat": 44.9352, "lon": -64.1704, "elevFt": 300 },
+    "eldora": { "name": "Eldora", "lat": 39.933, "lon": -105.5864, "elevFt": 9900 },
+    "wachusett-mountain": { "name": "Wachusett Mountain Ski Area", "lat": 42.4962, "lon": -71.8885, "elevFt": 1500 },
+    "kissing-bridge": { "name": "Kissing Bridge", "lat": 42.5998, "lon": -78.6585, "elevFt": 1500 },
+    "buscat-baisoara": { "name": "Buscat / Băișoara", "lat": 46.5376, "lon": 23.3044, "elevFt": 4500 },
+    "buscat": { "name": "Buscat", "lat": 46.5306, "lon": 23.2766, "elevFt": 5200 },
+    "sureanu": { "name": "Șureanu", "lat": 45.5641, "lon": 23.5087, "elevFt": 6000 },
+    "winterloch-heigenbrucken": { "name": "Skigebiet Winterloch Heigenbrücken", "lat": 50.0089, "lon": 9.3714, "elevFt": 1300 },
+    "unterstmatt": { "name": "Unterstmatt", "lat": 48.6239, "lon": 8.206, "elevFt": 3300 },
+    "malbun": { "name": "Malbun", "lat": 47.1003, "lon": 9.6113, "elevFt": 5700 },
+    "diavolezza-lagalb": { "name": "Diavolezza-Lagalb", "lat": 46.4286, "lon": 9.9773, "elevFt": 8300 },
+    "todtnauberg": { "name": "Todtnauberg", "lat": 47.8572, "lon": 7.9509, "elevFt": 3900 },
+    "mala-upa": { "name": "Malá Úpa", "lat": 50.7403, "lon": 15.8191, "elevFt": 3600 },
+    "vitosha": { "name": "Vitosha", "lat": 42.5761, "lon": 23.2918, "elevFt": 6200 },
+    "saint-luc-chandolin": { "name": "Saint-Luc - Chandolin", "lat": 46.2364, "lon": 7.6254, "elevFt": 7600 },
+    "mont-sainte-anne": { "name": "Mont-Sainte-Anne", "lat": 47.0874, "lon": -70.926, "elevFt": 1600 },
+    "massif-du-sud": { "name": "Massif du Sud", "lat": 46.6134, "lon": -70.4859, "elevFt": 2300 },
+    "szczyrk-mountain": { "name": "Szczyrk Mountain Resort", "lat": 49.684, "lon": 18.9994, "elevFt": 3000 },
+    "martinske-hole": { "name": "Martinské Hole", "lat": 49.0942, "lon": 18.8287, "elevFt": 4300 },
+    "karlov": { "name": "Skiarena Karlov", "lat": 50.0062, "lon": 17.237, "elevFt": 2700 },
+    "arabichl": { "name": "Arabichl", "lat": 47.5739, "lon": 15.9016, "elevFt": 4200 },
+    "alta": { "name": "Alta Ski Area", "lat": 40.58, "lon": -111.6248, "elevFt": 9700 },
+    "konjiam": { "name": "곤지암스키장, Konjiam Resort", "lat": 37.334, "lon": 127.2865, "elevFt": 1100 },
+    "pheonix-park": { "name": "휘닉스 평창, Pheonix Park", "lat": 37.5791, "lon": 128.3159, "elevFt": 2800 },
+    "muju": { "name": "Muju", "lat": 35.877, "lon": 127.7411, "elevFt": 3700 },
+    "canyon-ski-red": { "name": "Canyon Ski Resort (Ski Red Deer)", "lat": 52.3053, "lon": -113.6873, "elevFt": 2900 },
+    "silver-summit": { "name": "Silver Summit", "lat": 53.89, "lon": -116.5765, "elevFt": 4300 },
+    "dobogoko-sipalya": { "name": "Dobogókő Sípálya", "lat": 47.7202, "lon": 18.9078, "elevFt": 2000 },
+    "kekesteto-sicentrum": { "name": "Kékestető Sícentrum", "lat": 47.8746, "lon": 19.9966, "elevFt": 3000 },
+    "stuhleck-semmering": { "name": "Stuhleck - Semmering", "lat": 47.5924, "lon": 15.7708, "elevFt": 4200 },
+    "pezinska-baba": { "name": "Pezinská Baba", "lat": 48.3453, "lon": 17.199, "elevFt": 1800 },
+    "lachtal": { "name": "Lachtal", "lat": 47.2636, "lon": 14.3608, "elevFt": 6200 }
   },
   "cities": [
     {
@@ -72,6 +129,206 @@
       "id": "seattle", "name": "Seattle", "code": "WA", "region": "Washington · United States",
       "lat": 47.6062, "lon": -122.3321, "pop": 780995, "coastal": true, "continent": "North America",
       "terrain": [["alpental", 55], ["crystal", 105], ["mission-ridge", 180]]
+    },
+    {
+      "id": "munich", "name": "Munich", "code": "DE", "region": "Germany",
+      "lat": 48.1374, "lon": 11.5755, "pop": 1505005, "coastal": false, "continent": "Europe",
+      "terrain": [["oberer-maxlraineralm", 55], ["kaunertaler-gletscher", 180]]
+    },
+    {
+      "id": "toronto", "name": "Toronto", "code": "ON", "region": "Ontario · Canada",
+      "lat": 43.7064, "lon": -79.3986, "pop": 2794356, "coastal": false, "continent": "North America",
+      "terrain": [["blue-mountain", 120], ["holiday-valley", 170]]
+    },
+    {
+      "id": "vancouver", "name": "Vancouver", "code": "BC", "region": "British Columbia · Canada",
+      "lat": 49.2497, "lon": -123.1193, "pop": 662248, "coastal": true, "continent": "North America",
+      "terrain": [["cypress-mountain", 40], ["whistler-blackcomb", 105]]
+    },
+    {
+      "id": "zuerich", "name": "Zürich", "code": "CH", "region": "Switzerland",
+      "lat": 47.3667, "lon": 8.55, "pop": 415367, "coastal": false, "continent": "Europe",
+      "terrain": [["biberegg", 35], ["passo-stelvio-stilfserjoch", 170]]
+    },
+    {
+      "id": "berlin", "name": "Berlin", "code": "DE", "region": "Germany",
+      "lat": 52.5244, "lon": 13.4105, "pop": 3426354, "coastal": false, "continent": "Europe",
+      "terrain": [["ski-elstra", 120], ["wintersportgebiet-wurmberg", 160]]
+    },
+    {
+      "id": "montreal", "name": "Montréal", "code": "QC", "region": "Quebec · Canada",
+      "lat": 45.5088, "lon": -73.5878, "pop": 1762949, "coastal": true, "continent": "North America",
+      "terrain": [["sommet-olympia", 60], ["smugglers-notch", 120]]
+    },
+    {
+      "id": "new-york-city", "name": "New York City", "code": "NY", "region": "New York · United States",
+      "lat": 40.7143, "lon": -74.006, "pop": 8804190, "coastal": true, "continent": "North America",
+      "terrain": [["camelback-mountain", 100], ["belleayre-mountain", 150]]
+    },
+    {
+      "id": "boston", "name": "Boston", "code": "MA", "region": "Massachusetts · United States",
+      "lat": 42.3584, "lon": -71.0598, "pop": 653833, "coastal": true, "continent": "North America",
+      "terrain": [["mount-sunapee", 115], ["cannon-mountain", 145]]
+    },
+    {
+      "id": "stockholm", "name": "Stockholm", "code": "SE", "region": "Sweden",
+      "lat": 59.3294, "lon": 18.0687, "pop": 1515017, "coastal": true, "continent": "Europe",
+      "terrain": [["romme-alpin", 155]]
+    },
+    {
+      "id": "oslo", "name": "Oslo", "code": "NO", "region": "Norway",
+      "lat": 59.9127, "lon": 10.7461, "pop": 1082575, "coastal": true, "continent": "Europe",
+      "terrain": [["skimore-oslo", 20], ["h-gevarde", 110]]
+    },
+    {
+      "id": "ottawa", "name": "Ottawa", "code": "ON", "region": "Ontario · Canada",
+      "lat": 45.4112, "lon": -75.6981, "pop": 1017449, "coastal": false, "continent": "North America",
+      "terrain": [["sommet-edelweiss", 35], ["mont-tremblant-station", 125]]
+    },
+    {
+      "id": "san-francisco", "name": "San Francisco", "code": "CA", "region": "California · United States",
+      "lat": 37.7749, "lon": -122.4194, "pop": 827526, "coastal": true, "continent": "North America",
+      "terrain": [["soda-springs", 180]]
+    },
+    {
+      "id": "london", "name": "London", "code": "GB", "region": "United Kingdom",
+      "lat": 51.5085, "lon": -0.1257, "pop": 8961989, "coastal": false, "continent": "Europe",
+      "terrain": []
+    },
+    {
+      "id": "uppsala", "name": "Uppsala", "code": "SE", "region": "Sweden",
+      "lat": 59.8588, "lon": 17.6389, "pop": 177074, "coastal": false, "continent": "Europe",
+      "terrain": [["kungsberget", 95]]
+    },
+    {
+      "id": "krakow", "name": "Kraków", "code": "PL", "region": "Poland",
+      "lat": 50.0614, "lon": 19.9366, "pop": 816614, "coastal": false, "continent": "Europe",
+      "terrain": [["kasina-ski", 60], ["vysoke-tatry-tatranska", 115]]
+    },
+    {
+      "id": "halifax", "name": "Halifax", "code": "NS", "region": "Nova Scotia · Canada",
+      "lat": 44.6427, "lon": -63.5769, "pop": 471559, "coastal": true, "continent": "North America",
+      "terrain": [["ski-martock", 55]]
+    },
+    {
+      "id": "boulder", "name": "Boulder", "code": "CO", "region": "Colorado · United States",
+      "lat": 40.015, "lon": -105.2706, "pop": 106803, "coastal": false, "continent": "North America",
+      "terrain": [["eldora", 35], ["loveland", 85]]
+    },
+    {
+      "id": "worcester", "name": "Worcester", "code": "MA", "region": "Massachusetts · United States",
+      "lat": 42.2626, "lon": -71.8023, "pop": 206518, "coastal": false, "continent": "North America",
+      "terrain": [["wachusett-mountain", 25], ["cannon-mountain", 165]]
+    },
+    {
+      "id": "paris", "name": "Paris", "code": "FR", "region": "France",
+      "lat": 48.8534, "lon": 2.3488, "pop": 2138551, "coastal": false, "continent": "Europe",
+      "terrain": []
+    },
+    {
+      "id": "hamilton", "name": "Hamilton", "code": "ON", "region": "Ontario · Canada",
+      "lat": 43.2501, "lon": -79.8496, "pop": 569353, "coastal": false, "continent": "North America",
+      "terrain": [["kissing-bridge", 105]]
+    },
+    {
+      "id": "cluj-napoca", "name": "Cluj-Napoca", "code": "RO", "region": "Romania",
+      "lat": 46.7667, "lon": 23.6, "pop": 286598, "coastal": false, "continent": "Europe",
+      "terrain": [["buscat-baisoara", 55], ["buscat", 60], ["sureanu", 165]]
+    },
+    {
+      "id": "frankfurt-am-main", "name": "Frankfurt am Main", "code": "DE", "region": "Germany",
+      "lat": 50.1155, "lon": 8.6842, "pop": 650000, "coastal": false, "continent": "Europe",
+      "terrain": [["winterloch-heigenbrucken", 50], ["unterstmatt", 115]]
+    },
+    {
+      "id": "vaduz", "name": "Vaduz", "code": "LI", "region": "Liechtenstein",
+      "lat": 47.1415, "lon": 9.5215, "pop": 5197, "coastal": false, "continent": "Europe",
+      "terrain": [["malbun", 10], ["diavolezza-lagalb", 100], ["passo-stelvio-stilfserjoch", 125]]
+    },
+    {
+      "id": "freiburg", "name": "Freiburg", "code": "DE", "region": "Germany",
+      "lat": 47.9959, "lon": 7.8522, "pop": 237460, "coastal": false, "continent": "Europe",
+      "terrain": [["todtnauberg", 30], ["malbun", 170]]
+    },
+    {
+      "id": "warsaw", "name": "Warsaw", "code": "PL", "region": "Poland",
+      "lat": 52.2298, "lon": 21.0118, "pop": 1702139, "coastal": false, "continent": "Europe",
+      "terrain": []
+    },
+    {
+      "id": "wroclaw", "name": "Wrocław", "code": "PL", "region": "Poland",
+      "lat": 51.1029, "lon": 17.0301, "pop": 672545, "coastal": false, "continent": "Europe",
+      "terrain": [["mala-upa", 90]]
+    },
+    {
+      "id": "sofia", "name": "Sofia", "code": "BG", "region": "Bulgaria",
+      "lat": 42.6975, "lon": 23.3241, "pop": 1152556, "coastal": false, "continent": "Europe",
+      "terrain": [["vitosha", 25]]
+    },
+    {
+      "id": "basel", "name": "Basel", "code": "CH", "region": "Switzerland",
+      "lat": 47.5584, "lon": 7.5733, "pop": 177595, "coastal": false, "continent": "Europe",
+      "terrain": [["todtnauberg", 55], ["saint-luc-chandolin", 180]]
+    },
+    {
+      "id": "quebec", "name": "Québec", "code": "QC", "region": "Quebec · Canada",
+      "lat": 46.8123, "lon": -71.2145, "pop": 531902, "coastal": true, "continent": "North America",
+      "terrain": [["mont-sainte-anne", 35], ["massif-du-sud", 90]]
+    },
+    {
+      "id": "bielsko-biala", "name": "Bielsko-Biala", "code": "PL", "region": "Poland",
+      "lat": 49.8225, "lon": 19.0469, "pop": 176515, "coastal": false, "continent": "Europe",
+      "terrain": [["szczyrk-mountain", 25], ["martinske-hole", 120], ["vysoke-tatry-tatranska", 155]]
+    },
+    {
+      "id": "brno", "name": "Brno", "code": "CZ", "region": "Czechia",
+      "lat": 49.1952, "lon": 16.608, "pop": 404296, "coastal": false, "continent": "Europe",
+      "terrain": [["karlov", 105], ["arabichl", 155]]
+    },
+    {
+      "id": "provo", "name": "Provo", "code": "UT", "region": "Utah · United States",
+      "lat": 40.2338, "lon": -111.6585, "pop": 115162, "coastal": false, "continent": "North America",
+      "terrain": [["alta", 55]]
+    },
+    {
+      "id": "providence", "name": "Providence", "code": "RI", "region": "Rhode Island · United States",
+      "lat": 41.824, "lon": -71.4128, "pop": 190934, "coastal": true, "continent": "North America",
+      "terrain": [["wachusett-mountain", 70]]
+    },
+    {
+      "id": "seoul", "name": "Seoul", "code": "KR", "region": "South Korea",
+      "lat": 37.566, "lon": 126.9784, "pop": 10349312, "coastal": false, "continent": "Asia",
+      "terrain": [["konjiam", 45], ["pheonix-park", 110], ["muju", 160]]
+    },
+    {
+      "id": "edmonton", "name": "Edmonton", "code": "AB", "region": "Alberta · Canada",
+      "lat": 53.5501, "lon": -113.4687, "pop": 1010899, "coastal": false, "continent": "North America",
+      "terrain": [["canyon-ski-red", 115], ["silver-summit", 170]]
+    },
+    {
+      "id": "hamburg", "name": "Hamburg", "code": "DE", "region": "Germany",
+      "lat": 53.5507, "lon": 9.993, "pop": 1973896, "coastal": true, "continent": "Europe",
+      "terrain": [["wintersportgebiet-wurmberg", 150]]
+    },
+    {
+      "id": "budapest", "name": "Budapest", "code": "HU", "region": "Hungary",
+      "lat": 47.4984, "lon": 19.0404, "pop": 1741041, "coastal": false, "continent": "Europe",
+      "terrain": [["dobogoko-sipalya", 45], ["kekesteto-sicentrum", 70], ["stuhleck-semmering", 175]]
+    },
+    {
+      "id": "amsterdam", "name": "Amsterdam", "code": "NL", "region": "The Netherlands",
+      "lat": 52.374, "lon": 4.8897, "pop": 741636, "coastal": false, "continent": "Europe",
+      "terrain": []
+    },
+    {
+      "id": "bratislava", "name": "Bratislava", "code": "SK", "region": "Slovakia",
+      "lat": 48.1482, "lon": 17.1067, "pop": 423737, "coastal": false, "continent": "Europe",
+      "terrain": [["pezinska-baba", 45], ["arabichl", 110], ["lachtal", 175]]
+    },
+    {
+      "id": "vienna", "name": "Vienna", "code": "AT", "region": "Austria",
+      "lat": 48.2085, "lon": 16.3721, "pop": 1691468, "coastal": false, "continent": "Europe",
+      "terrain": [["arabichl", 80], ["lachtal", 145]]
     }
   ]
 }
