@@ -11,13 +11,19 @@ export function Tooltip() {
       current = el
       // A control whose menu is open doesn't also need its tooltip covering the menu.
       const text = el?.getAttribute('aria-expanded') === 'true' ? null : el?.getAttribute('data-tip')
-      if (!el || !text) { setTip(null); return }
+      if (!el || !text) {
+        setTip(null)
+        return
+      }
       const r = el.getBoundingClientRect()
       const x = Math.max(10, Math.min(r.left, window.innerWidth - 334))
       const below = r.bottom + 10
       setTip({ text, x, y: below + 150 > window.innerHeight ? Math.max(10, r.top - 150) : below })
     }
-    const hide = () => { current = null; setTip(null) }
+    const hide = () => {
+      current = null
+      setTip(null)
+    }
     document.addEventListener('mouseover', over, true)
     document.addEventListener('mousedown', hide, true)
     window.addEventListener('scroll', hide, { passive: true })
@@ -28,5 +34,9 @@ export function Tooltip() {
     }
   }, [])
   if (!tip) return null
-  return <div className="floating" style={{ left: tip.x, top: tip.y }}>{tip.text}</div>
+  return (
+    <div className="floating" style={{ left: tip.x, top: tip.y }}>
+      {tip.text}
+    </div>
+  )
 }

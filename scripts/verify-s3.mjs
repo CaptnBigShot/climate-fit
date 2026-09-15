@@ -21,18 +21,26 @@ const { values: opts, positionals: ids } = parseArgs({
   allowPositionals: true,
   options: { days: { type: 'string', default: '60' }, n: { type: 'string', default: '6' } },
 })
-const catalog = await readCatalog(), queue = await readQueue()
+const catalog = await readCatalog(),
+  queue = await readQueue()
 const cities = [...catalog.cities, ...(queue?.cities ?? [])]
 const terrain = { ...catalog.terrain, ...queue?.terrain }
 const picked = ids.length
-  ? ids.map((id) => cities.find((c) => c.id === id) ?? (() => { throw new Error(`unknown city ${id}`) })())
+  ? ids.map(
+      (id) =>
+        cities.find((c) => c.id === id) ??
+        (() => {
+          throw new Error(`unknown city ${id}`)
+        })(),
+    )
   : [...cities].sort(() => Math.random() - 0.5).slice(0, Number(opts.n))
 
 const DAY = 86_400_000
 const iso = (t) => new Date(t).toISOString().slice(0, 10)
 /** A random window between `from` and a week ago, so it can land in any model era. */
 function window(days, from = '1991-01-01') {
-  const lo = Date.parse(`${from}T00:00:00Z`), hi = Date.now() - 7 * DAY - days * DAY
+  const lo = Date.parse(`${from}T00:00:00Z`),
+    hi = Date.now() - 7 * DAY - days * DAY
   const start = lo + Math.floor(Math.random() * ((hi - lo) / DAY)) * DAY
   return { start_date: iso(start), end_date: iso(start + (days - 1) * DAY) }
 }
@@ -46,15 +54,25 @@ const NOISE = { sunshine_duration: 1 }
  *  rounding at a .5 boundary and passes. Returns the problems found. */
 function compare(what, api, s3, block, vars, coords = true) {
   const problems = []
-  for (const k of coords ? ['latitude', 'longitude', 'elevation'] : []) if (api[k] !== s3[k]) problems.push(`${what} ${k} ${s3[k]} ≠ API ${api[k]}`)
+  for (const k of coords ? ['latitude', 'longitude', 'elevation'] : [])
+    if (api[k] !== s3[k]) problems.push(`${what} ${k} ${s3[k]} ≠ API ${api[k]}`)
   if (api[block].time.join() !== s3[block].time.join()) problems.push(`${what} ${block} times differ`)
   for (const v of vars) {
-    const a = api[block][v], b = s3[block][v]
-    let bad = 0, worst = 0
+    const a = api[block][v],
+      b = s3[block][v]
+    let bad = 0,
+      worst = 0
     a.forEach((x, i) => {
-      if (x === null || b[i] === null) { if (x !== b[i]) bad++; return }
-      const step = 10 ** -(Math.max(decimals(x), decimals(b[i])) || 0), d = Math.abs(x - b[i])
-      if (d > step + 1e-9 && d > (NOISE[v] ?? 0)) { bad++; worst = Math.max(worst, d) }
+      if (x === null || b[i] === null) {
+        if (x !== b[i]) bad++
+        return
+      }
+      const step = 10 ** -(Math.max(decimals(x), decimals(b[i])) || 0),
+        d = Math.abs(x - b[i])
+      if (d > step + 1e-9 && d > (NOISE[v] ?? 0)) {
+        bad++
+        worst = Math.max(worst, d)
+      }
     })
     if (bad) problems.push(`${what} ${v}: ${bad}/${a.length} differ (worst ${worst.toFixed(3)})`)
   }
@@ -66,12 +84,26 @@ const days = Number(opts.days)
 let failed = 0
 for (const city of picked) {
   const R = archiveRequests({ startYear: 1991, endYear: 2025 })
-  const w = window(days), gmt = { timezone: 'GMT' }
-  const daily = { ...R.daily(city, DAILY_VARS.map((v) => v[0])), ...w, ...gmt }
+  const w = window(days),
+    gmt = { timezone: 'GMT' }
+  const daily = {
+    ...R.daily(
+      city,
+      DAILY_VARS.map((v) => v[0]),
+    ),
+    ...w,
+    ...gmt,
+  }
   const grid = { ...R.grid(city), ...gmt }
   const hourly = { ...R.hourly(city), ...window(14), ...gmt }
   const problems = [
-    ...compare('daily', await get(daily), await archive(daily), 'daily', DAILY_VARS.map((v) => v[0])),
+    ...compare(
+      'daily',
+      await get(daily),
+      await archive(daily),
+      'daily',
+      DAILY_VARS.map((v) => v[0]),
+    ),
     ...compare('grid', await get(grid), await archive(grid), 'daily', []),
     ...compare('hourly', await get(hourly), await archive(hourly), 'hourly', ['temperature_2m']),
   ]
@@ -81,9 +113,22 @@ for (const city of picked) {
   }
   const cams = camsRequest(city, 2025, 's3')
   const aq = { ...cams, ...window(14, cams.start_date), ...gmt }
-  problems.push(...compare(`aq/${cams.domains}`, await get(aq, AQ_API), await airQuality(aq), 'hourly', cams.hourly.split(','), false))
+  problems.push(
+    ...compare(
+      `aq/${cams.domains}`,
+      await get(aq, AQ_API),
+      await airQuality(aq),
+      'hourly',
+      cams.hourly.split(','),
+      false,
+    ),
+  )
   if (problems.length) failed++
-  console.log(`${problems.length ? '✗' : '✓'} ${city.id} · ${w.start_date} → ${w.end_date} · ${city.terrain.length} terrain · aq ${cams.domains} from ${aq.start_date}${problems.length ? `\n    ${problems.join('\n    ')}` : ''}`)
+  console.log(
+    `${problems.length ? '✗' : '✓'} ${city.id} · ${w.start_date} → ${w.end_date} · ${city.terrain.length} terrain · aq ${cams.domains} from ${aq.start_date}${problems.length ? `\n    ${problems.join('\n    ')}` : ''}`,
+  )
 }
-console.log(`${picked.length - failed} of ${picked.length} cities match the API · ~${Math.round(budget.spent)} API calls`)
+console.log(
+  `${picked.length - failed} of ${picked.length} cities match the API · ~${Math.round(budget.spent)} API calls`,
+)
 if (failed) process.exit(1)

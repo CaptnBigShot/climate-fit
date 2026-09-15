@@ -11,23 +11,38 @@ import { DAILY_VARS } from '../src/lib/ytd.ts'
 
 describe('weight', () => {
   it('follows the examples on the Open-Meteo pricing page', () => {
-    expect(weight({ latitude: 1, hourly: Array(15).fill('x').join(','), start_date: '2025-01-01', end_date: '2025-01-14' })).toBeCloseTo(1.5)
-    expect(weight({ latitude: 1, hourly: Array(15).fill('x').join(','), start_date: '2025-01-01', end_date: '2025-01-28' })).toBeCloseTo(3)
-    expect(weight({ latitude: 1, daily: 'temperature_2m_max', start_date: '2025-01-01', end_date: '2025-01-03' })).toBe(1)
+    expect(
+      weight({ latitude: 1, hourly: Array(15).fill('x').join(','), start_date: '2025-01-01', end_date: '2025-01-14' }),
+    ).toBeCloseTo(1.5)
+    expect(
+      weight({ latitude: 1, hourly: Array(15).fill('x').join(','), start_date: '2025-01-01', end_date: '2025-01-28' }),
+    ).toBeCloseTo(3)
+    expect(weight({ latitude: 1, daily: 'temperature_2m_max', start_date: '2025-01-01', end_date: '2025-01-03' })).toBe(
+      1,
+    )
   })
 
   it('prices the archive requests fetch-data makes', () => {
     const req = archiveRequests({ startYear: 1991, endYear: 2025 })
     const city = { lat: 47.25, lon: -122.44 }
     // 12,784 days (leap days included) of 9 variables: the README's "roughly 900".
-    expect(weight(req.daily(city, DAILY_VARS.map((v) => v[0])))).toBeCloseTo(12784 / 14)
+    expect(
+      weight(
+        req.daily(
+          city,
+          DAILY_VARS.map((v) => v[0]),
+        ),
+      ),
+    ).toBeCloseTo(12784 / 14)
     expect(weight(req.grid(city))).toBe(1)
     expect(weight(req.hourly(city))).toBeCloseTo(3653 / 14)
     expect(weight(req.terrain({ lat: 47.4, lon: -121.4, elevFt: 3400 }))).toBeCloseTo(12784 / 14)
   })
 
   it('counts every location of a multi-location request', () => {
-    expect(weight({ latitude: '1,2,3', daily: 'snow_depth_max', start_date: '2026-01-01', end_date: '2026-01-28' })).toBeCloseTo(6)
+    expect(
+      weight({ latitude: '1,2,3', daily: 'snow_depth_max', start_date: '2026-01-01', end_date: '2026-01-28' }),
+    ).toBeCloseTo(6)
   })
 })
 
@@ -57,10 +72,40 @@ describe('catalogue file', () => {
     // Fixture ids, so they never collide with cities the real queue has since promoted.
     const queue = {
       generated: { on: '2026-09-14' },
-      terrain: { 'fixture-hood': { name: 'Mt Hood Meadows', lat: 45.33, lon: -121.66, elevFt: 6200 }, 'fixture-bachelor': { name: 'Mt Bachelor', lat: 44, lon: -121.68, elevFt: 7400 } },
+      terrain: {
+        'fixture-hood': { name: 'Mt Hood Meadows', lat: 45.33, lon: -121.66, elevFt: 6200 },
+        'fixture-bachelor': { name: 'Mt Bachelor', lat: 44, lon: -121.68, elevFt: 7400 },
+      },
       cities: [
-        { id: 'fixture-portland', name: 'Portland', code: 'OR', region: 'Oregon · United States', lat: 45.52, lon: -122.68, pop: 652503, coastal: false, continent: 'North America', terrain: [['fixture-hood', 95], ['crystal', 180]], note: 'Csb' },
-        { id: 'fixture-bend', name: 'Bend', code: 'OR', region: 'Oregon · United States', lat: 44.06, lon: -121.31, pop: 100421, coastal: false, continent: 'North America', terrain: [['fixture-bachelor', 35]], note: 'Csb' },
+        {
+          id: 'fixture-portland',
+          name: 'Portland',
+          code: 'OR',
+          region: 'Oregon · United States',
+          lat: 45.52,
+          lon: -122.68,
+          pop: 652503,
+          coastal: false,
+          continent: 'North America',
+          terrain: [
+            ['fixture-hood', 95],
+            ['crystal', 180],
+          ],
+          note: 'Csb',
+        },
+        {
+          id: 'fixture-bend',
+          name: 'Bend',
+          code: 'OR',
+          region: 'Oregon · United States',
+          lat: 44.06,
+          lon: -121.31,
+          pop: 100421,
+          coastal: false,
+          continent: 'North America',
+          terrain: [['fixture-bachelor', 35]],
+          note: 'Csb',
+        },
       ],
     }
     promote(catalog, queue, 'fixture-portland')
@@ -81,7 +126,8 @@ describe('catalogue file', () => {
 describe('koppen', () => {
   const flat = (v) => Array(12).fill(v)
   // Northern-hemisphere seasonal cycle between a winter low and a summer high.
-  const cycle = (lo, hi) => Array.from({ length: 12 }, (_, m) => lo + ((hi - lo) * (1 - Math.cos(((m - 0.5) * Math.PI) / 6))) / 2)
+  const cycle = (lo, hi) =>
+    Array.from({ length: 12 }, (_, m) => lo + ((hi - lo) * (1 - Math.cos(((m - 0.5) * Math.PI) / 6))) / 2)
   const flip = (xs) => [...xs.slice(6), ...xs.slice(0, 6)]
 
   it('classifies the main climate types', () => {
@@ -98,7 +144,8 @@ describe('koppen', () => {
   })
 
   it('works the same in the southern hemisphere', () => {
-    const t = cycle(7, 18), p = [150, 120, 100, 60, 40, 20, 15, 20, 40, 90, 150, 170]
+    const t = cycle(7, 18),
+      p = [150, 120, 100, 60, 40, 20, 15, 20, 40, 90, 150, 170]
     expect(koppen(flip(t), flip(p))).toBe(koppen(t, p))
   })
 })
@@ -106,13 +153,18 @@ describe('koppen', () => {
 describe('hourly tier', () => {
   /** An Open-Meteo-shaped hourly response for 2016–2025, local clock, with a few quirks. */
   function response() {
-    const time = [], temperature_2m = []
+    const time = [],
+      temperature_2m = []
     for (let t = Date.UTC(2016, 0, 1); t < Date.UTC(2026, 0, 1); t += 3600_000) {
       const iso = new Date(t).toISOString().slice(0, 16)
       // A spring-forward day skips 02:00; the fall-back day repeats 01:00.
       if (iso === '2020-03-08T02:00') continue
-      time.push(iso); temperature_2m.push(iso.slice(11, 13) === '12' ? 60.25 : 40)
-      if (iso === '2020-11-01T01:00') { time.push(iso); temperature_2m.push(99) }
+      time.push(iso)
+      temperature_2m.push(iso.slice(11, 13) === '12' ? 60.25 : 40)
+      if (iso === '2020-11-01T01:00') {
+        time.push(iso)
+        temperature_2m.push(99)
+      }
     }
     return { timezone: 'America/Denver', hourly: { time, temperature_2m } }
   }

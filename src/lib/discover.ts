@@ -26,7 +26,16 @@ export interface DiscoverQuery {
   but: Shift
 }
 
-export const DEFAULT_DISCOVER: DiscoverQuery = { rank: 'comfort', sort: 'comf', region: 'all', pop: 'any', snow: false, coast: 'any', like: null, but: 'snowier' }
+export const DEFAULT_DISCOVER: DiscoverQuery = {
+  rank: 'comfort',
+  sort: 'comf',
+  region: 'all',
+  pop: 'any',
+  snow: false,
+  coast: 'any',
+  like: null,
+  but: 'snowier',
+}
 
 export const SORTS: { v: SortKey; label: string }[] = [
   { v: 'comf', label: 'Comfortable days' },
@@ -35,7 +44,10 @@ export const SORTS: { v: SortKey; label: string }[] = [
   { v: 'outdoor', label: 'Outdoor days' },
   { v: 'trend', label: 'Improving trend' },
 ]
-export const SORT_LABEL: Record<SortKey | 'walk', string> = { ...Object.fromEntries(SORTS.map((s) => [s.v, s.label])) as Record<SortKey, string>, walk: 'Walk-viable days' }
+export const SORT_LABEL: Record<SortKey | 'walk', string> = {
+  ...(Object.fromEntries(SORTS.map((s) => [s.v, s.label])) as Record<SortKey, string>),
+  walk: 'Walk-viable days',
+}
 
 /** Population split for the size filter. */
 export const POP_SPLIT = 500_000
@@ -47,8 +59,15 @@ const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-')
 export const REGIONS = [...new Set(CITIES.map((c) => c.continent))].sort().map((name) => ({ slug: slug(name), name }))
 const regionName = (sl: string) => REGIONS.find((r) => r.slug === sl)?.name ?? sl
 
-export interface Candidate { city: CityMeta; b: Budget | null; act: ActivityAgg }
-export interface Ranked { c: Candidate; misses: string[] }
+export interface Candidate {
+  city: CityMeta
+  b: Budget | null
+  act: ActivityAgg
+}
+export interface Ranked {
+  c: Candidate
+  misses: string[]
+}
 export interface Ranking {
   rows: Ranked[]
   mode: Rank
@@ -92,14 +111,23 @@ export function rank(cands: Candidate[], q: DiscoverQuery, drive: number): Ranki
   const rows = nearMiss ? all.filter((r) => r.misses.length === least) : passing
   let sort: SortKey | 'walk' = mode === 'outdoor' ? 'walk' : q.sort
   let fallback = false
-  if (mode === 'comfort' && q.sort === 'comf' && rows.length && Math.max(...rows.map((r) => KEY.comf(r.c))) < FALLBACK_COMF) {
+  if (
+    mode === 'comfort' &&
+    q.sort === 'comf' &&
+    rows.length &&
+    Math.max(...rows.map((r) => KEY.comf(r.c))) < FALLBACK_COMF
+  ) {
     sort = 'unb'
     fallback = true
   }
   const key = KEY[sort]
   return {
     rows: [...rows].sort((a, b) => key(b.c) - key(a.c) || a.c.city.name.localeCompare(b.c.city.name)),
-    mode, sort, fallback, nearMiss, passing: passing.length,
+    mode,
+    sort,
+    fallback,
+    nearMiss,
+    passing: passing.length,
   }
 }
 
@@ -115,7 +143,14 @@ export const SHIFT_BY: Record<Shift, Partial<Climate>> = {
   sunnier: { cloud: -16, rad: 3 },
   snowier: { snow: 60, hi: -6 },
 }
-export const SHIFT_LABEL: Record<Shift, string> = { cooler: 'cooler', warmer: 'warmer', drier: 'drier', cloudier: 'less sunny', sunnier: 'sunnier', snowier: 'snowier' }
+export const SHIFT_LABEL: Record<Shift, string> = {
+  cooler: 'cooler',
+  warmer: 'warmer',
+  drier: 'drier',
+  cloudier: 'less sunny',
+  sunnier: 'sunnier',
+  snowier: 'snowier',
+}
 export const SHIFTS = Object.keys(SHIFT_BY) as Shift[]
 const AXES = Object.keys(CLIMATE_SCALE) as (keyof Climate)[]
 
@@ -126,12 +161,18 @@ export function shiftClimate(c: Climate, s: Shift): Climate {
 }
 
 /** Sum over axes of |difference| in units of that axis' scale. */
-export const climateDistance = (a: Climate, b: Climate) => AXES.reduce((acc, k) => acc + Math.abs(a[k] - b[k]) / CLIMATE_SCALE[k], 0)
+export const climateDistance = (a: Climate, b: Climate) =>
+  AXES.reduce((acc, k) => acc + Math.abs(a[k] - b[k]) / CLIMATE_SCALE[k], 0)
 
 /** 100 at distance 0, falling 20 points per unit of distance. */
 export const matchPct = (d: number) => Math.max(0, Math.round(100 - 20 * d))
 
-export function likeBut(ref: string, but: Shift, climates: Record<string, Climate>, n = 4): { id: string; d: number; match: number }[] {
+export function likeBut(
+  ref: string,
+  but: Shift,
+  climates: Record<string, Climate>,
+  n = 4,
+): { id: string; d: number; match: number }[] {
   const base = climates[ref]
   if (!base) return []
   const target = shiftClimate(base, but)
@@ -145,7 +186,8 @@ export function likeBut(ref: string, but: Shift, climates: Record<string, Climat
 
 // ---------- URL ----------
 
-const oneOf = <T extends string>(v: string | null, ok: readonly T[]): T | null => (v !== null && (ok as readonly string[]).includes(v) ? (v as T) : null)
+const oneOf = <T extends string>(v: string | null, ok: readonly T[]): T | null =>
+  v !== null && (ok as readonly string[]).includes(v) ? (v as T) : null
 
 export function encodeDiscover(d: DiscoverQuery, q: URLSearchParams) {
   const z = DEFAULT_DISCOVER
@@ -163,8 +205,16 @@ export function decodeDiscover(q: URLSearchParams): DiscoverQuery {
   const z = DEFAULT_DISCOVER
   return {
     rank: oneOf(q.get('rank'), ['comfort', 'outdoor'] as const) ?? z.rank,
-    sort: oneOf(q.get('sort'), SORTS.map((s) => s.v)) ?? z.sort,
-    region: oneOf(q.get('reg'), REGIONS.map((r) => r.slug)) ?? z.region,
+    sort:
+      oneOf(
+        q.get('sort'),
+        SORTS.map((s) => s.v),
+      ) ?? z.sort,
+    region:
+      oneOf(
+        q.get('reg'),
+        REGIONS.map((r) => r.slug),
+      ) ?? z.region,
     pop: oneOf(q.get('pop'), ['big', 'small'] as const) ?? z.pop,
     snow: q.get('snowf') === '1',
     coast: oneOf(q.get('coast'), ['coastal', 'inland'] as const) ?? z.coast,

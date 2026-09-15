@@ -11,7 +11,12 @@ export function toggleCompare(set: string[], id: string): string[] {
 }
 
 export type PivotMetric = 'hi' | 'lo' | 'dew' | 'cloud' | 'precip' | 'comf' | 'out'
-export interface PivotDef { label: string; kind: 'temp' | 'pct' | 'len' | 'days'; tol: number; needsFit?: boolean }
+export interface PivotDef {
+  label: string
+  kind: 'temp' | 'pct' | 'len' | 'days'
+  tol: number
+  needsFit?: boolean
+}
 
 /** Monthly rollups pivoted city by city. `tol` is in stored units (°F, %, inches, days per
  *  year): months where every city sits within it are what "differences only" hides. */
@@ -25,14 +30,22 @@ export const PIVOT: Record<PivotMetric, PivotDef> = {
   out: { label: 'Outdoor days', kind: 'days', tol: 3 },
 }
 
-export interface PivotRow { m: number; vals: number[]; max: number; min: number; spread: number; differs: boolean }
+export interface PivotRow {
+  m: number
+  vals: number[]
+  max: number
+  min: number
+  spread: number
+  differs: boolean
+}
 
 export function pivot(cities: MonthRow[][], metric: PivotMetric): PivotRow[] {
   const tol = PIVOT[metric].tol
   return Array.from({ length: 12 }, (_, m) => {
     const vals = cities.map((rows) => rows[m][metric] ?? NaN)
     const ok = vals.filter((v) => !Number.isNaN(v))
-    const max = ok.length ? Math.max(...ok) : NaN, min = ok.length ? Math.min(...ok) : NaN
+    const max = ok.length ? Math.max(...ok) : NaN,
+      min = ok.length ? Math.min(...ok) : NaN
     const spread = ok.length ? max - min : 0
     return { m, vals, max, min, spread, differs: ok.length > 1 && spread >= tol }
   })

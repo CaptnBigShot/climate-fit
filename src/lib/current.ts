@@ -41,7 +41,9 @@ export function loadYtdRaw(city: CityMeta): Promise<{ raw: YtdRaw; source: 'live
     try {
       const hit = localStorage.getItem(key)
       if (hit) return { raw: JSON.parse(hit) as YtdRaw, source: 'live' as const }
-    } catch { /* storage unavailable */ }
+    } catch {
+      /* storage unavailable */
+    }
     const snapshot = await fetch(`${base}data/ytd/${city.id}.json`)
       .then((res) => (res.ok ? (res.json() as Promise<YtdRaw>) : null))
       .catch(() => null)
@@ -49,8 +51,17 @@ export function loadYtdRaw(city: CityMeta): Promise<{ raw: YtdRaw; source: 'live
       return { raw: snapshot, source: 'snapshot' as const }
     }
     try {
-      const raw = await fetchYtdRaw({ year: YTD_YEAR, lat: city.lat, lon: city.lon, terrain: city.terrain.map(([id]) => ({ id, ...TERRAIN[id] })) })
-      try { localStorage.setItem(key, JSON.stringify(raw)) } catch { /* quota or disabled */ }
+      const raw = await fetchYtdRaw({
+        year: YTD_YEAR,
+        lat: city.lat,
+        lon: city.lon,
+        terrain: city.terrain.map(([id]) => ({ id, ...TERRAIN[id] })),
+      })
+      try {
+        localStorage.setItem(key, JSON.stringify(raw))
+      } catch {
+        /* quota or disabled */
+      }
       return { raw, source: 'live' as const }
     } catch {
       if (!snapshot) throw new Error('current year unavailable (live fetch failed, no snapshot)')
@@ -64,11 +75,17 @@ export function loadYtdRaw(city: CityMeta): Promise<{ raw: YtdRaw; source: 'live
 
 const f32 = (xs: (number | null)[]) => Float32Array.from(xs, (v) => (v === null ? NaN : v))
 
-export function extend(s: CitySeries, terrains: Record<string, TerrainSeries>, raw: YtdRaw, source: Ytd['source']): Ytd {
+export function extend(
+  s: CitySeries,
+  terrains: Record<string, TerrainSeries>,
+  raw: YtdRaw,
+  source: Ytd['source'],
+): Ytd {
   const sx = { ...s, years: s.years + 1 } as CitySeries
   for (const k of SERIES_KEYS) {
     const a = new Float32Array((s.years + 1) * 365)
-    a.set(s[k]); a.set(f32(raw.daily[k]), s.years * 365)
+    a.set(s[k])
+    a.set(f32(raw.daily[k]), s.years * 365)
     sx[k] = a
   }
   const tx: Record<string, TerrainSeries> = {}
@@ -83,7 +100,8 @@ export function extend(s: CitySeries, terrains: Record<string, TerrainSeries>, r
       else if (lastIdx >= 0 && d - lastIdx <= DEPTH_CARRY_DAYS) depth[d] = depth[lastIdx]
     }
     const a = new Float32Array((t.years + 1) * 365)
-    a.set(t.depth); a.set(depth, t.years * 365)
+    a.set(t.depth)
+    a.set(depth, t.years * 365)
     tx[id] = { ...t, years: t.years + 1, depth: a }
   }
   return { raw, source, sx, tx }
@@ -98,22 +116,39 @@ export function scoreYtd(y: Ytd, s: CitySeries, p: Prefs, w: Window): Scored | n
   return score(y.sx, p, ytdWindow, 0, seasonWeights(s, w).warmW)
 }
 
-export interface YtdBudget { ytd: [number, number, number]; hard: number; typical: [number, number, number]; typicalHard: number }
+export interface YtdBudget {
+  ytd: [number, number, number]
+  hard: number
+  typical: [number, number, number]
+  typicalHard: number
+}
 
 /** Band counts over Jan 1 → day n: this year vs the mean of the window years over the same span. */
 export function ytdBudget(ysc: Scored, wsc: Scored, n: number): YtdBudget {
-  const ytd: [number, number, number] = [0, 0, 0], typical: [number, number, number] = [0, 0, 0]
-  let hard = 0, th = 0
-  for (let d = 0; d < n; d++) { ytd[ysc.band[d]]++; if (ysc.hard[d]) hard++ }
-  for (let y = 0; y < wsc.years; y++) for (let d = 0; d < n; d++) { const i = y * 365 + d; typical[wsc.band[i]]++; if (wsc.hard[i]) th++ }
+  const ytd: [number, number, number] = [0, 0, 0],
+    typical: [number, number, number] = [0, 0, 0]
+  let hard = 0,
+    th = 0
+  for (let d = 0; d < n; d++) {
+    ytd[ysc.band[d]]++
+    if (ysc.hard[d]) hard++
+  }
+  for (let y = 0; y < wsc.years; y++)
+    for (let d = 0; d < n; d++) {
+      const i = y * 365 + d
+      typical[wsc.band[i]]++
+      if (wsc.hard[i]) th++
+    }
   const k = 1 / wsc.years
   return { ytd, hard, typical: [typical[0] * k, typical[1] * k, typical[2] * k], typicalHard: th * k }
 }
 
 /** Days matching pred over Jan 1 → day n, this year vs window mean. */
 export function ytdCount(y: Ytd, w: Window, pred: DayPred, n: number): { ytd: number; typical: number } {
-  const yOff = (YTD_YEAR - FIRST_YEAR) * 365, wOff = (w.from - FIRST_YEAR) * 365
-  let c = 0, t = 0
+  const yOff = (YTD_YEAR - FIRST_YEAR) * 365,
+    wOff = (w.from - FIRST_YEAR) * 365
+  let c = 0,
+    t = 0
   for (let d = 0; d < n; d++) if (pred(y.sx, yOff + d)) c++
   for (let yr = 0; yr < windowYears(w); yr++) for (let d = 0; d < n; d++) if (pred(y.sx, wOff + yr * 365 + d)) t++
   return { ytd: c, typical: t / windowYears(w) }
@@ -124,7 +159,14 @@ export function ytdOutdoor(y: Ytd, w: Window, acts: ActivityId[], terrainId: str
   const enabled = ACTIVITIES.filter((a) => acts.includes(a.id))
   const t = terrainId ? y.tx[terrainId] : null
   const pred: DayPred = (s, j) => {
-    const d = { hi: s.high[j], lo: s.low[j], dew: s.dew[j], precip: s.precip[j], wind: s.wind[j], depth: t ? t.depth[j - (t.startYear - FIRST_YEAR) * 365] : NaN }
+    const d = {
+      hi: s.high[j],
+      lo: s.low[j],
+      dew: s.dew[j],
+      precip: s.precip[j],
+      wind: s.wind[j],
+      depth: t ? t.depth[j - (t.startYear - FIRST_YEAR) * 365] : NaN,
+    }
     return enabled.some((a) => a.test(d) === 0)
   }
   return ytdCount(y, w, pred, n)
@@ -135,4 +177,5 @@ export const isComplete = (y: Ytd) => y.raw.days >= 365
 /** Local calendar date a snapshot was taken, for labels (fetchedAt is stored in UTC). */
 export const fetchedDay = (y: Ytd) => new Date(y.raw.fetchedAt).toLocaleDateString('en-CA')
 /** A snapshot shown because it's current, not because the live fetch failed. */
-export const isFreshSnapshot = (y: Ytd) => y.source === 'snapshot' && Date.now() - Date.parse(y.raw.fetchedAt) < SNAPSHOT_FRESH_MS
+export const isFreshSnapshot = (y: Ytd) =>
+  y.source === 'snapshot' && Date.now() - Date.parse(y.raw.fetchedAt) < SNAPSHOT_FRESH_MS

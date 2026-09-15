@@ -1,14 +1,26 @@
 import catalog from '../data/catalog.json'
 import type { AqSeries } from './aq'
-import { fetchHourly } from './hourly'
+import { fetchHourly, type HourlyTier } from './hourly'
 
 export interface CityMeta {
-  id: string; name: string; code: string; region: string
-  lat: number; lon: number; pop: number; coastal: boolean; continent: string
+  id: string
+  name: string
+  code: string
+  region: string
+  lat: number
+  lon: number
+  pop: number
+  coastal: boolean
+  continent: string
   /** [terrain id, drive minutes] */
   terrain: [string, number][]
 }
-export interface TerrainMeta { name: string; lat: number; lon: number; elevFt: number }
+export interface TerrainMeta {
+  name: string
+  lat: number
+  lon: number
+  elevFt: number
+}
 
 export const CITIES = catalog.cities as CityMeta[]
 export const TERRAIN = catalog.terrain as Record<string, TerrainMeta>
@@ -37,11 +49,30 @@ export interface CitySeries {
 export const SERIES_KEYS = ['high', 'low', 'dew', 'cloud', 'precip', 'snow', 'wind', 'rad', 'sun'] as const
 export type SeriesKey = (typeof SERIES_KEYS)[number]
 
-export interface TerrainSeries { id: string; startYear: number; years: number; depth: Float32Array }
+export interface TerrainSeries {
+  id: string
+  startYear: number
+  years: number
+  depth: Float32Array
+}
+
+/** On-disk shapes under public/data/: series are JSON arrays with null for missing. */
+export type CityFile = Omit<CitySeries, SeriesKey> & Record<SeriesKey, (number | null)[]>
+export type TerrainFile = Omit<TerrainSeries, 'depth'> & { depth: (number | null)[] }
+export interface HourlyFile {
+  id: string
+  startYear: number
+  years: number
+  timezone: string
+  temp10: string
+}
 
 export interface Manifest {
   refYears: number
-  cities: Record<string, { solarIdx: number; seasonsIdx: number; meanRadMJ: number; seasonStdF: number; demElevM: number; gridElevM: number }>
+  cities: Record<
+    string,
+    { solarIdx: number; seasonsIdx: number; meanRadMJ: number; seasonStdF: number; demElevM: number; gridElevM: number }
+  >
   terrain: string[]
   /** Cities with a pre-fetched hourly file; the rest are fetched live (loadHourly). */
   hourly?: string[]
@@ -68,9 +99,9 @@ export function loadManifest(): Promise<Manifest> {
 export function loadCity(id: string): Promise<CitySeries> {
   let p = cityCache.get(id)
   if (!p) {
-    p = getJson<Record<string, unknown>>(`cities/${id}.json`).then((raw) => {
-      const out = { ...raw } as Record<string, unknown>
-      for (const k of SERIES_KEYS) out[k] = toF32(raw[k] as (number | null)[])
+    p = getJson<CityFile>(`cities/${id}.json`).then((raw) => {
+      const out: Record<string, unknown> = { ...raw }
+      for (const k of SERIES_KEYS) out[k] = toF32(raw[k])
       return out as unknown as CitySeries
     })
     p.catch(() => cityCache.delete(id))
@@ -82,8 +113,7 @@ export function loadCity(id: string): Promise<CitySeries> {
 export function loadTerrain(id: string): Promise<TerrainSeries> {
   let p = terrainCache.get(id)
   if (!p) {
-    p = getJson<{ id: string; startYear: number; years: number; depth: (number | null)[] }>(`terrain/${id}.json`)
-      .then((raw) => ({ ...raw, depth: toF32(raw.depth) }))
+    p = getJson<TerrainFile>(`terrain/${id}.json`).then((raw) => ({ ...raw, depth: toF32(raw.depth) }))
     p.catch(() => terrainCache.delete(id))
     terrainCache.set(id, p)
   }
@@ -94,7 +124,14 @@ export function loadTerrain(id: string): Promise<TerrainSeries> {
 
 /** Hourly temperature, local time, 365 × 24 per year, tenths of °F. `live`: fetched from
  *  Open-Meteo in this browser (and cached there), because the city has no file. */
-export interface HourlySeries { id: string; startYear: number; years: number; timezone: string; temp: Int16Array; live: boolean }
+export interface HourlySeries {
+  id: string
+  startYear: number
+  years: number
+  timezone: string
+  temp: Int16Array
+  live: boolean
+}
 
 const hourlyCache = new Map<string, Promise<HourlySeries>>()
 const aqCache = new Map<string, Promise<AqSeries>>()
@@ -110,10 +147,18 @@ export function loadHourly(id: string): Promise<HourlySeries> {
 }
 
 async function hourlyFile(id: string): Promise<HourlySeries> {
-  const raw = await getJson<{ id: string; startYear: number; years: number; timezone: string; temp10: string }>(`hourly/${id}.json`)
-  const bin = atob(raw.temp10), bytes = new Uint8Array(bin.length)
+  const raw = await getJson<HourlyFile>(`hourly/${id}.json`)
+  const bin = atob(raw.temp10),
+    bytes = new Uint8Array(bin.length)
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
-  return { id: raw.id, startYear: raw.startYear, years: raw.years, timezone: raw.timezone, temp: new Int16Array(bytes.buffer), live: false }
+  return {
+    id: raw.id,
+    startYear: raw.startYear,
+    years: raw.years,
+    timezone: raw.timezone,
+    temp: new Int16Array(bytes.buffer),
+    live: false,
+  }
 }
 
 /** New cities have no hourly file: fetch the decade from Open-Meteo the first time the panel
@@ -126,21 +171,29 @@ async function hourlyLive(id: string): Promise<HourlySeries> {
   const key = store && new URL(`${base}hourly-live/${id}-${ARCHIVE.endYear}`, location.origin).href
   const hit = key ? await store.match(key) : undefined
   if (hit) {
-    const meta = JSON.parse(hit.headers.get('x-hourly') ?? '{}')
+    const meta = JSON.parse(hit.headers.get('x-hourly') ?? '{}') as Omit<HourlyTier, 'temp'>
     return { id, ...meta, temp: new Int16Array(await hit.arrayBuffer()), live: true }
   }
   const tier = await fetchHourly({ lat: city.lat, lon: city.lon, endYear: ARCHIVE.endYear })
   const meta = { startYear: tier.startYear, years: tier.years, timezone: tier.timezone }
-  if (key) await store.put(key, new Response(tier.temp.slice().buffer, { headers: { 'x-hourly': JSON.stringify(meta) } })).catch(() => undefined)
+  if (key)
+    await store
+      .put(key, new Response(tier.temp.slice().buffer, { headers: { 'x-hourly': JSON.stringify(meta) } }))
+      .catch(() => undefined)
   return { id, ...tier, live: true }
 }
 
 /** Discover's basemap: Natural Earth land as one SVG path, in 1/scale degree (x = lon, y = −lat). */
-export interface Land { scale: number; d: string }
+export interface Land {
+  scale: number
+  d: string
+}
 let landP: Promise<Land> | null = null
 export function loadLand(): Promise<Land> {
   landP ??= getJson<Land>('land.json')
-  landP.catch(() => { landP = null })
+  landP.catch(() => {
+    landP = null
+  })
   return landP
 }
 

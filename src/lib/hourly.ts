@@ -6,32 +6,46 @@
 export const HOURLY_YEARS = 10
 export const HOURLY_API = 'https://archive-api.open-meteo.com/v1/archive'
 
-export interface HourlyTier { startYear: number; years: number; timezone: string; temp: Int16Array }
+export interface HourlyTier {
+  startYear: number
+  years: number
+  timezone: string
+  temp: Int16Array
+}
 
 /** The Open-Meteo request: ~261 free-tier calls (10 years ÷ 14 days, one variable). */
 export function hourlyParams(lat: number, lon: number, endYear: number): Record<string, string> {
   return {
-    latitude: String(lat), longitude: String(lon), timezone: 'auto',
-    start_date: `${endYear - HOURLY_YEARS + 1}-01-01`, end_date: `${endYear}-12-31`,
-    hourly: 'temperature_2m', temperature_unit: 'fahrenheit',
+    latitude: String(lat),
+    longitude: String(lon),
+    timezone: 'auto',
+    start_date: `${endYear - HOURLY_YEARS + 1}-01-01`,
+    end_date: `${endYear}-12-31`,
+    hourly: 'temperature_2m',
+    temperature_unit: 'fahrenheit',
   }
 }
 
-interface OmHourly { timezone: string; hourly: { time: string[]; temperature_2m: (number | null)[] } }
+interface OmHourly {
+  timezone: string
+  hourly: { time: string[]; temperature_2m: (number | null)[] }
+}
 
 /** Open-Meteo's hourly response → the tier's fixed 365 × 24 grid. */
 export function buildHourly(data: OmHourly, endYear: number): HourlyTier {
   // Bucket by local date and hour, so DST transitions (23- or 25-hour days) can't shift the grid.
   const byDate = new Map<string, (number | null)[]>()
   data.hourly.time.forEach((t, i) => {
-    const date = t.slice(0, 10), hr = +t.slice(11, 13)
+    const date = t.slice(0, 10),
+      hr = +t.slice(11, 13)
     if (date.endsWith('-02-29')) return
     let row = byDate.get(date)
-    if (!row) byDate.set(date, (row = new Array(24).fill(null)))
+    if (!row) byDate.set(date, (row = new Array<number | null>(24).fill(null)))
     if (row[hr] === null) row[hr] = data.hourly.temperature_2m[i]
   })
   const dates = [...byDate.keys()].sort()
-  if (dates.length !== HOURLY_YEARS * 365) throw new Error(`hourly: expected ${HOURLY_YEARS * 365} days, got ${dates.length}`)
+  if (dates.length !== HOURLY_YEARS * 365)
+    throw new Error(`hourly: expected ${HOURLY_YEARS * 365} days, got ${dates.length}`)
   const temp = new Int16Array(dates.length * 24)
   dates.forEach((d, di) => {
     const row = byDate.get(d)!
@@ -44,11 +58,18 @@ export function buildHourly(data: OmHourly, endYear: number): HourlyTier {
   return { startYear: endYear - HOURLY_YEARS + 1, years: HOURLY_YEARS, timezone: data.timezone, temp }
 }
 
-export async function fetchHourly(opts: { lat: number; lon: number; endYear: number; fetchImpl?: typeof fetch }): Promise<HourlyTier> {
-  const res = await (opts.fetchImpl ?? fetch)(`${HOURLY_API}?${new URLSearchParams(hourlyParams(opts.lat, opts.lon, opts.endYear))}`)
+export async function fetchHourly(opts: {
+  lat: number
+  lon: number
+  endYear: number
+  fetchImpl?: typeof fetch
+}): Promise<HourlyTier> {
+  const res = await (opts.fetchImpl ?? fetch)(
+    `${HOURLY_API}?${new URLSearchParams(hourlyParams(opts.lat, opts.lon, opts.endYear))}`,
+  )
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
+    const body = (await res.json().catch(() => ({}))) as { reason?: string }
     throw new Error(`${res.status} ${body.reason ?? res.statusText}`)
   }
-  return buildHourly(await res.json(), opts.endYear)
+  return buildHourly((await res.json()) as OmHourly, opts.endYear)
 }

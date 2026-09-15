@@ -8,12 +8,20 @@ import { ols, quantileSorted, type Fit } from './stats'
 
 // ---------- 5.1 / 5.2 Best time to visit · worst two weeks ----------
 
-export interface DateSpan { start: number; len: number; score: number; comf: number; unb: number }
+export interface DateSpan {
+  start: number
+  len: number
+  score: number
+  comf: number
+  unb: number
+}
 
 /** Mean fit score (unbearable = 0) and band shares for every `len`-day span of the
  *  year, across all years in the window. Spans wrap across New Year. */
 export function spans(sc: Scored, len: number) {
-  const sum = new Float64Array(365), comf = new Float64Array(365), unb = new Float64Array(365)
+  const sum = new Float64Array(365),
+    comf = new Float64Array(365),
+    unb = new Float64Array(365)
   for (let i = 0; i < sc.band.length; i++) {
     const d = i % 365
     sum[d] += sc.band[i] === BAND.unb ? 0 : sc.score[i]
@@ -23,8 +31,15 @@ export function spans(sc: Scored, len: number) {
   const n = sc.years * len
   const out: DateSpan[] = []
   for (let s0 = 0; s0 < 365; s0++) {
-    let a = 0, c = 0, u = 0
-    for (let k = 0; k < len; k++) { const d = (s0 + k) % 365; a += sum[d]; c += comf[d]; u += unb[d] }
+    let a = 0,
+      c = 0,
+      u = 0
+    for (let k = 0; k < len; k++) {
+      const d = (s0 + k) % 365
+      a += sum[d]
+      c += comf[d]
+      u += unb[d]
+    }
     out.push({ start: s0, len, score: a / n, comf: c / n, unb: u / n })
   }
   return out
@@ -53,13 +68,26 @@ export function worstSpan(all: DateSpan[]): DateSpan {
 
 // ---------- 5.6 Annotated extremes ----------
 
-export interface Extreme { label: string; value: number; kind: 'temp' | 'len' | 'speed' | 'delta'; index: number }
+export interface Extreme {
+  label: string
+  value: number
+  kind: 'temp' | 'len' | 'speed' | 'delta'
+  index: number
+}
 
 export function extremes(s: CitySeries, w: Window): Extreme[] {
-  const off = (w.from - FIRST_YEAR) * 365, N = windowYears(w) * 365
+  const off = (w.from - FIRST_YEAR) * 365,
+    N = windowYears(w) * 365
   const find = (f: (j: number) => number, max: boolean) => {
-    let bi = 0, bv = max ? -Infinity : Infinity
-    for (let i = 0; i < N; i++) { const v = f(off + i); if (max ? v > bv : v < bv) { bv = v; bi = i } }
+    let bi = 0,
+      bv = max ? -Infinity : Infinity
+    for (let i = 0; i < N; i++) {
+      const v = f(off + i)
+      if (max ? v > bv : v < bv) {
+        bv = v
+        bi = i
+      }
+    }
     return { value: bv, index: bi }
   }
   return [
@@ -82,31 +110,55 @@ export const MOSQUITO_LOW_F = 50
 export const MOSQUITO_DEW_F = 55
 export const isMosquitoDay = (s: CitySeries, j: number) => s.low[j] >= MOSQUITO_LOW_F && s.dew[j] >= MOSQUITO_DEW_F
 
-export interface Mosquito { perYear: number[]; avg: number; fit: Fit; months: number[] }
+export interface Mosquito {
+  perYear: number[]
+  avg: number
+  fit: Fit
+  months: number[]
+}
 
 export function mosquito(s: CitySeries, w: Window): Mosquito {
-  const years = windowYears(w), off = (w.from - FIRST_YEAR) * 365
-  const perYear: number[] = [], months = new Array(12).fill(0)
+  const years = windowYears(w),
+    off = (w.from - FIRST_YEAR) * 365
+  const perYear: number[] = [],
+    months = new Array(12).fill(0)
   for (let y = 0; y < years; y++) {
     let c = 0
-    for (let d = 0; d < 365; d++) if (isMosquitoDay(s, off + y * 365 + d)) { c++; months[doyMonth(d)]++ }
+    for (let d = 0; d < 365; d++)
+      if (isMosquitoDay(s, off + y * 365 + d)) {
+        c++
+        months[doyMonth(d)]++
+      }
     perYear.push(c)
   }
-  return { perYear, avg: perYear.reduce((a, b) => a + b, 0) / years, fit: ols(perYear), months: months.map((m) => m / years) }
+  return {
+    perYear,
+    avg: perYear.reduce((a, b) => a + b, 0) / years,
+    fit: ols(perYear),
+    months: months.map((m) => m / years),
+  }
 }
 
 // ---------- 5.7 What would have to change ----------
 
 export const SHIFTS = [-4, -2, 0, 2, 4, 6, 8, 10, 12]
 
-export interface Sensitivity { shift: number; comf: number; unb: number }
+export interface Sensitivity {
+  shift: number
+  comf: number
+  unb: number
+}
 
 /** Day budget under uniform warming of highs, lows and dew point by each shift (°F). */
 export function sensitivity(s: CitySeries, p: Prefs, w: Window): Sensitivity[] {
   return SHIFTS.map((shift) => {
     const sc = score(s, p, w, shift)!
-    let c = 0, u = 0
-    for (let i = 0; i < sc.band.length; i++) { if (sc.band[i] === BAND.comf) c++; else if (sc.band[i] === BAND.unb) u++ }
+    let c = 0,
+      u = 0
+    for (let i = 0; i < sc.band.length; i++) {
+      if (sc.band[i] === BAND.comf) c++
+      else if (sc.band[i] === BAND.unb) u++
+    }
     return { shift, comf: c / sc.years, unb: u / sc.years }
   })
 }
@@ -116,7 +168,8 @@ export function crossing(sens: Sensitivity[], target: number): number | null {
   const pos = sens.filter((x) => x.shift >= 0)
   if (pos[0].comf < target) return 0
   for (let i = 1; i < pos.length; i++) {
-    const a = pos[i - 1], b = pos[i]
+    const a = pos[i - 1],
+      b = pos[i]
     if (b.comf < target) return a.shift + ((a.comf - target) / (a.comf - b.comf)) * (b.shift - a.shift)
   }
   return null
@@ -127,7 +180,10 @@ export function warmingTrend(s: CitySeries): Fit & { from: number; to: number } 
   const ys: number[] = []
   for (let y = 0; y < s.years; y++) {
     let acc = 0
-    for (let d = 0; d < 365; d++) { const j = y * 365 + d; acc += (s.high[j] + s.low[j]) / 2 }
+    for (let d = 0; d < 365; d++) {
+      const j = y * 365 + d
+      acc += (s.high[j] + s.low[j]) / 2
+    }
     ys.push(acc / 365)
   }
   return { ...ols(ys), from: s.startYear, to: s.startYear + s.years - 1 }
@@ -138,11 +194,20 @@ export const yearAt = (deltaF: number, slopeFPerYear: number) =>
 
 // ---------- 5.5 Typical day profile ----------
 
-export interface DayProfile { p10: number[]; p25: number[]; p50: number[]; p75: number[]; p90: number[]; years: [number, number] | null; days: number }
+export interface DayProfile {
+  p10: number[]
+  p25: number[]
+  p50: number[]
+  p75: number[]
+  p90: number[]
+  years: [number, number] | null
+  days: number
+}
 
 /** Hour-of-day distribution for one month, over the years where the window and the hourly tier overlap. */
 export function typicalDay(h: HourlySeries, month: number, w: Window): DayProfile {
-  const y0 = Math.max(w.from, h.startYear), y1 = Math.min(w.to, h.startYear + h.years - 1)
+  const y0 = Math.max(w.from, h.startYear),
+    y1 = Math.min(w.to, h.startYear + h.years - 1)
   const empty = { p10: [], p25: [], p50: [], p75: [], p90: [], years: null, days: 0 }
   if (y0 > y1) return empty
   const cols: number[][] = Array.from({ length: 24 }, () => [])
@@ -159,13 +224,21 @@ export function typicalDay(h: HourlySeries, month: number, w: Window): DayProfil
 
 /** Minutes east of UTC for a named zone on a date, via Intl (handles DST). */
 export function tzOffsetMin(timeZone: string, date: Date): number {
-  const s = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'longOffset' }).formatToParts(date).find((p) => p.type === 'timeZoneName')?.value ?? 'GMT'
+  const s =
+    new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'longOffset' })
+      .formatToParts(date)
+      .find((p) => p.type === 'timeZoneName')?.value ?? 'GMT'
   const m = /GMT([+-])(\d{2}):?(\d{2})?/.exec(s)
   return m ? (m[1] === '-' ? -1 : 1) * (+m[2] * 60 + +(m[3] ?? 0)) : 0
 }
 
 /** Local clock sunrise and sunset (fractional hours) at mid-month. */
-export function sunTimes(lat: number, lon: number, timeZone: string, month: number): { rise: number; set: number } | null {
+export function sunTimes(
+  lat: number,
+  lon: number,
+  timeZone: string,
+  month: number,
+): { rise: number; set: number } | null {
   const doy = MONTH_START[month] + 14
   const dl = daylightHours(lat, doy)
   if (dl <= 0 || dl >= 24) return null
@@ -180,9 +253,11 @@ export function sunTimes(lat: number, lon: number, timeZone: string, month: numb
 
 export function monthYearMatrix(s: CitySeries, w: Window, pred: (s: CitySeries, j: number) => boolean): number[][] {
   const off = (w.from - FIRST_YEAR) * 365
-  return Array.from({ length: windowYears(w) }, (_, y) => MD.map((len, m) => {
-    let c = 0
-    for (let d = MONTH_START[m]; d < MONTH_START[m] + len; d++) if (pred(s, off + y * 365 + d)) c++
-    return c
-  }))
+  return Array.from({ length: windowYears(w) }, (_, y) =>
+    MD.map((len, m) => {
+      let c = 0
+      for (let d = MONTH_START[m]; d < MONTH_START[m] + len; d++) if (pred(s, off + y * 365 + d)) c++
+      return c
+    }),
+  )
 }

@@ -10,7 +10,13 @@ export type View = 'city' | 'compare' | 'discover' | 'methods'
 export const VIEWS: View[] = ['city', 'compare', 'discover', 'methods']
 export const DEFAULT_CITY = 'tacoma'
 
-export interface Session { city: string; prefs: Prefs; cmp: string[]; view: View; disc: DiscoverQuery }
+export interface Session {
+  city: string
+  prefs: Prefs
+  cmp: string[]
+  view: View
+  disc: DiscoverQuery
+}
 
 export function decodeSession(q: URLSearchParams): Session {
   const view = q.get('view')

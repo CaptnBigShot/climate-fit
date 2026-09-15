@@ -9,7 +9,13 @@ type Handle = 'hardMin' | 'idealMin' | 'idealMax' | 'hardMax'
  *  Drag a hard handle off either end of the track to make that bound open (±∞).
  *  With value null (unset) both ideal handles rest at the track ends; dragging
  *  either one states a preference — the app never proposes a starting band. */
-export function FourPointSlider({ value, onChange, hardEditable = true, label, fixedHard }: {
+export function FourPointSlider({
+  value,
+  onChange,
+  hardEditable = true,
+  label,
+  fixedHard,
+}: {
   value: TempBand | null
   onChange: (b: TempBand) => void
   hardEditable?: boolean
@@ -48,7 +54,10 @@ export function FourPointSlider({ value, onChange, hardEditable = true, label, f
   }
 
   const nearest = (v: number): Handle => {
-    const cands: [Handle, number][] = [['idealMin', b.idealMin], ['idealMax', b.idealMax]]
+    const cands: [Handle, number][] = [
+      ['idealMin', b.idealMin],
+      ['idealMax', b.idealMax],
+    ]
     if (hardEditable && value) {
       if (b.hardMin !== null) cands.push(['hardMin', b.hardMin])
       if (b.hardMax !== null) cands.push(['hardMax', b.hardMax])
@@ -60,10 +69,16 @@ export function FourPointSlider({ value, onChange, hardEditable = true, label, f
     const target = (e.target as HTMLElement).dataset.handle as Handle | undefined
     const v = valueAt(e.clientX)
     drag.current = target ?? nearest(v)
-    try { ref.current!.setPointerCapture(e.pointerId) } catch { /* pointer already gone */ }
+    try {
+      ref.current!.setPointerCapture(e.pointerId)
+    } catch {
+      /* pointer already gone */
+    }
     if (!target) apply(drag.current, v)
   }
-  const onPointerMove = (e: React.PointerEvent) => { if (drag.current) apply(drag.current, valueAt(e.clientX)) }
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (drag.current) apply(drag.current, valueAt(e.clientX))
+  }
   const onPointerUp = (e: React.PointerEvent) => {
     drag.current = null
     if (ref.current?.hasPointerCapture(e.pointerId)) ref.current.releasePointerCapture(e.pointerId)
@@ -72,35 +87,92 @@ export function FourPointSlider({ value, onChange, hardEditable = true, label, f
   const onKey = (h: Handle) => (e: React.KeyboardEvent) => {
     const step = e.shiftKey ? 5 : 1
     const cur = b[h] ?? (h === 'hardMin' ? T_MIN : T_MAX)
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { apply(h, cur - step); e.preventDefault() }
-    if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { apply(h, cur + step); e.preventDefault() }
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+      apply(h, cur - step)
+      e.preventDefault()
+    }
+    if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+      apply(h, cur + step)
+      e.preventDefault()
+    }
   }
 
   const handle = (h: Handle, v: number, cls: string, name: string) => (
     <button
-      key={h} data-handle={h} className={`fp-h ${cls}`} style={{ left: `${pct(v)}%` }}
-      role="slider" aria-label={`${label} ${name}`} aria-valuemin={T_MIN} aria-valuemax={T_MAX} aria-valuenow={v}
+      key={h}
+      data-handle={h}
+      className={`fp-h ${cls}`}
+      style={{ left: `${pct(v)}%` }}
+      role="slider"
+      aria-label={`${label} ${name}`}
+      aria-valuemin={T_MIN}
+      aria-valuemax={T_MAX}
+      aria-valuenow={v}
       onKeyDown={onKey(h)}
     />
   )
 
   const segs = []
   if (value) {
-    segs.push(<div key="i" className="fp-seg" style={{ left: `${pct(b.idealMin)}%`, width: `${pct(b.idealMax) - pct(b.idealMin)}%`, background: CO.comf }} />)
+    segs.push(
+      <div
+        key="i"
+        className="fp-seg"
+        style={{ left: `${pct(b.idealMin)}%`, width: `${pct(b.idealMax) - pct(b.idealMin)}%`, background: CO.comf }}
+      />,
+    )
     const hiEnd = hMax ?? b.idealMax + SOFT.temp
-    segs.push(<div key="rh" className="fp-seg" style={{ left: `${pct(b.idealMax)}%`, width: `${pct(hiEnd) - pct(b.idealMax)}%`,
-      background: `linear-gradient(90deg, ${CO.comf}, ${hMax === null ? 'transparent' : CO.unb})` }} />)
+    segs.push(
+      <div
+        key="rh"
+        className="fp-seg"
+        style={{
+          left: `${pct(b.idealMax)}%`,
+          width: `${pct(hiEnd) - pct(b.idealMax)}%`,
+          background: `linear-gradient(90deg, ${CO.comf}, ${hMax === null ? 'transparent' : CO.unb})`,
+        }}
+      />,
+    )
     const loEnd = hMin ?? b.idealMin - SOFT.temp
-    segs.push(<div key="rl" className="fp-seg" style={{ left: `${pct(loEnd)}%`, width: `${pct(b.idealMin) - pct(loEnd)}%`,
-      background: `linear-gradient(90deg, ${hMin === null ? 'transparent' : CO.unb}, ${CO.comf})` }} />)
+    segs.push(
+      <div
+        key="rl"
+        className="fp-seg"
+        style={{
+          left: `${pct(loEnd)}%`,
+          width: `${pct(b.idealMin) - pct(loEnd)}%`,
+          background: `linear-gradient(90deg, ${hMin === null ? 'transparent' : CO.unb}, ${CO.comf})`,
+        }}
+      />,
+    )
     if (fixedHard) {
-      if (hMax !== null) segs.push(<div key="tx" className="fp-seg" style={{ left: `${pct(hMax)}%`, width: 1, top: 2, height: 14, background: CO.warn }} />)
-      if (hMin !== null) segs.push(<div key="tn" className="fp-seg" style={{ left: `${pct(hMin)}%`, width: 1, top: 2, height: 14, background: CO.accent }} />)
+      if (hMax !== null)
+        segs.push(
+          <div
+            key="tx"
+            className="fp-seg"
+            style={{ left: `${pct(hMax)}%`, width: 1, top: 2, height: 14, background: CO.warn }}
+          />,
+        )
+      if (hMin !== null)
+        segs.push(
+          <div
+            key="tn"
+            className="fp-seg"
+            style={{ left: `${pct(hMin)}%`, width: 1, top: 2, height: 14, background: CO.accent }}
+          />,
+        )
     }
   }
 
   return (
-    <div ref={ref} className={value ? 'fp' : 'fp unset'} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}>
+    <div
+      ref={ref}
+      className={value ? 'fp' : 'fp unset'}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+    >
       <div className="fp-track" />
       {segs}
       {value && hardEditable && b.hardMin !== null && handle('hardMin', b.hardMin, 'hard-min', 'hard floor')}

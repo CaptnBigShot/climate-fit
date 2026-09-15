@@ -14,7 +14,11 @@ export const QUEUE_FILE = join(DATA, 'queue.json')
 const LINES = [['id', 'name', 'code', 'region'], ['lat', 'lon', 'pop', 'coastal', 'continent'], ['terrain']]
 const KNOWN = new Set(LINES.flat())
 const j = (v) => JSON.stringify(v)
-const pairs = (o, keys) => keys.filter((k) => o[k] !== undefined).map((k) => `${j(k)}: ${k === 'terrain' ? terrainList(o[k]) : j(o[k])}`).join(', ')
+const pairs = (o, keys) =>
+  keys
+    .filter((k) => o[k] !== undefined)
+    .map((k) => `${j(k)}: ${k === 'terrain' ? terrainList(o[k]) : j(o[k])}`)
+    .join(', ')
 const terrainList = (t) => `[${t.map(([id, min]) => `[${j(id)}, ${min}]`).join(', ')}]`
 
 function formatCity(c) {
@@ -31,7 +35,8 @@ function formatTerrain(terrain) {
 
 /** Catalogue or queue → text. Top-level keys other than terrain/cities go one per line. */
 export function format(doc) {
-  const head = Object.entries(doc).filter(([k]) => k !== 'terrain' && k !== 'cities')
+  const head = Object.entries(doc)
+    .filter(([k]) => k !== 'terrain' && k !== 'cities')
     .map(([k, v]) => `  ${j(k)}: { ${pairs(v, Object.keys(v))} }`)
   const cities = doc.cities.length ? `[\n${doc.cities.map(formatCity).join(',\n')}\n  ]` : '[]'
   return `{\n${[...head, `  "terrain": ${formatTerrain(doc.terrain)}`, `  "cities": ${cities}`].join(',\n')}\n}\n`
@@ -41,7 +46,9 @@ export const readCatalog = async () => JSON.parse(await readFile(CATALOG_FILE, '
 export const writeCatalog = (c) => writeFile(CATALOG_FILE, format(c))
 
 export async function readQueue() {
-  try { return JSON.parse(await readFile(QUEUE_FILE, 'utf8')) } catch (e) {
+  try {
+    return JSON.parse(await readFile(QUEUE_FILE, 'utf8'))
+  } catch (e) {
     if (e.code === 'ENOENT') return null
     throw e
   }
@@ -65,5 +72,7 @@ export function promote(catalog, queue, id) {
 
 export function pruneQueueTerrain(catalog, queue) {
   const waiting = new Set(queue.cities.flatMap((c) => c.terrain.map(([tid]) => tid)))
-  queue.terrain = Object.fromEntries(Object.entries(queue.terrain).filter(([tid]) => waiting.has(tid) && !catalog.terrain[tid]))
+  queue.terrain = Object.fromEntries(
+    Object.entries(queue.terrain).filter(([tid]) => waiting.has(tid) && !catalog.terrain[tid]),
+  )
 }

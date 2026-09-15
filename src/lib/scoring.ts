@@ -20,12 +20,41 @@ export const DRY_IDEAL = 0.02
 export const SEASON_BLEND_DAYS = 31
 
 export const REASONS = [
-  '', 'too warm', 'too cold', 'warm nights', 'cold nights', 'dew point', 'too clear', 'too cloudy', 'wind', 'precipitation',
-  'over your ceiling', 'under your floor', 'over dew-pt limit', 'overnight low past a bound', 'cloud deal-breaker', 'wind deal-breaker', 'precip deal-breaker',
+  '',
+  'too warm',
+  'too cold',
+  'warm nights',
+  'cold nights',
+  'dew point',
+  'too clear',
+  'too cloudy',
+  'wind',
+  'precipitation',
+  'over your ceiling',
+  'under your floor',
+  'over dew-pt limit',
+  'overnight low past a bound',
+  'cloud deal-breaker',
+  'wind deal-breaker',
+  'precip deal-breaker',
 ] as const
 const R = {
-  warm: 1, cold: 2, warmNight: 3, coldNight: 4, dew: 5, clear: 6, cloudy: 7, wind: 8, wet: 9,
-  ceiling: 10, floor: 11, dewLimit: 12, lowBound: 13, cloudDeal: 14, windDeal: 15, wetDeal: 16,
+  warm: 1,
+  cold: 2,
+  warmNight: 3,
+  coldNight: 4,
+  dew: 5,
+  clear: 6,
+  cloudy: 7,
+  wind: 8,
+  wet: 9,
+  ceiling: 10,
+  floor: 11,
+  dewLimit: 12,
+  lowBound: 13,
+  cloudDeal: 14,
+  windDeal: 15,
+  wetDeal: 16,
 }
 
 export interface Scored {
@@ -47,7 +76,14 @@ const OUT = -1
 /** Four-point ramp: 1 inside ideal, linear to 0 at a hard bound, OUT beyond it.
  *  An open hard bound (null) never disqualifies; the score instead fades over a
  *  soft span, so the day is never free but never written off. */
-export function ramp(v: number, hardMin: number | null, idealMin: number | null, idealMax: number | null, hardMax: number | null, soft: number): number {
+export function ramp(
+  v: number,
+  hardMin: number | null,
+  idealMin: number | null,
+  idealMax: number | null,
+  hardMax: number | null,
+  soft: number,
+): number {
   if (hardMax !== null && v > hardMax) return OUT
   if (hardMin !== null && v < hardMin) return OUT
   if (idealMax !== null && v > idealMax) {
@@ -63,7 +99,8 @@ export function ramp(v: number, hardMin: number | null, idealMin: number | null,
 
 /** Relative humidity from temperature and dew point, both °F (Magnus). */
 export function relHumidity(tF: number, dF: number): number {
-  const t = ((tF - 32) * 5) / 9, d = ((dF - 32) * 5) / 9
+  const t = ((tF - 32) * 5) / 9,
+    d = ((dF - 32) * 5) / 9
   return 100 * Math.exp((17.625 * d) / (243.04 + d) - (17.625 * t) / (243.04 + t))
 }
 
@@ -73,8 +110,17 @@ export function apparent(tF: number, dewF: number, windMph: number): number {
     const rh = Math.min(100, relHumidity(tF, dewF))
     const simple = 0.5 * (tF + 61 + (tF - 68) * 1.2 + rh * 0.094)
     if (simple < 80) return simple
-    return -42.379 + 2.04901523 * tF + 10.14333127 * rh - 0.22475541 * tF * rh - 0.00683783 * tF * tF
-      - 0.05481717 * rh * rh + 0.00122874 * tF * tF * rh + 0.00085282 * tF * rh * rh - 0.00000199 * tF * tF * rh * rh
+    return (
+      -42.379 +
+      2.04901523 * tF +
+      10.14333127 * rh -
+      0.22475541 * tF * rh -
+      0.00683783 * tF * tF -
+      0.05481717 * rh * rh +
+      0.00122874 * tF * tF * rh +
+      0.00085282 * tF * rh * rh -
+      0.00000199 * tF * tF * rh * rh
+    )
   }
   if (tF <= 50 && windMph >= 3) {
     const v = windMph ** 0.16
@@ -87,14 +133,18 @@ export function apparent(tF: number, dewF: number, windMph: number): number {
  *  the six warmest months (by mean temperature) are warm season, the six coolest cold.
  *  Hemisphere-agnostic. Boundaries blend linearly over SEASON_BLEND_DAYS. */
 export function seasonWeights(s: CitySeries, w: Window): { warmW: Float32Array; warmMonths: boolean[] } {
-  const off = (w.from - FIRST_YEAR) * 365, years = windowYears(w)
-  const sum = new Float64Array(12), n = new Float64Array(12)
+  const off = (w.from - FIRST_YEAR) * 365,
+    years = windowYears(w)
+  const sum = new Float64Array(12),
+    n = new Float64Array(12)
   for (let y = 0; y < years; y++) {
     for (let d = 0; d < 365; d++) {
-      const j = off + y * 365 + d, v = (s.high[j] + s.low[j]) / 2
+      const j = off + y * 365 + d,
+        v = (s.high[j] + s.low[j]) / 2
       if (Number.isNaN(v)) continue
       const m = doyMonth(d)
-      sum[m] += v; n[m]++
+      sum[m] += v
+      n[m]++
     }
   }
   const order = [...Array(12).keys()].sort((a, b) => sum[b] / n[b] - sum[a] / n[a])
@@ -114,7 +164,10 @@ export function seasonWeights(s: CitySeries, w: Window): { warmW: Float32Array; 
 export function idealFor(p: Prefs, warmW: number): [number, number] {
   const t = p.temp!
   if (!p.seasonal) return [t.idealMin, t.idealMax]
-  return [p.cold.idealMin + (t.idealMin - p.cold.idealMin) * warmW, p.cold.idealMax + (t.idealMax - p.cold.idealMax) * warmW]
+  return [
+    p.cold.idealMin + (t.idealMin - p.cold.idealMin) * warmW,
+    p.cold.idealMax + (t.idealMax - p.cold.idealMax) * warmW,
+  ]
 }
 
 /** Temperature the score uses for the day's daytime reading, °F. `shift` adds uniform warming. */
@@ -130,27 +183,45 @@ export function dayTemp(s: CitySeries, j: number, p: Prefs, shift = 0): number {
  *  season weights from another window (for the partial current year). */
 export function score(s: CitySeries, p: Prefs, w: Window, shift = 0, warmOverride?: Float32Array): Scored | null {
   if (!hasPreference(p)) return null
-  const years = windowYears(w), N = years * 365, off = (w.from - FIRST_YEAR) * 365
+  const years = windowYears(w),
+    N = years * 365,
+    off = (w.from - FIRST_YEAR) * 365
   const cut = CUTOFF[p.strict]
-  const band = new Uint8Array(N), sc = new Float32Array(N), hard = new Uint8Array(N), why = new Uint8Array(N)
+  const band = new Uint8Array(N),
+    sc = new Float32Array(N),
+    hard = new Uint8Array(N),
+    why = new Uint8Array(N)
   // A partial year can't define its own seasons; callers scoring one pass the window's.
   const warmW = warmOverride ?? seasonWeights(s, w).warmW
   const t = p.temp
   const wt = {
-    temp: WEIGHT_VALUE[p.weights.temp], dew: WEIGHT_VALUE[p.weights.dew], cloud: WEIGHT_VALUE[p.weights.cloud],
-    wind: WEIGHT_VALUE[p.weights.wind], precip: WEIGHT_VALUE[p.weights.precip],
+    temp: WEIGHT_VALUE[p.weights.temp],
+    dew: WEIGHT_VALUE[p.weights.dew],
+    cloud: WEIGHT_VALUE[p.weights.cloud],
+    wind: WEIGHT_VALUE[p.weights.wind],
+    precip: WEIGHT_VALUE[p.weights.precip],
   }
   const both = p.basis === 'both'
   const cloudIdealMin = p.cloud === 'overcast' ? CLOUD_OVERCAST_IDEAL : null
   const cloudIdealMax = p.cloud === 'clear' ? CLOUD_CLEAR_IDEAL : null
 
   for (let i = 0; i < N; i++) {
-    const j = off + i, doy = i % 365
-    let wsum = 0, acc = 0, breach = 0, primary = 0, worst = 0, worstDef = -1
+    const j = off + i,
+      doy = i % 365
+    let wsum = 0,
+      acc = 0,
+      breach = 0,
+      primary = 0,
+      worst = 0,
+      worstDef = -1
     const take = (r: number, weight: number, reason: number) => {
-      wsum += weight; acc += weight * r
+      wsum += weight
+      acc += weight * r
       const def = weight * (1 - r)
-      if (def > worstDef && r < 1) { worstDef = def; worst = reason }
+      if (def > worstDef && r < 1) {
+        worstDef = def
+        worst = reason
+      }
     }
 
     if (t) {
@@ -158,20 +229,28 @@ export function score(s: CitySeries, p: Prefs, w: Window, shift = 0, warmOverrid
       const v = dayTemp(s, j, p, shift)
       const r = ramp(v, t.hardMin, iMin, iMax, t.hardMax, SOFT.temp)
       const low = p.basis === 'low'
-      if (r === OUT) { breach = t.hardMax !== null && v > t.hardMax ? R.ceiling : R.floor; primary = 1 }
-      else if (both) {
+      if (r === OUT) {
+        breach = t.hardMax !== null && v > t.hardMax ? R.ceiling : R.floor
+        primary = 1
+      } else if (both) {
         const lo = s.low[j] + shift
         const rl = ramp(lo, t.hardMin, iMin, iMax, t.hardMax, SOFT.temp)
-        if (rl === OUT) { breach = R.lowBound; primary = 1 }
-        else {
-          const rMin = Math.min(r, rl), lowWorse = rl < r
+        if (rl === OUT) {
+          breach = R.lowBound
+          primary = 1
+        } else {
+          const rMin = Math.min(r, rl),
+            lowWorse = rl < r
           take(rMin, wt.temp, lowWorse ? (lo > iMax ? R.warmNight : R.coldNight) : v > iMax ? R.warm : R.cold)
         }
       } else take(r, wt.temp, low ? (v > iMax ? R.warmNight : R.coldNight) : v > iMax ? R.warm : R.cold)
     }
     if (!breach && p.dewMax !== null) {
       const r = ramp(s.dew[j] + shift, null, null, p.dewMax, p.dewMax + DEW_HARD_GAP, SOFT.dew)
-      if (r === OUT) { breach = R.dewLimit; primary = 1 } else take(r, wt.dew, R.dew)
+      if (r === OUT) {
+        breach = R.dewLimit
+        primary = 1
+      } else take(r, wt.dew, R.dew)
     }
     if (!breach && p.cloud !== 'any') {
       const deal = p.deal.cloud
@@ -193,7 +272,10 @@ export function score(s: CitySeries, p: Prefs, w: Window, shift = 0, warmOverrid
     }
 
     if (breach) {
-      band[i] = BAND.unb; sc[i] = 0; hard[i] = primary; why[i] = breach
+      band[i] = BAND.unb
+      sc[i] = 0
+      hard[i] = primary
+      why[i] = breach
     } else {
       const v = wsum ? (acc / wsum) * 100 : 100
       sc[i] = v

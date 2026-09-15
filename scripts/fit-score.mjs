@@ -18,7 +18,8 @@ export const dryScore = (muggyMonths) => clamp01(1 - muggyMonths / 2)
  *  45°F (no winter), and to ½ at −20°F (Yakutsk-cold is a winter too far for most). */
 export const winterScore = (coldMeanF) => (coldMeanF >= 5 ? lin(coldMeanF, 45, 30) : 0.5 + 0.5 * lin(coldMeanF, -20, 5))
 /** Ski terrain by drive time (the app's stops): ≤1 hr 1, ≤2 hr 0.7, ≤3 hr 0.4, none 0. */
-export const snowFromDrive = (minutes) => (minutes == null ? 0 : minutes <= 60 ? 1 : minutes <= 120 ? 0.7 : minutes <= 180 ? 0.4 : 0)
+export const snowFromDrive = (minutes) =>
+  minutes == null ? 0 : minutes <= 60 ? 1 : minutes <= 120 ? 0.7 : minutes <= 180 ? 0.4 : 0
 /** Before routing, the same by straight-line distance to a big ski area: 1 within 60 km, 0 past 220. */
 export const snowFromKm = (km) => (km == null ? 0 : lin(km, 220, 60))
 

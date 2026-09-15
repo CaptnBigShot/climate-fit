@@ -41,12 +41,28 @@ export const REVIEW_FILE = join(CACHE, 'review.json')
 /** Default size of the whole set, catalogue included — the spec's "few hundred metros". */
 const SET_SIZE = 300
 /** GeoNames place types that are towns and cities (not city districts, historical or abandoned places). */
-const PLACE_CODES = new Set(['PPLC', 'PPLA', 'PPLA2', 'PPLA3', 'PPLA4', 'PPLA5', 'PPL', 'PPLG', 'PPLS', 'PPLF', 'PPLR', 'PPLL'])
+const PLACE_CODES = new Set([
+  'PPLC',
+  'PPLA',
+  'PPLA2',
+  'PPLA3',
+  'PPLA4',
+  'PPLA5',
+  'PPL',
+  'PPLG',
+  'PPLS',
+  'PPLF',
+  'PPLR',
+  'PPLL',
+])
 /** A smaller place this close to a bigger candidate is part of the same metro. */
 const METRO_KM = 25
 /** Outside the US (where metro membership decides, see below), a place is a suburb when it's
  *  within this many km of a place this many times bigger: [km, ratio]. */
-const SATELLITE = [[50, 4], [70, 15]]
+const SATELLITE = [
+  [50, 4],
+  [70, 15],
+]
 /** In the US, a city is a suburb when its metro area (CBSA) has a city this many times bigger —
  *  so Minneapolis and St. Paul both stay, but Aurora (Denver) and Kent (Seattle) don't. */
 const US_SUBURB_RATIO = 1.5
@@ -89,12 +105,39 @@ const SCALE = { hi: 16, dew: 13, sun: 20, rad: 4, seas: 8 }
 /** A city this far from everything already chosen counts one extra unit apart, so the
  *  same climate on another continent is still worth having — but no more than that. */
 const REGION_KM = 2000
-const CA_PROVINCES = { '01': 'AB', '02': 'BC', '03': 'MB', '04': 'NB', '05': 'NL', '07': 'NS', '08': 'ON', '09': 'PE', 10: 'QC', 11: 'SK', 12: 'YT', 13: 'NT', 14: 'NU' }
-const CONTINENTS = { AF: 'Africa', AS: 'Asia', EU: 'Europe', NA: 'North America', OC: 'Oceania', SA: 'South America', AN: 'Antarctica' }
+const CA_PROVINCES = {
+  '01': 'AB',
+  '02': 'BC',
+  '03': 'MB',
+  '04': 'NB',
+  '05': 'NL',
+  '07': 'NS',
+  '08': 'ON',
+  '09': 'PE',
+  10: 'QC',
+  11: 'SK',
+  12: 'YT',
+  13: 'NT',
+  14: 'NU',
+}
+const CONTINENTS = {
+  AF: 'Africa',
+  AS: 'Asia',
+  EU: 'Europe',
+  NA: 'North America',
+  OC: 'Oceania',
+  SA: 'South America',
+  AN: 'Antarctica',
+}
 const UA = 'climate-fit build-catalog (personal, non-commercial)'
 
 const { values: opts } = parseArgs({
-  options: { count: { type: 'string' }, force: { type: 'boolean' }, check: { type: 'boolean' }, 'dry-run': { type: 'boolean' } },
+  options: {
+    count: { type: 'string' },
+    force: { type: 'boolean' },
+    check: { type: 'boolean' },
+    'dry-run': { type: 'boolean' },
+  },
 })
 const { minPop, floors, shares, countryCap, caps, perCountry, maxMuggy, minFit, weights } = config
 const floorOf = (p) => floors[p.cc] ?? minPop
@@ -110,14 +153,25 @@ await mkdir(CACHE, { recursive: true })
 
 // ---------- helpers ----------
 
-const exists = (p) => access(p).then(() => true, () => false)
+const exists = (p) =>
+  access(p).then(
+    () => true,
+    () => false,
+  )
 const rad = Math.PI / 180
 function km(a, b) {
-  const dLat = (b.lat - a.lat) * rad, dLon = (b.lon - a.lon) * rad
+  const dLat = (b.lat - a.lat) * rad,
+    dLon = (b.lon - a.lon) * rad
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon / 2) ** 2
   return 12742 * Math.asin(Math.sqrt(h))
 }
-const slug = (s) => s.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+const slug = (s) =>
+  s
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
 const mean = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length
 const toF = (c) => c * 1.8 + 32
 const clamp01 = (x) => Math.max(0, Math.min(1, x))
@@ -132,7 +186,11 @@ async function download(name, url) {
   await writeFile(file, Buffer.from(await res.arrayBuffer()))
   return file
 }
-const tsv = async (file) => (await readFile(file, 'utf8')).split('\n').filter((l) => l && !l.startsWith('#')).map((l) => l.split('\t'))
+const tsv = async (file) =>
+  (await readFile(file, 'utf8'))
+    .split('\n')
+    .filter((l) => l && !l.startsWith('#'))
+    .map((l) => l.split('\t'))
 
 async function jsonCache(name) {
   const file = join(CACHE, name)
@@ -146,16 +204,40 @@ async function jsonCache(name) {
 
 const geo = join(CACHE, 'cities15000.txt')
 if (!(await exists(geo))) {
-  execFileSync('unzip', ['-o', '-q', await download('cities15000.zip', 'https://download.geonames.org/export/dump/cities15000.zip'), '-d', CACHE])
+  execFileSync('unzip', [
+    '-o',
+    '-q',
+    await download('cities15000.zip', 'https://download.geonames.org/export/dump/cities15000.zip'),
+    '-d',
+    CACHE,
+  ])
 }
-const countries = new Map((await tsv(await download('countryInfo.txt', 'https://download.geonames.org/export/dump/countryInfo.txt')))
-  .map((r) => [r[0], { name: r[4], continent: CONTINENTS[r[8]] }]))
-const admin1 = new Map((await tsv(await download('admin1CodesASCII.txt', 'https://download.geonames.org/export/dump/admin1CodesASCII.txt')))
-  .map((r) => [r[0], r[1]]))
+const countries = new Map(
+  (await tsv(await download('countryInfo.txt', 'https://download.geonames.org/export/dump/countryInfo.txt'))).map(
+    (r) => [r[0], { name: r[4], continent: CONTINENTS[r[8]] }],
+  ),
+)
+const admin1 = new Map(
+  (
+    await tsv(await download('admin1CodesASCII.txt', 'https://download.geonames.org/export/dump/admin1CodesASCII.txt'))
+  ).map((r) => [r[0], r[1]]),
+)
 
-const places = (await tsv(geo)).filter((r) => PLACE_CODES.has(r[7]) && !(r[8] in config.skipCountries)).map((r) => ({
-  gid: r[0], name: r[1], ascii: r[2], alt: r[3], lat: Number(r[4]), lon: Number(r[5]), fcode: r[7], cc: r[8], admin1: r[10], admin2: r[11], pop: Number(r[14]),
-}))
+const places = (await tsv(geo))
+  .filter((r) => PLACE_CODES.has(r[7]) && !(r[8] in config.skipCountries))
+  .map((r) => ({
+    gid: r[0],
+    name: r[1],
+    ascii: r[2],
+    alt: r[3],
+    lat: Number(r[4]),
+    lon: Number(r[5]),
+    fcode: r[7],
+    cc: r[8],
+    admin1: r[10],
+    admin2: r[11],
+    pop: Number(r[14]),
+  }))
 
 /** How the catalogue labels a place: US states and Canadian provinces by postal code, everything else by country. */
 function label(p) {
@@ -173,7 +255,11 @@ function label(p) {
 }
 
 /** Case- and accent-blind ("Iași" and GeoNames' "Iaşi" match). */
-const fold = (s) => s.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+const fold = (s) =>
+  s
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
 /** "Name", "Name, ST" (US state / Canadian province) or "Name, CC" (country) → the largest match,
  *  or null. GeoNames' alternate names ("Cologne" for Köln) are the fallback. */
 function resolve(text) {
@@ -181,17 +267,23 @@ function resolve(text) {
   const want = fold(name)
   const here = places.filter((p) => !where || where.toUpperCase() === p.cc || where.toUpperCase() === label(p).code)
   const largest = (hits) => (hits.length ? hits.reduce((a, b) => (b.pop > a.pop ? b : a)) : null)
-  return largest(here.filter((p) => fold(p.name) === want || fold(p.ascii) === want))
-    ?? largest(here.filter((p) => p.alt.split(',').some((a) => fold(a) === want)))
+  return (
+    largest(here.filter((p) => fold(p.name) === want || fold(p.ascii) === want)) ??
+    largest(here.filter((p) => p.alt.split(',').some((a) => fold(a) === want)))
+  )
 }
 
 const inCatalog = (p) => catalog.cities.some((c) => km(p, c) < SAME_CITY_KM)
-const includes = [], why = new Map()
+const includes = [],
+  why = new Map()
 for (const [text, reason] of config.include) {
   const p = resolve(text)
   if (!p) throw new Error(`catalog.config include "${text}": no GeoNames town or city by that name`)
   if (inCatalog(p)) console.log(`  include "${text}": already in the catalogue`)
-  else if (!includes.includes(p)) { includes.push(p); why.set(p.gid, reason) }
+  else if (!includes.includes(p)) {
+    includes.push(p)
+    why.set(p.gid, reason)
+  }
 }
 const excluded = new Set()
 for (const [text] of config.exclude) {
@@ -211,7 +303,10 @@ for (const p of places) {
 }
 const bigPlaces = places.filter((p) => p.pop >= 150_000)
 function suburb(p) {
-  if (p.cc === 'US') { const m = us.metroOf(p); return !!m && metroTop.get(m) >= US_SUBURB_RATIO * p.pop }
+  if (p.cc === 'US') {
+    const m = us.metroOf(p)
+    return !!m && metroTop.get(m) >= US_SUBURB_RATIO * p.pop
+  }
   return bigPlaces.some((q) => q !== p && SATELLITE.some(([d, ratio]) => q.pop >= ratio * p.pop && km(p, q) <= d))
 }
 
@@ -225,19 +320,33 @@ for (const p of places.filter((q) => q.pop >= floorOf(q)).sort((a, b) => b.pop -
   if (inCatalog(p) || includes.includes(p) || metros.some((q) => km(p, q) < METRO_KM)) continue
   metros.push(p)
   if (excluded.has(p.gid)) continue
-  if (suburb(p)) { suburbs++; continue }
+  if (suburb(p)) {
+    suburbs++
+    continue
+  }
   candidates.push(p)
 }
 // Countries that must be represented but may have nothing above the floor (Luxembourg,
 // Andorra, Malta…): their five biggest places, and the capital, stand by.
 const required = Object.entries(perCountry).flatMap(([continent, n]) =>
-  [...countries].filter(([cc, c]) => c.continent === continent && !(cc in config.skipCountries)).map(([cc]) => ({ cc, n })))
-const standby = required.flatMap(({ cc }) => {
-  const own = places.filter((p) => p.cc === cc && !excluded.has(p.gid) && !inCatalog(p) && !suburb(p)).sort((a, b) => b.pop - a.pop)
-  return [...new Set([...own.slice(0, 5), ...own.filter((p) => p.fcode === 'PPLC')])]
-}).filter((p) => !candidates.includes(p) && !includes.includes(p))
-const floorNote = Object.entries(floors).map(([cc, n]) => ` (${cc} ${n.toLocaleString('en-US')}+)`).join('')
-console.log(`candidates: ${candidates.length} metros of ${minPop.toLocaleString('en-US')}+ people${floorNote} · ${includes.length} included by name · ${excluded.size} left out by name · ${suburbs} suburbs left out`)
+  [...countries]
+    .filter(([cc, c]) => c.continent === continent && !(cc in config.skipCountries))
+    .map(([cc]) => ({ cc, n })),
+)
+const standby = required
+  .flatMap(({ cc }) => {
+    const own = places
+      .filter((p) => p.cc === cc && !excluded.has(p.gid) && !inCatalog(p) && !suburb(p))
+      .sort((a, b) => b.pop - a.pop)
+    return [...new Set([...own.slice(0, 5), ...own.filter((p) => p.fcode === 'PPLC')])]
+  })
+  .filter((p) => !candidates.includes(p) && !includes.includes(p))
+const floorNote = Object.entries(floors)
+  .map(([cc, n]) => ` (${cc} ${n.toLocaleString('en-US')}+)`)
+  .join('')
+console.log(
+  `candidates: ${candidates.length} metros of ${minPop.toLocaleString('en-US')}+ people${floorNote} · ${includes.length} included by name · ${excluded.size} left out by name · ${suburbs} suburbs left out`,
+)
 
 // ---------- CRU CL 2.0 climatology ----------
 // New et al. (2002), Climate Research 21:1–25: 1961–1990 monthly normals on a 10′ land grid,
@@ -248,10 +357,12 @@ console.log(`candidates: ${candidates.length} metros of ${minPop.toLocaleString(
 
 const CRU_VARS = ['tmp', 'dtr', 'pre', 'reh', 'sunp']
 const cellIndex = (x) => Math.floor(x * 6)
-const cellKey = (i, j) => `${i}:${((j + 1080) % 2160 + 2160) % 2160 - 1080}`
+const cellKey = (i, j) => `${i}:${((((j + 1080) % 2160) + 2160) % 2160) - 1080}`
 /** The cells within three of a place's own: a coastal city's own cell can be sea, which CRU leaves out. */
 function around(p) {
-  const i0 = cellIndex(p.lat), j0 = cellIndex(p.lon), out = []
+  const i0 = cellIndex(p.lat),
+    j0 = cellIndex(p.lon),
+    out = []
   for (let di = -3; di <= 3; di++) for (let dj = -3; dj <= 3; dj++) out.push(cellKey(i0 + di, j0 + dj))
   return out
 }
@@ -261,9 +372,14 @@ const want = new Set(everyone.flatMap(around))
 const cru = new Map()
 for (const v of CRU_VARS) {
   const file = await download(`cru_${v}.dat.gz`, `https://crudata.uea.ac.uk/cru/data/hrg/tmc/grid_10min_${v}.dat.gz`)
-  for await (const line of createInterface({ input: createReadStream(file).pipe(createGunzip()), crlfDelay: Infinity })) {
+  for await (const line of createInterface({
+    input: createReadStream(file).pipe(createGunzip()),
+    crlfDelay: Infinity,
+  })) {
     const f = line.trim().split(/\s+/)
-    const lat = Number(f[0]), lon = Number(f[1]), key = cellKey(cellIndex(lat), cellIndex(lon))
+    const lat = Number(f[0]),
+      lon = Number(f[1]),
+      key = cellKey(cellIndex(lat), cellIndex(lon))
     if (!want.has(key)) continue
     if (!cru.has(key)) cru.set(key, { lat, lon })
     // Precipitation carries 12 coefficients of variation after the means; only the means are used.
@@ -274,9 +390,16 @@ for (const v of CRU_VARS) {
 /** Extraterrestrial radiation, MJ/m²/day, mid-month (FAO-56 eq. 21). */
 function ra(latDeg, month) {
   const J = [15, 46, 74, 105, 135, 166, 196, 227, 258, 288, 319, 349][month]
-  const phi = latDeg * rad, dr = 1 + 0.033 * Math.cos((2 * Math.PI * J) / 365), delta = 0.409 * Math.sin((2 * Math.PI * J) / 365 - 1.39)
+  const phi = latDeg * rad,
+    dr = 1 + 0.033 * Math.cos((2 * Math.PI * J) / 365),
+    delta = 0.409 * Math.sin((2 * Math.PI * J) / 365 - 1.39)
   const ws = Math.acos(Math.max(-1, Math.min(1, -Math.tan(phi) * Math.tan(delta))))
-  return ((24 * 60) / Math.PI) * 0.082 * dr * (ws * Math.sin(phi) * Math.sin(delta) + Math.cos(phi) * Math.cos(delta) * Math.sin(ws))
+  return (
+    ((24 * 60) / Math.PI) *
+    0.082 *
+    dr *
+    (ws * Math.sin(phi) * Math.sin(delta) + Math.cos(phi) * Math.cos(delta) * Math.sin(ws))
+  )
 }
 /** Dew point, °C, from mean temperature and relative humidity (Magnus). */
 function dewPoint(t, rh) {
@@ -286,15 +409,21 @@ function dewPoint(t, rh) {
 
 /** Climate-space position, Köppen class and the ranking's climate inputs, from the nearest land cell. */
 function climateOf(p) {
-  let c = null, best = Infinity
+  let c = null,
+    best = Infinity
   for (const key of around(p)) {
     const g = cru.get(key)
     if (!g || !CRU_VARS.every((v) => g[v])) continue
     const d = km(p, g)
-    if (d < best) { best = d; c = g }
+    if (d < best) {
+      best = d
+      c = g
+    }
   }
   if (!c) return null
-  const t = c.tmp, highs = t.map((v, m) => v + c.dtr[m] / 2), dews = t.map((v, m) => toF(dewPoint(v, c.reh[m])))
+  const t = c.tmp,
+    highs = t.map((v, m) => v + c.dtr[m] / 2),
+    dews = t.map((v, m) => toF(dewPoint(v, c.reh[m])))
   return {
     hi: toF(mean(highs)),
     dew: mean(dews),
@@ -335,20 +464,40 @@ for (const f of JSON.parse(await readFile(liftFile, 'utf8')).features) {
     if (id) bottoms.set(id, [...(bottoms.get(id) ?? []), { lon, lat, elev }])
   }
 }
-const basesOf = (id) => (bottoms.get(id) ?? []).sort((a, b) => a.elev - b.elev)
-  .reduce((kept, b) => (kept.length < BASES_PER_AREA && kept.every((k) => km(k, b) > 0.5) ? [...kept, b] : kept), [])
+const basesOf = (id) =>
+  (bottoms.get(id) ?? [])
+    .sort((a, b) => a.elev - b.elev)
+    .reduce((kept, b) => (kept.length < BASES_PER_AREA && kept.every((k) => km(k, b) > 0.5) ? [...kept, b] : kept), [])
 
 const skiFile = await download('ski_areas.geojson', 'https://tiles.openskimap.org/geojson/ski_areas.geojson')
 const skiAreas = JSON.parse(await readFile(skiFile, 'utf8')).features.flatMap((f) => {
-  const p = f.properties, runs = p.statistics?.runs, bases = basesOf(p.id)
+  const p = f.properties,
+    runs = p.statistics?.runs,
+    bases = basesOf(p.id)
   if (p.status !== 'operating' || !p.activities?.includes('downhill') || !p.name || !bases.length) return []
   const cc = p.places?.[0]?.iso3166_1Alpha2
   if (NOT_PUBLIC_WINTER.test(p.name) || ((cc === 'US' || cc === 'CA') && NA_CLUB.test(p.name))) return []
-  if (runs?.minElevation == null || runs?.maxElevation == null || runs.maxElevation - runs.minElevation < SKI_MIN_VERT_M) return []
+  if (
+    runs?.minElevation == null ||
+    runs?.maxElevation == null ||
+    runs.maxElevation - runs.minElevation < SKI_MIN_VERT_M
+  )
+    return []
   const [lon, lat] = p.viewportHint?.center ?? f.geometry.coordinates.flat(Infinity)
   // The reference elevation is mid-mountain: the hand-set catalogue entries all sit there.
   const count = Object.values(runs.byActivity?.downhill?.byDifficulty ?? {}).reduce((n, d) => n + (d.count ?? 0), 0)
-  return [{ key: p.id, name: p.name, lat, lon, bases, runs: count, midM: (runs.minElevation + runs.maxElevation) / 2, vertM: runs.maxElevation - runs.minElevation }]
+  return [
+    {
+      key: p.id,
+      name: p.name,
+      lat,
+      lon,
+      bases,
+      runs: count,
+      midM: (runs.minElevation + runs.maxElevation) / 2,
+      vertM: runs.maxElevation - runs.minElevation,
+    },
+  ]
 })
 const bigSki = skiAreas.filter((s) => s.vertM >= BIG_SKI_VERT_M)
 const bigSkiKm = (p) => bigSki.reduce((best, s) => Math.min(best, km(p, s)), Infinity)
@@ -362,10 +511,21 @@ for (const [tid, t] of Object.entries(catalog.terrain)) {
 const newTerrain = {}
 function terrainId(s) {
   if (terrainIds.has(s.key)) return terrainIds.get(s.key)
-  const base = slug(s.name.replace(/\b(ski ?(area|resort|center|centre)|resort|skigebiet|skiarena)\b/gi, '')).split('-').slice(0, 3).join('-') || slug(s.name) || 'ski'
+  const base =
+    slug(s.name.replace(/\b(ski ?(area|resort|center|centre)|resort|skigebiet|skiarena)\b/gi, ''))
+      .split('-')
+      .slice(0, 3)
+      .join('-') ||
+    slug(s.name) ||
+    'ski'
   let id = base
   for (let n = 2; catalog.terrain[id] || newTerrain[id]; n++) id = `${base}-${n}`
-  newTerrain[id] = { name: s.name, lat: Number(s.lat.toFixed(4)), lon: Number(s.lon.toFixed(4)), elevFt: Math.round((s.midM * 3.28084) / 100) * 100 }
+  newTerrain[id] = {
+    name: s.name,
+    lat: Number(s.lat.toFixed(4)),
+    lon: Number(s.lon.toFixed(4)),
+    elevFt: Math.round((s.midM * 3.28084) / 100) * 100,
+  }
   terrainIds.set(s.key, id)
   return id
 }
@@ -381,7 +541,10 @@ async function driveMinutes(p, skis) {
   const coords = [p, ...ends.map((e) => e.b)].map((q) => `${q.lon.toFixed(5)},${q.lat.toFixed(5)}`).join(';')
   for (let attempt = 1; ; attempt++) {
     await sleep(1100)
-    const res = await fetch(`https://router.project-osrm.org/table/v1/driving/${coords}?sources=0&annotations=duration`, { headers: { 'User-Agent': UA } })
+    const res = await fetch(
+      `https://router.project-osrm.org/table/v1/driving/${coords}?sources=0&annotations=duration`,
+      { headers: { 'User-Agent': UA } },
+    )
     const json = res.ok ? await res.json() : null
     if (json?.code === 'Ok') {
       for (const s of skis) cached[s.key] = null
@@ -403,19 +566,23 @@ async function terrainFor(p) {
   // What's worth routing to (OSRM's demo takes ~100 points a request): the highest areas in
   // reach, the nearest few for the one-hour band, and any reference already fetched or queued.
   const inReach = skiAreas.filter((s) => km(p, s) <= SKI_SEARCH_KM)
-  const skis = [...new Set([
-    ...[...inReach].sort((a, b) => b.midM - a.midM).slice(0, 15),
-    ...[...inReach].sort((a, b) => km(p, a) - km(p, b)).slice(0, 8),
-    ...inReach.filter((s) => terrainIds.has(s.key)).slice(0, 6),
-  ])]
+  const skis = [
+    ...new Set([
+      ...[...inReach].sort((a, b) => b.midM - a.midM).slice(0, 15),
+      ...[...inReach].sort((a, b) => km(p, a) - km(p, b)).slice(0, 8),
+      ...inReach.filter((s) => terrainIds.has(s.key)).slice(0, 6),
+    ]),
+  ]
   if (!skis.length) return []
   const minutes = await driveMinutes(p, skis)
-  const reached = skis.map((s, i) => ({ s, min: minutes[i] == null ? null : minutes[i] * DRIVE_SCALE }))
+  const reached = skis
+    .map((s, i) => ({ s, min: minutes[i] == null ? null : minutes[i] * DRIVE_SCALE }))
     .filter((x) => x.min != null && x.min <= DRIVE_STOPS.at(-1))
   const known = (s) => terrainIds.has(s.key)
   const score = (x) => x.s.midM + SIZE_BONUS_M * Math.log2(1 + x.s.runs) + (known(x.s) ? REUSE_BONUS_M : 0)
   const picks = []
-  let from = 0, highest = -Infinity
+  let from = 0,
+    highest = -Infinity
   for (const stop of DRIVE_STOPS) {
     const band = reached.filter((x) => x.min > from && x.min <= stop)
     from = stop
@@ -430,24 +597,34 @@ async function terrainFor(p) {
 
 // ---------- coastline ----------
 
-const coastFile = await download('ne_10m_coastline.geojson', 'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_coastline.geojson')
-const coastLines = JSON.parse(await readFile(coastFile, 'utf8')).features.flatMap((f) =>
-  f.geometry.type === 'LineString' ? [f.geometry.coordinates] : f.geometry.coordinates)
+const coastFile = await download(
+  'ne_10m_coastline.geojson',
+  'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_coastline.geojson',
+)
+const coastLines = JSON.parse(await readFile(coastFile, 'utf8'))
+  .features.flatMap((f) => (f.geometry.type === 'LineString' ? [f.geometry.coordinates] : f.geometry.coordinates))
   .map((pts) => {
-    const lons = pts.map((q) => q[0]), lats = pts.map((q) => q[1])
+    const lons = pts.map((q) => q[0]),
+      lats = pts.map((q) => q[1])
     return { pts, box: [Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats)] }
   })
 /** Within COAST_KM of the sea, measured to the nearest coastline segment. */
 function coastal(p) {
-  const dLat = COAST_KM / 111, dLon = COAST_KM / (111 * Math.max(0.05, Math.cos(p.lat * rad)))
-  const kx = 111 * Math.cos(p.lat * rad), ky = 111
+  const dLat = COAST_KM / 111,
+    dLon = COAST_KM / (111 * Math.max(0.05, Math.cos(p.lat * rad)))
+  const kx = 111 * Math.cos(p.lat * rad),
+    ky = 111
   for (const { pts, box } of coastLines) {
     if (p.lon < box[0] - dLon || p.lon > box[2] + dLon || p.lat < box[1] - dLat || p.lat > box[3] + dLat) continue
     for (let i = 1; i < pts.length; i++) {
       // Local flat projection around p, in km; fine at this range.
-      const ax = (pts[i - 1][0] - p.lon) * kx, ay = (pts[i - 1][1] - p.lat) * ky
-      const bx = (pts[i][0] - p.lon) * kx, by = (pts[i][1] - p.lat) * ky
-      const dx = bx - ax, dy = by - ay, len = dx * dx + dy * dy
+      const ax = (pts[i - 1][0] - p.lon) * kx,
+        ay = (pts[i - 1][1] - p.lat) * ky
+      const bx = (pts[i][0] - p.lon) * kx,
+        by = (pts[i][1] - p.lat) * ky
+      const dx = bx - ax,
+        dy = by - ay,
+        len = dx * dx + dy * dy
       const t = len ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len)) : 0
       if (Math.hypot(ax + t * dx, ay + t * dy) <= COAST_KM) return true
     }
@@ -462,16 +639,24 @@ if (opts.check) {
   const skiOf = new Map([...terrainIds].map(([key, tid]) => [tid, skiAreas.find((s) => s.key === key)]))
   const ratios = []
   for (const c of catalog.cities) {
-    const clim = climateOf(c), terrain = await terrainFor(c)
+    const clim = climateOf(c),
+      terrain = await terrainFor(c)
     const hand = c.terrain.filter(([tid]) => skiOf.has(tid))
-    const routed = await driveMinutes(c, hand.map(([tid]) => skiOf.get(tid)))
+    const routed = await driveMinutes(
+      c,
+      hand.map(([tid]) => skiOf.get(tid)),
+    )
     hand.forEach(([, m], i) => routed[i] && ratios.push(m / routed[i]))
     console.log(`${c.name}: ${clim?.koppen ?? '?'} · coastal ${coastal(c)} (set: ${c.coastal})`)
     console.log(`  rules     ${terrain.map(([s, m]) => `${name(terrainId(s))} ${m}`).join(', ') || '—'}`)
-    console.log(`  hand-set  ${c.terrain.map(([tid, m]) => `${name(tid)} ${m}${skiOf.has(tid) ? ` (OSRM ${Math.round(routed[hand.findIndex(([t]) => t === tid)])})` : ''}`).join(', ') || '—'}`)
+    console.log(
+      `  hand-set  ${c.terrain.map(([tid, m]) => `${name(tid)} ${m}${skiOf.has(tid) ? ` (OSRM ${Math.round(routed[hand.findIndex(([t]) => t === tid)])})` : ''}`).join(', ') || '—'}`,
+    )
   }
   ratios.sort((a, b) => a - b)
-  console.log(`hand-set ÷ OSRM minutes: median ${ratios[ratios.length >> 1].toFixed(2)} · range ${ratios[0].toFixed(2)}–${ratios.at(-1).toFixed(2)} over ${ratios.length} routes`)
+  console.log(
+    `hand-set ÷ OSRM minutes: median ${ratios[ratios.length >> 1].toFixed(2)} · range ${ratios[0].toFixed(2)}–${ratios.at(-1).toFixed(2)} over ${ratios.length} routes`,
+  )
   await osrm.save()
   process.exit(0)
 }
@@ -483,12 +668,16 @@ const hubs = Object.entries(config.techHubs).flatMap(([text, tier]) => {
   if (!p) console.warn(`  techHubs "${text}": no GeoNames match`)
   return p ? [{ p, jobs: config.tierJobs[tier] }] : []
 })
-const walkOverride = new Map(Object.entries(config.walk.override).flatMap(([text, v]) => {
-  const p = resolve(text)
-  if (!p) console.warn(`  walk.override "${text}": no GeoNames match`)
-  return p ? [[p.gid, v]] : []
-}))
-const walkBase = (p) => config.walk.base[p.cc] ?? (countries.get(p.cc)?.continent === 'Europe' ? config.walk.base.europe : config.walk.base.default)
+const walkOverride = new Map(
+  Object.entries(config.walk.override).flatMap(([text, v]) => {
+    const p = resolve(text)
+    if (!p) console.warn(`  walk.override "${text}": no GeoNames match`)
+    return p ? [[p.gid, v]] : []
+  }),
+)
+const walkBase = (p) =>
+  config.walk.base[p.cc] ??
+  (countries.get(p.cc)?.continent === 'Europe' ? config.walk.base.europe : config.walk.base.default)
 
 const usJobs = new Map()
 /** The parts of the fit (each 0–1), their weighted total, and where each came from. */
@@ -498,13 +687,17 @@ function fitOf(p, snow) {
   const measured = usJobs.get(p.gid) ?? 0
   const jobs = Math.max(hubJobs, measured)
   const commute = p.cc === 'US' ? us.activeCommute(p, p.admin1) : null
-  const walk = commute ? walkScore(commute.share)
-    : walkOverride.get(p.gid) ?? clamp01(walkBase(p) + 0.15 * Math.log10(Math.max(p.pop, 1000) / 1e6))
+  const walk = commute
+    ? walkScore(commute.share)
+    : (walkOverride.get(p.gid) ?? clamp01(walkBase(p) + 0.15 * Math.log10(Math.max(p.pop, 1000) / 1e6)))
   const parts = { climate: climateScore(p.clim, snow), tech: techScore(jobs), walk }
   return {
-    ...parts, score: total(parts, weights), jobs: Math.round(jobs),
+    ...parts,
+    score: total(parts, weights),
+    jobs: Math.round(jobs),
     jobsFrom: measured > 0 && measured >= hubJobs ? 'BLS' : hubJobs > 0 ? 'estimate' : 'none',
-    commute: commute ? round2(commute.share) : null, walkFrom: commute ? 'ACS' : 'estimate',
+    commute: commute ? round2(commute.share) : null,
+    walkFrom: commute ? 'ACS' : 'estimate',
   }
 }
 
@@ -517,23 +710,39 @@ function fitOf(p, snow) {
 // climate is already in the set counting half — so the set stays varied without passing over
 // a major city just because its neighbour is similar. Fit here uses straight-line distance
 // to big ski terrain; the final ranking, after routing, uses drive times.
-const placed = (p) => { const clim = climateOf(p); return clim ? [{ ...p, continent: p.continent ?? label(p).continent, clim }] : [] }
+const placed = (p) => {
+  const clim = climateOf(p)
+  return clim ? [{ ...p, continent: p.continent ?? label(p).continent, clim }] : []
+}
 const withFit = (p) => ({ ...p, fit: fitOf(p, snowFromKm(bigSkiKm(p))) })
 const set = catalog.cities.flatMap(placed)
 const located = candidates.flatMap(placed)
 const pool = located.filter((p) => p.clim.muggy <= maxMuggy).map(withFit)
 const reserve = standby.flatMap(placed).map(withFit)
-const skipped = candidates.length - located.length, muggy = located.length - pool.length
-const nearestIn = (p, among) => among.reduce((best, q) => { const d = distance(p, q); return d < best.d ? { q, d } : best }, { q: null, d: Infinity })
+const skipped = candidates.length - located.length,
+  muggy = located.length - pool.length
+const nearestIn = (p, among) =>
+  among.reduce(
+    (best, q) => {
+      const d = distance(p, q)
+      return d < best.d ? { q, d } : best
+    },
+    { q: null, d: Infinity },
+  )
 const countryOf = (c) => c.cc ?? [...countries].find(([, v]) => c.region.endsWith(v.name))?.[0]
 
 const picks = []
-const pick = (p, reason) => { picks.push({ p, nearest: nearestIn(p, set), why: reason }); set.push(p) }
+const pick = (p, reason) => {
+  picks.push({ p, nearest: nearestIn(p, set), why: reason })
+  set.push(p)
+}
 for (const p of includes.flatMap(placed).map(withFit)) pick(p, why.get(p.gid))
 const taken = new Set(picks.map(({ p }) => p.gid))
 for (const { cc, n } of required) {
   const rank = (p) => p.fit.score + (p.fcode === 'PPLC' ? CAPITAL_BONUS : 0)
-  const options = [...pool, ...reserve].filter((p) => p.cc === cc && !taken.has(p.gid)).sort((a, b) => rank(b) - rank(a))
+  const options = [...pool, ...reserve]
+    .filter((p) => p.cc === cc && !taken.has(p.gid))
+    .sort((a, b) => rank(b) - rank(a))
   for (let have = set.filter((c) => countryOf(c) === cc).length; have < n && options.length; have++) {
     const p = options.shift()
     taken.add(p.gid)
@@ -542,24 +751,43 @@ for (const { cc, n } of required) {
 }
 
 const byContinent = (xs) => xs.reduce((m, p) => ({ ...m, [p.continent]: (m[p.continent] ?? 0) + 1 }), {})
-const perCountryCount = set.reduce((m, c) => { const cc = countryOf(c); return { ...m, [cc]: (m[cc] ?? 0) + 1 } }, {})
-const available = byContinent(pool), have = byContinent(set)
+const perCountryCount = set.reduce((m, c) => {
+  const cc = countryOf(c)
+  return { ...m, [cc]: (m[cc] ?? 0) + 1 }
+}, {})
+const available = byContinent(pool),
+  have = byContinent(set)
 const setTotal = set.length - picks.length + count
 const named = Object.values(shares).reduce((a, b) => a + b, 0)
-const rest = Object.fromEntries(Object.entries(available).filter(([k]) => !(k in shares)).map(([k, n]) => [k, Math.sqrt(n)]))
+const rest = Object.fromEntries(
+  Object.entries(available)
+    .filter(([k]) => !(k in shares))
+    .map(([k, n]) => [k, Math.sqrt(n)]),
+)
 const restSum = Object.values(rest).reduce((a, b) => a + b, 0) || 1
 const pct = (k) => (k in shares ? shares[k] : ((100 - named) * (rest[k] ?? 0)) / restSum)
-const quota = Object.fromEntries(Object.keys({ ...available, ...have }).map((k) => [k, Math.round((setTotal * pct(k)) / 100)]))
+const quota = Object.fromEntries(
+  Object.keys({ ...available, ...have }).map((k) => [k, Math.round((setTotal * pct(k)) / 100)]),
+)
 const minD = pool.map((p) => nearestIn(p, set).d)
 // A continent without enough good fits (minFit) stays short rather than handing its places to
 // another: the queue can come out under the count, which also makes it cheaper.
 while (picks.length < count) {
-  let bi = -1, bg = -Infinity
+  let bi = -1,
+    bg = -Infinity
   pool.forEach((p, i) => {
-    if (taken.has(p.gid) || p.fit.score < (minFit[p.continent] ?? minFit.default) || (perCountryCount[p.cc] ?? 0) >= capOf(p.cc)) return
+    if (
+      taken.has(p.gid) ||
+      p.fit.score < (minFit[p.continent] ?? minFit.default) ||
+      (perCountryCount[p.cc] ?? 0) >= capOf(p.cc)
+    )
+      return
     if ((have[p.continent] ?? 0) >= quota[p.continent]) return
     const gain = p.fit.score * (0.5 + 0.5 * Math.min(minD[i], 1))
-    if (gain > bg) { bg = gain; bi = i }
+    if (gain > bg) {
+      bg = gain
+      bi = i
+    }
   })
   if (bi < 0) break
   const p = pool[bi]
@@ -567,27 +795,71 @@ while (picks.length < count) {
   have[p.continent] = (have[p.continent] ?? 0) + 1
   perCountryCount[p.cc] = (perCountryCount[p.cc] ?? 0) + 1
   pick(p)
-  pool.forEach((q, i) => { if (!taken.has(q.gid)) minD[i] = Math.min(minD[i], distance(q, p)) })
+  pool.forEach((q, i) => {
+    if (!taken.has(q.gid)) minD[i] = Math.min(minD[i], distance(q, p))
+  })
 }
 // The best candidates each continent passed over (quota, cap or minFit), for the review.
-const nextInLine = Object.fromEntries(Object.keys(quota).map((k) => [k, pool
-  .filter((p) => p.continent === k && !taken.has(p.gid)).sort((a, b) => b.fit.score - a.fit.score).slice(0, 10)
-  .map((p) => ({ name: p.name, code: label(p).code, score: round2(p.fit.score), why: p.fit.score < (minFit[k] ?? minFit.default) ? 'below minFit' : (perCountryCount[p.cc] ?? 0) >= capOf(p.cc) ? 'country cap' : 'quota full' }))]))
+const nextInLine = Object.fromEntries(
+  Object.keys(quota).map((k) => [
+    k,
+    pool
+      .filter((p) => p.continent === k && !taken.has(p.gid))
+      .sort((a, b) => b.fit.score - a.fit.score)
+      .slice(0, 10)
+      .map((p) => ({
+        name: p.name,
+        code: label(p).code,
+        score: round2(p.fit.score),
+        why:
+          p.fit.score < (minFit[k] ?? minFit.default)
+            ? 'below minFit'
+            : (perCountryCount[p.cc] ?? 0) >= capOf(p.cc)
+              ? 'country cap'
+              : 'quota full',
+      })),
+  ]),
+)
 // Route the best fits first, so the terrain references they mint are there for later cities to reuse.
 picks.sort((a, b) => b.p.fit.score - a.p.fit.score)
 
-const tally = (xs) => Object.entries(xs.reduce((m, x) => ({ ...m, [x]: (m[x] ?? 0) + 1 }), {})).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(' · ')
+const tally = (xs) =>
+  Object.entries(xs.reduce((m, x) => ({ ...m, [x]: (m[x] ?? 0) + 1 }), {}))
+    .sort((a, b) => b[1] - a[1])
+    .map(([k, n]) => `${k} ${n}`)
+    .join(' · ')
 if (opts['dry-run']) {
-  console.log(`quotas      ${Object.entries(quota).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(' · ')} (whole set, catalogue included)`)
+  console.log(
+    `quotas      ${Object.entries(quota)
+      .sort((a, b) => b[1] - a[1])
+      .map(([k, n]) => `${k} ${n}`)
+      .join(' · ')} (whole set, catalogue included)`,
+  )
   console.log(`continents  ${tally(picks.map(({ p }) => p.continent))}`)
-  console.log(`Köppen      ${tally(picks.map(({ p }) => p.clim.koppen[0]))}   (candidates: ${tally(pool.map((p) => p.clim.koppen[0]))})`)
-  console.log(`countries   ${tally(picks.map(({ p }) => p.cc)).split(' · ').slice(0, 14).join(' · ')}`)
+  console.log(
+    `Köppen      ${tally(picks.map(({ p }) => p.clim.koppen[0]))}   (candidates: ${tally(pool.map((p) => p.clim.koppen[0]))})`,
+  )
+  console.log(
+    `countries   ${tally(picks.map(({ p }) => p.cc))
+      .split(' · ')
+      .slice(0, 14)
+      .join(' · ')}`,
+  )
   console.log(`left out    ${muggy} muggy · ${skipped} without climate`)
   for (const k of Object.keys(quota)) {
-    const next = pool.filter((p) => p.continent === k && !taken.has(p.gid)).sort((a, b) => b.fit.score - a.fit.score).slice(0, 12)
-    console.log(`next in ${k}: ${next.map((p) => `${p.name}${p.cc === 'US' || p.cc === 'CA' ? `/${label(p).code}` : ''} ${p.fit.score.toFixed(2)}`).join(', ')}`)
+    const next = pool
+      .filter((p) => p.continent === k && !taken.has(p.gid))
+      .sort((a, b) => b.fit.score - a.fit.score)
+      .slice(0, 12)
+    console.log(
+      `next in ${k}: ${next.map((p) => `${p.name}${p.cc === 'US' || p.cc === 'CA' ? `/${label(p).code}` : ''} ${p.fit.score.toFixed(2)}`).join(', ')}`,
+    )
   }
-  picks.forEach(({ p, why: w }, i) => console.log(`${String(i + 1).padStart(3)}. ${p.fit.score.toFixed(2)} ${p.name}, ${label(p).code} · c ${p.fit.climate.toFixed(2)} t ${p.fit.tech.toFixed(2)} (${p.fit.jobsFrom}) w ${p.fit.walk.toFixed(2)} (${p.fit.walkFrom})${w ? ` · ${w}` : ''}`))
+  picks.forEach(({ p, why: w }, i) =>
+    console.log(
+      `${String(i + 1).padStart(3)}. ${p.fit.score.toFixed(2)} ${p.name}, ${label(p).code} · c ${p.fit.climate.toFixed(2)} t ${p.fit.tech.toFixed(2)} (${p.fit.jobsFrom}) w ${p.fit.walk.toFixed(2)} (${p.fit.walkFrom})${w ? ` · ${w}` : ''}`,
+    ),
+  )
   process.exit(0)
 }
 
@@ -607,17 +879,41 @@ for (const [i, { p, nearest, why: reason }] of picks.entries()) {
   const fit = fitOf(p, snowFromDrive(Math.min(...terrain.map(([, m]) => m))))
   const c = p.clim
   const city = {
-    id, name: p.name, code: l.code, region: l.region,
-    lat: Number(p.lat.toFixed(4)), lon: Number(p.lon.toFixed(4)), pop: p.pop, coastal: coastal(p), continent: l.continent,
+    id,
+    name: p.name,
+    code: l.code,
+    region: l.region,
+    lat: Number(p.lat.toFixed(4)),
+    lon: Number(p.lon.toFixed(4)),
+    pop: p.pop,
+    coastal: coastal(p),
+    continent: l.continent,
     terrain,
     note: `fit ${fit.score.toFixed(2)} (climate ${fit.climate.toFixed(2)} · tech ${fit.tech.toFixed(2)} · walk ${fit.walk.toFixed(2)}) · ${c.koppen} ${koppenName(c.koppen)} · ${reason ?? `nearest in the set: ${nearest.q.name}`}`,
   }
   rows.push({
-    city, fit, reason: reason ?? null, nearest: nearest.q?.name ?? null, cc: p.cc, country: countries.get(p.cc).name,
-    climate: { koppen: c.koppen, koppenName: koppenName(c.koppen), hi: Math.round(c.hi), hotHigh: Math.round(c.hotHigh), coldMean: Math.round(c.coldMean), dew: Math.round(c.dew), sun: Math.round(c.sun), muggy: c.muggy },
+    city,
+    fit,
+    reason: reason ?? null,
+    nearest: nearest.q?.name ?? null,
+    cc: p.cc,
+    country: countries.get(p.cc).name,
+    climate: {
+      koppen: c.koppen,
+      koppenName: koppenName(c.koppen),
+      hi: Math.round(c.hi),
+      hotHigh: Math.round(c.hotHigh),
+      coldMean: Math.round(c.coldMean),
+      dew: Math.round(c.dew),
+      sun: Math.round(c.sun),
+      muggy: c.muggy,
+    },
     skiNames: routed.map(([s, min]) => `${s.name} ${min}`),
   })
-  if ((i + 1) % 25 === 0) { console.log(`  ${i + 1} / ${picks.length}`); await osrm.save() }
+  if ((i + 1) % 25 === 0) {
+    console.log(`  ${i + 1} / ${picks.length}`)
+    await osrm.save()
+  }
 }
 await osrm.save()
 // Ranked by fit, except config.fetchLast countries (Do Not Travel advisories), which go to the back.
@@ -625,14 +921,22 @@ const last = (r) => (r.cc in config.fetchLast ? 1 : 0)
 rows.sort((a, b) => last(a) - last(b) || b.fit.score - a.fit.score)
 for (const r of rows) if (last(r)) r.city.note += ` · fetched last: ${config.fetchLast[r.cc]}`
 const cities = rows.map((r) => r.city)
-rows.forEach((r, i) => { r.rank = i + 1; r.fetchLast = config.fetchLast[r.cc] ?? null })
+rows.forEach((r, i) => {
+  r.rank = i + 1
+  r.fetchLast = config.fetchLast[r.cc] ?? null
+})
 
 // Only terrain the queue actually uses (a --check or reuse may have minted others).
 const used = new Set(cities.flatMap((c) => c.terrain.map(([tid]) => tid)))
 const terrain = Object.fromEntries(Object.entries(newTerrain).filter(([tid]) => used.has(tid)))
 await writeQueue({
-  generated: { on: new Date().toISOString().slice(0, 10), config: 'scripts/catalog.config.mjs', sources: 'GeoNames · CRU CL 2.0 · OpenSkiMap · OSRM · Natural Earth · BLS QCEW · ACS' },
-  terrain, cities,
+  generated: {
+    on: new Date().toISOString().slice(0, 10),
+    config: 'scripts/catalog.config.mjs',
+    sources: 'GeoNames · CRU CL 2.0 · OpenSkiMap · OSRM · Natural Earth · BLS QCEW · ACS',
+  },
+  terrain,
+  cities,
 })
 
 // ---------- cost, summary, review data ----------
@@ -643,27 +947,71 @@ const ytdSpan = { start_date: `${endYear + 1}-01-01`, end_date: new Date().toISO
 const seenTerrain = new Set(Object.keys(catalog.terrain))
 rows.forEach((r) => {
   const c = r.city
-  let calls = weight(REQ.daily(c, DAILY_VARS.map((v) => v[0]))) + weight(REQ.grid(c))
+  let calls =
+    weight(
+      REQ.daily(
+        c,
+        DAILY_VARS.map((v) => v[0]),
+      ),
+    ) + weight(REQ.grid(c))
   calls += weight({ latitude: c.lat, daily: DAILY_VARS.map((v) => v[0]).join(','), ...ytdSpan })
-  if (c.terrain.length) calls += weight({ latitude: c.terrain.map(() => 0).join(','), daily: 'snow_depth_max', ...ytdSpan })
+  if (c.terrain.length)
+    calls += weight({ latitude: c.terrain.map(() => 0).join(','), daily: 'snow_depth_max', ...ytdSpan })
   if (!c.region.endsWith('United States')) calls += weight(camsRequest(c, endYear))
-  for (const [tid] of c.terrain) if (!seenTerrain.has(tid)) { seenTerrain.add(tid); calls += weight(REQ.terrain(terrain[tid])) }
+  for (const [tid] of c.terrain)
+    if (!seenTerrain.has(tid)) {
+      seenTerrain.add(tid)
+      calls += weight(REQ.terrain(terrain[tid]))
+    }
   r.calls = Math.round(calls)
 })
-let night = 0, left = 0
-for (const r of rows) { if (r.calls > left) { night++; left = DEFAULT_BUDGET } left -= r.calls; r.night = night }
-await writeFile(REVIEW_FILE, JSON.stringify({
-  generated: new Date().toISOString(), weights, minFit, budget: DEFAULT_BUDGET, nights: night,
-  catalog: catalog.cities.map((c) => ({ id: c.id, name: c.name, code: c.code, lat: c.lat, lon: c.lon, continent: c.continent })),
-  leftOut: { suburbs, muggy, maxMuggy, byName: config.exclude, skipCountries: config.skipCountries },
-  quota, nextInLine, rows,
-}))
+let night = 0,
+  left = 0
+for (const r of rows) {
+  if (r.calls > left) {
+    night++
+    left = DEFAULT_BUDGET
+  }
+  left -= r.calls
+  r.night = night
+}
+await writeFile(
+  REVIEW_FILE,
+  JSON.stringify({
+    generated: new Date().toISOString(),
+    weights,
+    minFit,
+    budget: DEFAULT_BUDGET,
+    nights: night,
+    catalog: catalog.cities.map((c) => ({
+      id: c.id,
+      name: c.name,
+      code: c.code,
+      lat: c.lat,
+      lon: c.lon,
+      continent: c.continent,
+    })),
+    leftOut: { suburbs, muggy, maxMuggy, byName: config.exclude, skipCountries: config.skipCountries },
+    quota,
+    nextInLine,
+    rows,
+  }),
+)
 
 console.log(`\nqueue: ${cities.length} cities → ${QUEUE_FILE} (ranked by fit)`)
 console.log(`  continents   ${tally(cities.map((c) => c.continent))}`)
 console.log(`  Köppen       ${tally(rows.map((r) => r.climate.koppen[0]))}`)
-console.log(`  coastal      ${cities.filter((c) => c.coastal).length} · with ski terrain ${cities.filter((c) => c.terrain.length).length} · new terrain refs ${Object.keys(terrain).length}`)
-console.log(`  cost         ~${rows.reduce((a, r) => a + r.calls, 0).toLocaleString('en-US')} Open-Meteo calls ≈ ${night} nightly runs at ${DEFAULT_BUDGET.toLocaleString('en-US')}`)
-console.log(`  top 15       ${rows.slice(0, 15).map((r) => r.city.name).join(', ')}`)
+console.log(
+  `  coastal      ${cities.filter((c) => c.coastal).length} · with ski terrain ${cities.filter((c) => c.terrain.length).length} · new terrain refs ${Object.keys(terrain).length}`,
+)
+console.log(
+  `  cost         ~${rows.reduce((a, r) => a + r.calls, 0).toLocaleString('en-US')} Open-Meteo calls ≈ ${night} nightly runs at ${DEFAULT_BUDGET.toLocaleString('en-US')}`,
+)
+console.log(
+  `  top 15       ${rows
+    .slice(0, 15)
+    .map((r) => r.city.name)
+    .join(', ')}`,
+)
 if (skipped) console.log(`  (${skipped} candidates had no CRU land cell within ~50 km and were left out)`)
 if (muggy) console.log(`  (${muggy} candidates have more than ${maxMuggy} muggy months and were left out)`)
