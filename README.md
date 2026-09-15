@@ -1,6 +1,6 @@
 # Climate Fit
 
-A historical weather browser that scores cities against **your** definition of comfortable. It covers 238 cities with daily data for 1991–2025, plus the current year so far. The set leans cold, snowy and North American.
+A historical weather browser that scores cities against **your** definition of comfortable. It covers 242 cities with daily data for 1991–2025, plus the current year so far. The set leans cold, snowy and North American.
 
 ## Run
 

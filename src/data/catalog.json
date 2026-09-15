@@ -182,7 +182,8 @@
     "beech-mountain": { "name": "Beech Mountain Resort", "lat": 36.1906, "lon": -81.8823, "elevFt": 5100 },
     "red-lodge-mountain": { "name": "Red Lodge Mountain", "lat": 45.1897, "lon": -109.3533, "elevFt": 8200 },
     "antelope-butte": { "name": "Antelope Butte", "lat": 44.6068, "lon": -107.5162, "elevFt": 8900 },
-    "mount-ashland": { "name": "Mount Ashland", "lat": 42.0843, "lon": -122.7112, "elevFt": 6900 }
+    "mount-ashland": { "name": "Mount Ashland", "lat": 42.0843, "lon": -122.7112, "elevFt": 6900 },
+    "marquette-mountain": { "name": "Marquette Mountain", "lat": 46.5053, "lon": -87.4191, "elevFt": 1000 }
   },
   "cities": [
     {
@@ -1374,6 +1375,26 @@
       "id": "minsk", "name": "Minsk", "code": "BY", "region": "Belarus",
       "lat": 53.9002, "lon": 27.5665, "pop": 1742124, "coastal": false, "continent": "Europe",
       "terrain": []
+    },
+    {
+      "id": "oakland", "name": "Oakland", "code": "CA", "region": "California · United States",
+      "lat": 37.8044, "lon": -122.2708, "pop": 419267, "coastal": true, "continent": "North America",
+      "terrain": [["sugar-bowl", 180]]
+    },
+    {
+      "id": "san-mateo", "name": "San Mateo", "code": "CA", "region": "California · United States",
+      "lat": 37.563, "lon": -122.3255, "pop": 103536, "coastal": true, "continent": "North America",
+      "terrain": []
+    },
+    {
+      "id": "palo-alto", "name": "Palo Alto", "code": "CA", "region": "California · United States",
+      "lat": 37.4419, "lon": -122.143, "pop": 66853, "coastal": true, "continent": "North America",
+      "terrain": []
+    },
+    {
+      "id": "marquette", "name": "Marquette", "code": "MI", "region": "Michigan · United States",
+      "lat": 46.5435, "lon": -87.3954, "pop": 21297, "coastal": false, "continent": "North America",
+      "terrain": [["marquette-mountain", 5]]
     }
   ]
 }

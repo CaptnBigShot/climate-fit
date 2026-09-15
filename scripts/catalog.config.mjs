@@ -68,6 +68,10 @@ export default {
     ['Missoula, MT', 'mountain town with ski terrain close by (71k, under the floor)'],
     ['Bozeman, MT', 'mountain town, growing tech scene (43k, under the floor)'],
     ['Flagstaff, AZ', 'high, snowy, and cool beside the desert (70k, under the floor)'],
+    ['Marquette, MI', 'Upper Peninsula: lake-effect snow, milder and cloudier than Duluth (21k, under the floor)'],
+    ['San Mateo, CA', 'mid-Peninsula, between SF fog and South Bay heat (San Francisco metro suburb)'],
+    ['Palo Alto, CA', 'Peninsula tech hub, a little cooler than San Jose (San Jose metro suburb)'],
+    ['Oakland, CA', 'major city; warmer and sunnier than San Francisco across the bay'],
   ],
   /** Never queued: [city, why]. Suburbs of a bigger city already in the set, and places
    *  with little to recommend them as a home (high crime, decline, isolation). */

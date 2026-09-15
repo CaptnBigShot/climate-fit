@@ -274,12 +274,15 @@ function resolve(text) {
 }
 
 const inCatalog = (p) => catalog.cities.some((c) => km(p, c) < SAME_CITY_KM)
+/** A named include is only a catalogue city by the same name: Oakland is 13 km from San Francisco. */
+const namedInCatalog = (p) =>
+  catalog.cities.some((c) => km(p, c) < SAME_CITY_KM && [p.name, p.ascii].some((n) => fold(n) === fold(c.name)))
 const includes = [],
   why = new Map()
 for (const [text, reason] of config.include) {
   const p = resolve(text)
   if (!p) throw new Error(`catalog.config include "${text}": no GeoNames town or city by that name`)
-  if (inCatalog(p)) console.log(`  include "${text}": already in the catalogue`)
+  if (namedInCatalog(p)) console.log(`  include "${text}": already in the catalogue`)
   else if (!includes.includes(p)) {
     includes.push(p)
     why.set(p.gid, reason)

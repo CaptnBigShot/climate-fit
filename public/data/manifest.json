@@ -1904,6 +1904,38 @@
    "seasonStdF": 14.73,
    "demElevM": 226,
    "gridElevM": 214
+  },
+  "oakland": {
+   "solarIdx": 76,
+   "seasonsIdx": 23,
+   "meanRadMJ": 18.57,
+   "seasonStdF": 5.76,
+   "demElevM": 19,
+   "gridElevM": 0
+  },
+  "san-mateo": {
+   "solarIdx": 74,
+   "seasonsIdx": 23,
+   "meanRadMJ": 18.29,
+   "seasonStdF": 5.62,
+   "demElevM": 15,
+   "gridElevM": 45
+  },
+  "palo-alto": {
+   "solarIdx": 77,
+   "seasonsIdx": 30,
+   "meanRadMJ": 18.69,
+   "seasonStdF": 7.28,
+   "demElevM": 11,
+   "gridElevM": 167
+  },
+  "marquette": {
+   "solarIdx": 42,
+   "seasonsIdx": 72,
+   "meanRadMJ": 13.51,
+   "seasonStdF": 16.75,
+   "demElevM": 209,
+   "gridElevM": 228
   }
  },
  "terrain": [
@@ -2088,7 +2120,8 @@
   "beech-mountain",
   "red-lodge-mountain",
   "antelope-butte",
-  "mount-ashland"
+  "mount-ashland",
+  "marquette-mountain"
  ],
  "hourly": [
   "tacoma",
@@ -2328,6 +2361,10 @@
   "valletta",
   "moscow",
   "kyiv",
-  "minsk"
+  "minsk",
+  "oakland",
+  "san-mateo",
+  "palo-alto",
+  "marquette"
  ]
 }
