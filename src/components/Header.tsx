@@ -1,9 +1,13 @@
-import type { CityMeta } from '../lib/data'
+import { useMemo } from 'react'
+import { CITIES, type CityMeta } from '../lib/data'
+import { CO } from '../lib/colors'
 import { MAX_COMPARE } from '../lib/compare'
+import type { MapPoint } from '../lib/mapView'
 import type { Model } from '../lib/model'
 import type { Prefs } from '../lib/prefs'
 import type { Units } from '../lib/units'
 import { Cap } from './ui'
+import { WorldMap } from './WorldMap'
 
 export function Header({
   city,
@@ -16,6 +20,7 @@ export function Header({
   compareCount,
   toggleCompare,
   exportCsv,
+  openCity,
 }: {
   city: CityMeta
   m: Model
@@ -27,6 +32,7 @@ export function Header({
   compareCount: number
   toggleCompare: () => void
   exportCsv: () => void
+  openCity: (id: string) => void
 }) {
   const full = !inCompare && compareCount >= MAX_COMPARE
   return (
@@ -100,6 +106,39 @@ export function Header({
           Export CSV
         </button>
       </div>
+      <Locator city={city} openCity={openCity} />
+    </div>
+  )
+}
+
+/** Where the city is, with the rest of the set as faint dots for context. */
+function Locator({ city, openCity }: { city: CityMeta; openCity: (id: string) => void }) {
+  const points = useMemo<MapPoint[]>(
+    () => [
+      ...CITIES.filter((c) => c.id !== city.id).map((c) => ({
+        id: c.id,
+        lat: c.lat,
+        lon: c.lon,
+        r: 2,
+        fill: CO.unb,
+        tip: `${c.name}, ${c.code}. Click to open.`,
+      })),
+      {
+        id: city.id,
+        lat: city.lat,
+        lon: city.lon,
+        r: 4.5,
+        fill: CO.accent,
+        label: city.name,
+        tip: city.name,
+        current: true,
+      },
+    ],
+    [city],
+  )
+  return (
+    <div className="header-map">
+      <WorldMap points={points} onPick={openCity} label={`Map locating ${city.name}`} frame={[city]} height={96} />
     </div>
   )
 }

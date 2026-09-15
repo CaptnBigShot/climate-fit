@@ -619,6 +619,10 @@ input[type='range'].unset::-webkit-slider-thumb {
   color: var(--dim);
   margin-top: 4px;
 }
+.header-map {
+  width: 240px;
+  flex: none;
+}
 .kv .v {
   font: 500 14px/1.3 var(--mono);
   color: var(--ink);
@@ -1269,6 +1273,77 @@ table.rank tbody tr:hover td {
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid var(--row);
+}
+
+/* ---------- city map ---------- */
+.map {
+  position: relative;
+}
+.map svg {
+  display: block;
+  background: #121418;
+  border: 1px solid var(--line);
+  user-select: none;
+}
+.map svg.pannable {
+  cursor: grab;
+}
+.map svg.pannable:active {
+  cursor: grabbing;
+}
+.map-zoom {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  flex-direction: column;
+}
+.map-zoom button {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  font: 500 12px/1 var(--mono);
+  color: var(--mid);
+  background: var(--btn);
+  border: 1px solid var(--line-2);
+  cursor: pointer;
+}
+.map-zoom button + button {
+  border-top: none;
+}
+.map-zoom button:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: var(--line-3);
+}
+.map-zoom button:disabled {
+  color: var(--faint);
+  cursor: default;
+}
+
+/* ---------- compare: day budgets beside the map ---------- */
+.cmp-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 400px;
+  border-bottom: 1px solid var(--line);
+}
+.cmp-top > .section {
+  border-bottom: none;
+  min-width: 0;
+}
+.cmp-map {
+  border-left: 1px solid var(--line);
+}
+@media (max-width: 1399px) {
+  .cmp-top {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cmp-map {
+    border-left: none;
+    border-top: 1px solid var(--line);
+  }
+  .cmp-map > * {
+    max-width: 560px;
+  }
 }
 
 /* ---------- discover ---------- */

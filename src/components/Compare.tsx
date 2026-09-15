@@ -6,6 +6,7 @@ import { memo, useMemo, useRef, useState } from 'react'
 import { cityById, type CityMeta, type Manifest } from '../lib/data'
 import { MN, windowRows } from '../lib/calendar'
 import { CO } from '../lib/colors'
+import { cityPoint } from '../lib/mapView'
 import { facts, monthly, terrainCover } from '../lib/aggregate'
 import { MAX_COMPARE, PIVOT, pivot, toggleCompare, type PivotMetric } from '../lib/compare'
 import { windowLabel, type Prefs } from '../lib/prefs'
@@ -15,6 +16,7 @@ import { BudgetBar } from './Hero'
 import { CalendarStrip, MonthAxis, TempLegend, type CalFill, type CalMode } from './ComfortCalendar'
 import { BandLegend, Cap, Head, Seg } from './ui'
 import { CityList } from './CityPicker'
+import { WorldMap } from './WorldMap'
 import { useDismiss } from '../hooks/useDismiss'
 import { useWidth } from '../hooks/useWidth'
 
@@ -64,6 +66,12 @@ export const Compare = memo(function Compare({
     [rows],
   )
   const note = (c: CityMeta) => (comf.has(c.id) ? `comf ${comf.get(c.id)}` : null)
+  const points = useMemo(
+    () => ordered.map((r) => cityPoint({ city: r.city, b: r.fit?.b ?? null, act: r.out.act }, scored, current)),
+    [ordered, scored, current],
+  )
+  // Framed on the whole set, loaded or not, so the view doesn't shift as archives arrive.
+  const frame = useMemo(() => ids.map((id) => cityById(id)!), [ids])
 
   return (
     <main className="page">
@@ -116,48 +124,68 @@ export const Compare = memo(function Compare({
         </div>
       ) : (
         <>
-          <div className="section">
-            <div className="section-head">
-              {scored ? (
-                <>
-                  <Head tip="The same 365-day split for each city, drawn to a shared scale. Where no city is a clean win, this is the object that makes the trade visible.">
-                    DAY BUDGETS, SIDE BY SIDE
-                  </Head>
-                  <span className="sub">
-                    shared scale · 365 days = full bar · ordered by comfortable days · no winner picked
-                  </span>
-                </>
-              ) : (
-                <>
-                  <Head tip="Nothing is scored until you state a preference. Walk-viable days need none: they rest on a published physical threshold, not on taste.">
-                    WALK-VIABLE DAYS, SIDE BY SIDE
-                  </Head>
-                  <span className="sub">no preference stated · shared scale · 365 days = full bar</span>
-                </>
-              )}
-            </div>
-            {ordered.map((r) => (
-              <BudgetRow
-                key={r.city.id}
-                r={r}
-                p={p}
-                u={u}
-                solar={manifest?.cities[r.city.id]?.solarIdx ?? null}
-                current={current}
-                openCity={openCity}
-              />
-            ))}
-            {waiting.map((id) => (
-              <div key={id} className="cmp-row">
-                <div className="who">
-                  <span className="nm">{cityById(id)!.name}</span>
-                </div>
-                <span className="cap">
-                  {failed[id] ? `data unavailable — ${failed[id]}` : 'loading daily archive…'}
-                </span>
+          <div className="cmp-top">
+            <div className="section">
+              <div className="section-head">
+                {scored ? (
+                  <>
+                    <Head tip="The same 365-day split for each city, drawn to a shared scale. Where no city is a clean win, this is the object that makes the trade visible.">
+                      DAY BUDGETS, SIDE BY SIDE
+                    </Head>
+                    <span className="sub">
+                      shared scale · 365 days = full bar · ordered by comfortable days · no winner picked
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Head tip="Nothing is scored until you state a preference. Walk-viable days need none: they rest on a published physical threshold, not on taste.">
+                      WALK-VIABLE DAYS, SIDE BY SIDE
+                    </Head>
+                    <span className="sub">no preference stated · shared scale · 365 days = full bar</span>
+                  </>
+                )}
               </div>
-            ))}
-            {scored && <BandLegend />}
+              {ordered.map((r) => (
+                <BudgetRow
+                  key={r.city.id}
+                  r={r}
+                  p={p}
+                  u={u}
+                  solar={manifest?.cities[r.city.id]?.solarIdx ?? null}
+                  current={current}
+                  openCity={openCity}
+                />
+              ))}
+              {waiting.map((id) => (
+                <div key={id} className="cmp-row">
+                  <div className="who">
+                    <span className="nm">{cityById(id)!.name}</span>
+                  </div>
+                  <span className="cap">
+                    {failed[id] ? `data unavailable — ${failed[id]}` : 'loading daily archive…'}
+                  </span>
+                </div>
+              ))}
+              {scored && <BandLegend />}
+            </div>
+            <div className="section cmp-map">
+              <div className="section-head">
+                <Head tip="Where each city in the set sits. The view frames the set; zoom out for the whole world. Click a city to open its dashboard.">
+                  WHERE THESE ARE
+                </Head>
+              </div>
+              <WorldMap
+                points={points}
+                onPick={openCity}
+                label="Map of the compared cities"
+                frame={frame}
+                height={200}
+              />
+              <div className="cap" style={{ marginTop: 8, whiteSpace: 'normal', lineHeight: 1.5 }}>
+                FILL = {scored ? 'COMFORTABLE SHARE OF YOUR YEAR' : 'OUTDOOR ENCODING'} · RADIUS ={' '}
+                {scored ? 'OUTDOOR DAYS' : 'WALK-VIABLE DAYS'} · DRAG TO PAN · PINCH OR CTRL-SCROLL TO ZOOM
+              </div>
+            </div>
           </div>
 
           <div className="cmp-cols">

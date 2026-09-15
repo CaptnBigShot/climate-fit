@@ -77,6 +77,7 @@ export function CityView({
         compareCount={cmp.length}
         toggleCompare={toggleCompare}
         exportCsv={() => downloadMonthlyCsv(city, m.months, p, u)}
+        openCity={openCity}
       />
       {!unset && <Hero m={m} p={p} ytd={ytd} ytdSc={ytdSc} ytdError={ytdError} />}
       <ComfortCalendar

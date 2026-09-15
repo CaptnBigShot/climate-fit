@@ -1,9 +1,10 @@
 // Discover: every city in the curated set ranked on the session state. Two entry
 // modes, and a result set that is never empty (spec 4.3). Scores are personal and
 // labelled as such; the outdoor ranking uses only published physical thresholds.
-import { memo, useEffect, useMemo, useState } from 'react'
-import { CITIES, cityById, loadLand } from '../lib/data'
-import { CO, contColor } from '../lib/colors'
+import { memo, useMemo } from 'react'
+import { CITIES, cityById } from '../lib/data'
+import { CO } from '../lib/colors'
+import { cityPoint } from '../lib/mapView'
 import { windowLabel, type Prefs } from '../lib/prefs'
 import { climateOf, type CityRow } from '../lib/model'
 import {
@@ -24,7 +25,7 @@ import {
 import type { Units } from '../lib/units'
 import { DaysBar, Seg, SplitBar } from './ui'
 import { CitySelect } from './CityPicker'
-import { useWidth } from '../hooks/useWidth'
+import { WorldMap } from './WorldMap'
 
 const FT = 3.28084
 /** Below this R² a trend is shown but not coloured: the fit is mostly year-to-year noise. */
@@ -57,6 +58,7 @@ export const Discover = memo(function Discover({
   const filtered = q.region !== 'all' || q.pop !== 'any' || q.snow || q.coast !== 'any'
   const loading = CITIES.length - rows.length - Object.keys(failed).length
   const win = windowLabel(p.window)
+  const points = useMemo(() => R.rows.map((x, i) => cityPoint(x.c, comfort, current, i)), [R.rows, comfort, current])
 
   return (
     <main className="page">
@@ -182,10 +184,11 @@ export const Discover = memo(function Discover({
             <div className="h-sm" style={{ marginBottom: 10 }}>
               Where these are
             </div>
-            <WorldMap R={R} byId={byId} comfort={comfort} current={current} openCity={openCity} />
+            <WorldMap points={points} onPick={openCity} label="Map of the ranked cities" />
             <div className="cap" style={{ marginTop: 8, whiteSpace: 'normal', lineHeight: 1.5 }}>
               LAT / LON GRID · FILL = {comfort ? 'COMFORTABLE SHARE OF YOUR YEAR' : 'OUTDOOR ENCODING'} · RADIUS ={' '}
-              {comfort ? 'OUTDOOR DAYS' : 'WALK-VIABLE DAYS'} · LAND: NATURAL EARTH 1:110M
+              {comfort ? 'OUTDOOR DAYS' : 'WALK-VIABLE DAYS'} · DRAG TO PAN · PINCH OR CTRL-SCROLL TO ZOOM · LAND:
+              NATURAL EARTH 1:110M
             </div>
           </div>
           <LikeBut
@@ -354,177 +357,6 @@ function RankTable({
         )}
       </tbody>
     </table>
-  )
-}
-
-// ---------------- Map ----------------
-
-const LAT_TOP = 80,
-  LAT_BOT = -60
-
-function WorldMap({
-  R,
-  byId,
-  comfort,
-  current,
-  openCity,
-}: {
-  R: Ranking
-  byId: Record<string, CityRow>
-  comfort: boolean
-  current: string
-  openCity: (id: string) => void
-}) {
-  const [land, setLand] = useState<{ scale: number; d: string } | null>(null)
-  useEffect(() => {
-    let live = true
-    loadLand()
-      .then((l) => live && setLand(l))
-      .catch(() => undefined)
-    return () => {
-      live = false
-    }
-  }, [])
-  const [ref, W] = useWidth<HTMLDivElement>()
-  const H = (W * (LAT_TOP - LAT_BOT)) / 360
-  const px = (lon: number) => ((lon + 180) / 360) * W
-  const py = (lat: number) => ((LAT_TOP - lat) / (LAT_TOP - LAT_BOT)) * H
-
-  const marks = useMemo(() => {
-    if (!W) return []
-    const pts = R.rows.map((x, i) => {
-      const { city, b, act } = x.c
-      const value = comfort && b ? b.counts[0] : act.per.walk.days
-      const r = 3 + ((comfort ? act.outAny : act.per.walk.days) / 365) * 4.5
-      return {
-        id: city.id,
-        name: city.name,
-        x: px(city.lon),
-        y: py(city.lat),
-        r,
-        value,
-        rank: i,
-        fill: comfort && b ? contColor((b.counts[0] / 365) * 100) : CO.act,
-      }
-    })
-    // Greedy label placement in rank order: try beside the point, then stack above it on a leader line.
-    const boxes: { x0: number; y0: number; x1: number; y1: number }[] = pts.map((q) => ({
-      x0: q.x - q.r,
-      y0: q.y - q.r,
-      x1: q.x + q.r,
-      y1: q.y + q.r,
-    }))
-    const hit = (b: { x0: number; y0: number; x1: number; y1: number }) =>
-      b.x0 < 0 ||
-      b.x1 > W ||
-      b.y0 < 0 ||
-      b.y1 > H ||
-      boxes.some((o) => b.x0 < o.x1 && b.x1 > o.x0 && b.y0 < o.y1 && b.y1 > o.y0)
-    return pts.map((q) => {
-      const text = `${q.name} ${Math.round(q.value)}`,
-        tw = text.length * 5.5,
-        th = 9
-      const at = (dx: number, dy: number, anchor: 'start' | 'end') => {
-        const x0 = anchor === 'start' ? q.x + dx : q.x + dx - tw
-        return { x: q.x + dx, y: q.y + dy, anchor, box: { x0, y0: q.y + dy - th + 1, x1: x0 + tw, y1: q.y + dy + 2 } }
-      }
-      const tries = [
-        at(q.r + 3, 3, 'start'),
-        at(-q.r - 3, 3, 'end'),
-        at(q.r + 2, -q.r - 2, 'start'),
-        at(q.r + 2, q.r + 9, 'start'),
-        at(-q.r - 2, -q.r - 2, 'end'),
-        at(-q.r - 2, q.r + 9, 'end'),
-      ]
-      for (let k = 1; k <= 6; k++) tries.push(at(10, -q.r - 4 - 11 * k, 'start'), at(-10, -q.r - 4 - 11 * k, 'end'))
-      const pick = tries.find((t) => !hit(t.box)) ?? tries[tries.length - 1]
-      boxes.push(pick.box)
-      const leader = Math.abs(pick.y - q.y) > q.r + 10
-      return { ...q, label: { ...pick, text, leader } }
-    })
-  }, [R.rows, comfort, W, H]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const grid = []
-  if (W) {
-    for (let lon = -180; lon <= 180; lon += 30)
-      grid.push(<line key={`v${lon}`} x1={px(lon)} x2={px(lon)} y1={0} y2={H} stroke="#23262c" strokeWidth={0.6} />)
-    for (let lat = -60; lat <= 80; lat += 30)
-      grid.push(
-        <line
-          key={`h${lat}`}
-          x1={0}
-          x2={W}
-          y1={py(lat)}
-          y2={py(lat)}
-          stroke={lat === 0 ? '#2e333b' : '#23262c'}
-          strokeWidth={0.6}
-        />,
-      )
-  }
-  return (
-    <div ref={ref}>
-      {W > 0 && (
-        <svg
-          width={W}
-          height={H}
-          style={{ display: 'block', background: '#121418', border: '1px solid var(--line)' }}
-          role="img"
-          aria-label="Map of the ranked cities"
-        >
-          {land && (
-            <path
-              d={land.d}
-              fill="#1f2329"
-              transform={`translate(${W / 2} ${(LAT_TOP * W) / 360}) scale(${W / 360 / land.scale})`}
-            />
-          )}
-          {grid}
-          {marks.map(
-            (m) =>
-              m.label.leader && (
-                <line
-                  key={`l${m.id}`}
-                  x1={m.x}
-                  y1={m.y - m.r}
-                  x2={m.label.x}
-                  y2={m.label.y + 2}
-                  stroke="#3c4149"
-                  strokeWidth={0.8}
-                />
-              ),
-          )}
-          {marks.map((m) => {
-            const row = byId[m.id],
-              b = row?.fit?.b
-            const tip =
-              b && comfort
-                ? `#${m.rank + 1} ${m.name}: ${Math.round(b.counts[0])} comfortable · ${Math.round(b.counts[1])} tolerable · ${Math.round(b.counts[2])} unbearable days/yr · ${Math.round(row.out.act.outAny)} outdoor days. Click to open.`
-                : `#${m.rank + 1} ${m.name}: ${Math.round(row?.out.act.per.walk.days ?? 0)} walk-viable days/yr. Click to open.`
-            return (
-              <g key={m.id} onClick={() => openCity(m.id)} style={{ cursor: 'pointer' }} data-tip={tip}>
-                <circle
-                  cx={m.x}
-                  cy={m.y}
-                  r={m.r}
-                  fill={m.fill}
-                  stroke={m.id === current ? '#e6e8ec' : '#8b929e'}
-                  strokeWidth={m.id === current ? 1.5 : 0.8}
-                />
-                <text
-                  x={m.label.x}
-                  y={m.label.y}
-                  textAnchor={m.label.anchor}
-                  fill="#a8aeb9"
-                  style={{ font: "400 9px 'JetBrains Mono', monospace" }}
-                >
-                  {m.label.text}
-                </text>
-              </g>
-            )
-          })}
-        </svg>
-      )}
-    </div>
   )
 }
 
