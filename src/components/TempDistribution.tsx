@@ -117,7 +117,7 @@ export function TempDistribution({ s, p, u, ytd }: { s: CitySeries; p: Prefs; u:
     <div ref={ref}>
       <div className="section-head">
         <Head tip="Daily temperature through the year. Dark envelope: record range. Inner bands: 10th–90th and 25th–75th percentiles. Pale line: median. Green shading: your ideal band (stepping between seasonal bands when seasonal mode is on). Air temperature as observed, before any in-sun adjustment.">TEMPERATURE DISTRIBUTION</Head>
-        <span className="sub">daily {which} · p10/p25/p50/p75/p90 + record envelope · step segments, no smoothing</span>
+        <span className="sub">daily {which} · p10/p25/p50/p75/p90 + record envelope · step segments, no smoothing{t ? '' : ' · no comfort overlay until a band exists'}</span>
         <div className="right">
           <Seg small value={which} onChange={setWhich} options={[{ v: 'high', label: 'HIGH' }, { v: 'low', label: 'LOW' }]} />
           <Seg small value={mode} onChange={setMode} options={[{ v: 'dist', label: 'DISTRIBUTION' }, ...(ytd ? [{ v: 'ytd' as Mode, label: `${YTD_YEAR} SO FAR` }] : []), { v: 'every', label: 'EVERY DAY' }, { v: 'year', label: 'SINGLE YEAR' }]} />

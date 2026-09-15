@@ -130,7 +130,7 @@ export function TypicalDayPanel({ city, p, u, sc, defaultMonth }: { city: CityMe
         </div>
       </div>
       <div className="sub" style={{ marginBottom: 8 }}>
-        hourly tier · {prof?.years ? `${prof.years[0]}–${prof.years[1]} · ${prof.days} days` : hs ? `${hs.startYear}–${hs.startYear + hs.years - 1} only — outside this window` : 'loading'} · {hs?.timezone ?? ''}
+        hourly tier · {prof?.years ? `${prof.years[0]}–${prof.years[1]} · ${prof.days} days` : hs ? `${hs.startYear}–${hs.startYear + hs.years - 1} only — outside this window` : err ? 'unavailable' : 'loading (a city added recently is fetched live the first time)'} · {hs?.timezone ?? ''}{hs?.live ? ' · fetched live from Open-Meteo, cached in this browser' : ''}
       </div>
       {err && <div className="prose">Hourly data unavailable: {err}</div>}
       {chart}
