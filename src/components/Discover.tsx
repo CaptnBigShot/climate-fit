@@ -267,20 +267,15 @@ function RankTable({
     </td>
   )
   const name = (x: Ranked) => (
-    <>
+    <button className="city-link" onClick={() => openCity(x.c.city.id)} data-tip={`Open ${x.c.city.name}'s dashboard.`}>
       {x.c.city.id === current && <span className="dot">●</span>}
       {x.c.city.name}, {x.c.city.code}
-    </>
+    </button>
   )
   const snowRef = (id: string) => {
     const t = byId[id]?.out.terrain
     return t ? `${t.name} ${t.driveMin}m` : '—'
   }
-  const open = (id: string) => (
-    <button className="link-btn" style={{ padding: '4px 6px' }} onClick={() => openCity(id)}>
-      OPEN →
-    </button>
-  )
   const misses = (x: Ranked) =>
     R.nearMiss && (
       <td className="l" style={{ color: 'var(--warn)' }}>
@@ -311,7 +306,6 @@ function RankTable({
             <th className="l">TOP SHORTFALL</th>
             <th className="l">SNOW REF</th>
             {R.nearMiss && <th className="l">MISSES</th>}
-            <th />
           </tr>
         ) : (
           <tr>
@@ -326,7 +320,6 @@ function RankTable({
             <th data-tip="Days on which at least one enabled activity is possible.">≥1 ACTIVITY</th>
             <th className="l">SNOW REF</th>
             {R.nearMiss && <th className="l">MISSES</th>}
-            <th />
           </tr>
         )}
       </thead>
@@ -371,7 +364,6 @@ function RankTable({
                 {snowRef(city.id)}
               </td>
               {misses(x)}
-              <td>{open(city.id)}</td>
             </tr>
           ) : (
             <tr key={city.id}>
@@ -392,13 +384,12 @@ function RankTable({
                 {snowRef(city.id)}
               </td>
               {misses(x)}
-              <td>{open(city.id)}</td>
             </tr>
           )
         })}
         {!R.rows.length && (
           <tr>
-            <td className="l" colSpan={16} style={{ color: 'var(--dim)', padding: '12px 8px' }}>
+            <td className="l" colSpan={15} style={{ color: 'var(--dim)', padding: '12px 8px' }}>
               {empty}
             </td>
           </tr>
