@@ -285,23 +285,29 @@ export const DRIVER_NAME: Record<CauseVar, string> = {
   precip: 'precipitation',
 }
 /** Exact causes named in a driver's hover before the rest are summarised. */
-const DRIVER_CAUSES = 3
+const DRIVER_CAUSES = 5
 
 const fmtDays = (d: number) => (d === 0 ? '0' : d.toFixed(d < 10 ? 1 : 0))
 
-/** Hover text for a driver row: how many days, split by what happened to them, the observed
- *  spread of that measurement, and the exact causes underneath. */
+/** Hover text for a driver row: a summary block, then the exact causes as a list. Newlines
+ *  survive to the screen — the shared tooltip renders with `white-space: pre-line`. */
 export function driverTip(d: Driver, p: Prefs, u: Units): string {
-  const head = `Involved in ${fmtDays(d.days)} days/yr — ${fmtDays(d.deal)} written off, ${fmtDays(d.soft)} tolerable`
   const name = d.v === 'temp' ? tempName(p) : VAR_NAME[d.v]
-  const spread = d.stat
-    ? ` ${name} ${fmtVar(d.v, d.stat.min, u)}–${fmtVar(d.v, d.stat.max, u)}, averaging ${fmtVar(d.v, d.stat.mean, u)}.`
-    : ''
+  const lines = [
+    `Involved in ${fmtDays(d.days)} days/yr — ${fmtDays(d.deal)} written off, ${fmtDays(d.soft)} tolerable`,
+  ]
+  if (d.stat)
+    lines.push(
+      `${name} ${fmtVar(d.v, d.stat.min, u)}–${fmtVar(d.v, d.stat.max, u)}, averaging ${fmtVar(d.v, d.stat.mean, u)}`,
+    )
   const lim = limitsFor(d.v, p, u)
+  if (lim) lines.push(`Against ${lim}`)
   const shown = d.causes.slice(0, DRIVER_CAUSES)
   const rest = d.causes.length - shown.length
-  const body = shown.map((c) => `${c.label} ${fmtDays(c.days)}/yr`).join('; ')
-  return `${head}.${spread}${lim ? ` Against ${lim}.` : ''} ${body}${rest ? `; and ${rest} more` : ''}.`
+  // Bullets, not the labels' own "·", so the two never read as the same separator.
+  const bullets = shown.map((c) => `• ${c.label} — ${fmtDays(c.days)}/yr`)
+  if (rest) bullets.push(`• and ${rest} more`)
+  return `${lines.join('\n')}\n\n${bullets.join('\n')}`
 }
 
 // ---------- Terrain ----------

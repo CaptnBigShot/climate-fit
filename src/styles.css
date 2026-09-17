@@ -890,6 +890,8 @@ table.aq .l {
   box-shadow: 0 12px 34px rgba(0, 0, 0, 0.6);
   pointer-events: none;
   text-wrap: pretty;
+  /* Tooltips compose their own line breaks; other whitespace still collapses. */
+  white-space: pre-line;
 }
 .floating .mono {
   font-size: 10.5px;
