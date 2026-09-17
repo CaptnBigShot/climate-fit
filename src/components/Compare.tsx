@@ -5,9 +5,9 @@
 import { memo, useMemo, useRef, useState } from 'react'
 import { cityById, type CityMeta, type Manifest } from '../lib/data'
 import { MN, windowRows } from '../lib/calendar'
-import { CO, REASON_FILL } from '../lib/colors'
+import { CO, OTHER_FILL, REASON_FILL } from '../lib/colors'
 import { cityPoint } from '../lib/mapView'
-import { facts, monthly, reasonTip, terrainCover } from '../lib/aggregate'
+import { facts, monthly, otherTip, reasonTip, terrainCover } from '../lib/aggregate'
 import { MAX_COMPARE, PIVOT, pivot, toggleCompare, type PivotMetric } from '../lib/compare'
 import { windowLabel, type Prefs } from '../lib/prefs'
 import { hasTerrainWithin, type CityRow } from '../lib/model'
@@ -386,7 +386,7 @@ function WhyShort({ r, p, u }: { r: CityRow; p: Prefs; u: Units }) {
         {r.city.name} — why days fall short
       </div>
       <div className="bars">
-        {b.reasons.slice(0, 3).map((x) => (
+        {b.reasons.map((x) => (
           <div className="row" key={`${x.kind}:${x.label}`} data-tip={reasonTip(x, p, u)}>
             <span className="lab">{x.label}</span>
             <span className="track">
@@ -395,6 +395,15 @@ function WhyShort({ r, p, u }: { r: CityRow; p: Prefs; u: Units }) {
             <span className="pct">{x.pct}%</span>
           </div>
         ))}
+        {b.other && (
+          <div className="row" data-tip={otherTip(b.other)}>
+            <span className="lab dim">everything else</span>
+            <span className="track">
+              <span style={{ width: `${Math.max(1, b.other.pct)}%`, background: OTHER_FILL }} />
+            </span>
+            <span className="pct">{b.other.pct}%</span>
+          </div>
+        )}
         {!b.reasons.length && <div className="prose">Every day is comfortable under these settings.</div>}
       </div>
       <div className="prose cmp-sep">

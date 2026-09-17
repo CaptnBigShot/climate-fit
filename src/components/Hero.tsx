@@ -1,7 +1,7 @@
-import { CO, REASON_FILL } from '../lib/colors'
+import { CO, OTHER_FILL, REASON_FILL } from '../lib/colors'
 import { CUTOFF, windowLabel, type Prefs } from '../lib/prefs'
 import type { Model } from '../lib/model'
-import { reasonTip, type Budget } from '../lib/aggregate'
+import { otherTip, reasonTip, type Budget } from '../lib/aggregate'
 import type { Units } from '../lib/units'
 import { Cap, Head, Spark } from './ui'
 import { useWidth } from '../hooks/useWidth'
@@ -99,6 +99,13 @@ export function Hero({
                     <span className="pct">{r.pct}%</span>
                   </div>
                 ))}
+                {b.other && (
+                  <div className="row" data-tip={otherTip(b.other)}>
+                    <span className="lab dim">everything else</span>
+                    <span style={{ height: 8, width: Math.max(1, b.other.pct * 1.3), background: OTHER_FILL }} />
+                    <span className="pct">{b.other.pct}%</span>
+                  </div>
+                )}
               </div>
               {b.reasons[0] && (
                 <div className="prose" style={{ marginTop: 9, fontSize: 10.5 }}>

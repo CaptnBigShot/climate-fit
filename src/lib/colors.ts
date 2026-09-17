@@ -27,6 +27,10 @@ export const REASON_FILL: Record<ReasonKind, string> = {
   soft: CO.tol,
   deal: CO.unb,
 }
+/** The remainder row is a mixture of both kinds, so it borrows neither encoding. */
+export const OTHER_FILL = CO.faint
+export const OTHER_TIP = 'Every remaining cause, so the rows account for all non-comfortable days'
+
 export const REASON_TIP: Record<ReasonKind, string> = {
   soft: 'Tolerable days: inside every limit you set, short of the cutoff',
   deal: 'Unbearable days: crossed a limit you set, and written off whatever else the day did',

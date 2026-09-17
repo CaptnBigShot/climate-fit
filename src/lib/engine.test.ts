@@ -5,7 +5,7 @@ import { apparent, ramp, score, seasonWeights, causeKind, causeLabel, B, BAND, B
 
 /** REASONS index for the soft 'too warm' shortfall. */
 const R_WARM = 1
-import { budget, activities, reasonTip } from './aggregate'
+import { budget, activities, otherTip, reasonTip, MIN_ROW_PCT, REASON_ROWS } from './aggregate'
 import { units } from './units'
 import { AQI_LEVELS, AQ_FORMAT, aqStats, type AqSeries } from './aq'
 import {
@@ -254,6 +254,40 @@ describe('scoring real data', () => {
     // A combined cause quotes both measurements.
     const combo = b.reasons.find((r) => r.stats.length > 1)
     if (combo) expect(reasonTip(combo, example, u)).toMatch(/ · /)
+  })
+
+  it('the shortfall rows plus the remainder account for every non-comfortable day', () => {
+    // A fully configured profile is where the cause space explodes: night bounds and three
+    // deal-breakers can push past 20 distinct causes, far more than the rows can show.
+    const maximal: Prefs = {
+      ...example,
+      basis: 'both',
+      temp: { hardMin: 10, idealMin: 50, idealMax: 75, hardMax: 88 },
+      dew: { idealMax: 55, hardMax: 63 },
+      cloud: 'clear',
+      windMax: 15,
+      dry: true,
+      deal: { cloud: true, wind: true, precip: true },
+    }
+    for (const p of [example, maximal]) {
+      const b = budget(score(s, p, w)!, s, p)
+      const shown = b.reasons.reduce((a, r) => a + r.days, 0)
+      const total = shown + (b.other?.days ?? 0)
+      expect(total).toBeCloseTo(b.nonComf, 6)
+      expect(b.reasons.length).toBeLessThanOrEqual(REASON_ROWS)
+      // No row ever renders as "0%" — those are folded into the remainder instead.
+      for (const r of b.reasons) expect(r.pct).toBeGreaterThanOrEqual(MIN_ROW_PCT)
+      if (b.other) {
+        expect(b.other.causes.length).toBeGreaterThan(0)
+        // The remainder only ever holds causes smaller than the smallest shown row.
+        if (b.reasons.length)
+          expect(b.other.causes[0].days).toBeLessThanOrEqual(b.reasons[b.reasons.length - 1].days + 1e-9)
+        const tip = otherTip(b.other)
+        expect(tip).toMatch(/days\/yr across \d+ further cause/)
+        // Bounded: a long tail is summarised, never dumped.
+        expect(tip.length).toBeLessThan(400)
+      }
+    }
   })
 
   it('derives Tacoma warm season as the six warmest months (roughly May–Oct)', () => {

@@ -38,12 +38,29 @@ export interface Reason {
   stats: CauseStat[]
 }
 
+/** Causes past the shown rows, gathered so the bars always account for every
+ *  non-comfortable day. Without it the rows silently covered as little as 56%. */
+export interface OtherReasons {
+  pct: number
+  days: number
+  causes: { label: string; pct: number; days: number }[]
+}
+
+/** Shortfall rows returned to the UI. Six covers every realistic profile outright — the
+ *  presets top out at nine distinct causes and most sit near six — while a fully configured
+ *  profile can reach 29, which is what `other` is for. */
+export const REASON_ROWS = 6
+/** A cause must be worth at least one whole percent to earn a row; below that it would
+ *  render as a "0%" bar, which is noise. Those fall into `other` instead. */
+export const MIN_ROW_PCT = 1
+
 export interface Budget {
   counts: [number, number, number]
   perYear: number[]
   trend: Fit
   months: { c: number; t: number; u: number }[]
   reasons: Reason[]
+  other: OtherReasons | null
   nonComf: number
   compromise: { label: string; pct: number } | null
   bestStreak: number
@@ -135,6 +152,7 @@ export function budget(sc: Scored, s: CitySeries, p: Prefs): Budget {
   const k = 1 / sc.years,
     nonComf = counts[1] + counts[2]
   const ranked = [...reasons.entries()].sort((a, b) => b[1] - a[1])
+  const pctOf = (n: number) => Math.round((n / nonComf) * 100)
   const cr = [...compro.entries()].sort((a, b) => b[1] - a[1])[0]
   let worstMonth = 0,
     bestMonth = 0
@@ -143,15 +161,18 @@ export function budget(sc: Scored, s: CitySeries, p: Prefs): Budget {
     if (share(m, i) < share(months[worstMonth], worstMonth)) worstMonth = i
     if (share(m, i) > share(months[bestMonth], bestMonth)) bestMonth = i
   })
+  const shownRows = ranked.filter(([, n]) => pctOf(n) >= MIN_ROW_PCT).slice(0, REASON_ROWS)
+  const shownSet = new Set(shownRows.map(([r]) => r))
+  const rest = ranked.filter(([r]) => !shownSet.has(r))
   return {
     counts: [counts[0] * k, counts[1] * k, counts[2] * k],
     perYear,
     trend: ols(perYear),
     months,
-    reasons: ranked.slice(0, 4).map(([r, n]) => ({
+    reasons: shownRows.map(([r, n]) => ({
       cause: r,
       label: causeLabel(r),
-      pct: Math.round((n / nonComf) * 100),
+      pct: pctOf(n),
       kind: causeKind(r),
       days: n * k,
       stats: causeVars(r)
@@ -161,6 +182,16 @@ export function budget(sc: Scored, s: CitySeries, p: Prefs): Budget {
         })
         .filter((x): x is CauseStat => x !== null),
     })),
+    other: (() => {
+      if (!rest.length) return null
+      const n = rest.reduce((a, x) => a + x[1], 0)
+      return {
+        // From the raw sum, not from summing rounded row percentages.
+        pct: pctOf(n),
+        days: n * k,
+        causes: rest.map(([r, c]) => ({ label: causeLabel(r), pct: pctOf(c), days: c * k })),
+      }
+    })(),
     nonComf: nonComf * k,
     compromise: cr && counts[1] ? { label: causeLabel(cr[0]), pct: Math.round((cr[1] / counts[1]) * 100) } : null,
     bestStreak,
@@ -237,8 +268,10 @@ const fmtVar = (v: CauseVar, n: number, u: Units): string =>
 
 /** Full hover text for a "why days fall short" row: the band, how many days, and for each
  *  measurement the observed spread against the line the user drew. */
+const fmtDays = (d: number) => d.toFixed(d < 10 ? 1 : 0)
+
 export function reasonTip(r: Reason, p: Prefs, u: Units): string {
-  const head = `${r.kind === 'deal' ? 'Unbearable' : 'Tolerable'} · ${r.days.toFixed(r.days < 10 ? 1 : 0)} days/yr`
+  const head = `${r.kind === 'deal' ? 'Unbearable' : 'Tolerable'} · ${fmtDays(r.days)} days/yr`
   const parts = r.stats.map((st) => {
     const lim = limitPhrase(r.cause, st.v, p, u)
     const spread =
@@ -249,6 +282,24 @@ export function reasonTip(r: Reason, p: Prefs, u: Units): string {
     return `${name} ${spread}${lim ? `, ${lim}` : ''}`
   })
   return parts.length ? `${head}. ${parts.join(' · ')}.` : `${head}.`
+}
+
+/** How many hidden causes the remainder tooltip names before summarising the rest. */
+const OTHER_LISTED = 6
+
+/** Hover text for the remainder row: what is in it, largest first. Bounded, because a fully
+ *  configured profile can push 20-odd causes in here and a tooltip is 320px wide. */
+export function otherTip(o: OtherReasons): string {
+  const shown = o.causes.slice(0, OTHER_LISTED)
+  const rest = o.causes.length - shown.length
+  const n = o.causes.length
+  const head = `${fmtDays(o.days)} days/yr across ${n} further cause${n === 1 ? '' : 's'}`
+  // Semicolons: the labels contain " · " themselves.
+  // Below a percent, the share rounds to "0%" and says nothing; the day count still does.
+  const body = shown
+    .map((c) => `${c.label} ${c.pct >= MIN_ROW_PCT ? `${c.pct}% (${fmtDays(c.days)}/yr)` : `${fmtDays(c.days)}/yr`}`)
+    .join('; ')
+  return `${head}. ${body}${rest ? `; and ${rest} smaller cause${rest === 1 ? '' : 's'}` : ''}.`
 }
 
 // ---------- Terrain ----------
