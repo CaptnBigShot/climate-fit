@@ -7,7 +7,16 @@ import { apparent, ramp, score, seasonWeights, causeKind, causeLabel, B, BAND, B
 const R_WARM = 1
 import { budget, activities } from './aggregate'
 import { AQI_LEVELS, AQ_FORMAT, aqStats, type AqSeries } from './aq'
-import { DEFAULT_PREFS, EXAMPLE_STATE, PRESETS, decodePrefs, encodePrefs, lookbackWindow, type Prefs } from './prefs'
+import {
+  DEFAULT_PREFS,
+  EXAMPLE_STATE,
+  FIRST_YEAR,
+  PRESETS,
+  decodePrefs,
+  encodePrefs,
+  lookbackWindow,
+  type Prefs,
+} from './prefs'
 
 const json = <T>(path: string) =>
   JSON.parse(readFileSync(new URL(`../../public/data/${path}`, import.meta.url), 'utf8')) as T
@@ -115,7 +124,68 @@ describe('scoring real data', () => {
       hard.add(causeLabel(BREACH | mask))
     }
     for (let r = 1; r < REASONS.length; r++) expect(hard.has(causeLabel(r))).toBe(false)
-    expect(hard.size).toBe((1 << bits.length) - 1)
+    // Humid heat reads exactly like crossing the temperature and dew-point limits separately:
+    // the same weather earns the same label, whichever control caught it.
+    expect(causeLabel(BREACH | B.humidHeat)).toBe(causeLabel(BREACH | B.hot | B.humid))
+    expect(causeLabel(BREACH | B.humidHeat | B.humid)).toBe(causeLabel(BREACH | B.humidHeat))
+  })
+
+  it('blames humidity or wind, not the air, when only the feels-like reading breaks a bound', () => {
+    // Four blocks of a synthetic year, each breaching for a knowable reason. Real cities dry
+    // enough to test against (Tacoma) barely produce a muggy day, so the cases are built.
+    const seg = (d: number) =>
+      d < 100
+        ? { hi: 85, dew: 78, wind: 5 } // humid heat: air passes 90, heat index does not
+        : d < 200
+          ? { hi: 95, dew: 50, wind: 5 } // dry heat: the air itself is over
+          : d < 300
+            ? { hi: 20, dew: 10, wind: 25 } // wind chill: air passes 10, chill does not
+            : { hi: 0, dew: -5, wind: 2 } // genuine cold: no wind to blame
+    const syn = {
+      id: 'syn',
+      startYear: FIRST_YEAR,
+      years: 1,
+      demElevM: 0,
+      gridElevM: 0,
+      gridLat: 0,
+      gridLon: 0,
+      high: Float32Array.from({ length: 365 }, (_, d) => seg(d).hi),
+      low: Float32Array.from({ length: 365 }, (_, d) => seg(d).hi - 15),
+      dew: Float32Array.from({ length: 365 }, (_, d) => seg(d).dew),
+      wind: Float32Array.from({ length: 365 }, (_, d) => seg(d).wind),
+      cloud: new Float32Array(365),
+      precip: new Float32Array(365),
+      snow: new Float32Array(365),
+      rad: new Float32Array(365),
+      sun: new Float32Array(365),
+    } as unknown as CitySeries
+    const p: Prefs = {
+      ...example,
+      seasonal: false,
+      sun: 'shade',
+      temp: { hardMin: 10, idealMin: 40, idealMax: 70, hardMax: 90 },
+      dewMax: null,
+      cloud: 'any',
+      windMax: null,
+      dry: false,
+    }
+    const win = { from: FIRST_YEAR, to: FIRST_YEAR }
+    const feel = score(syn, { ...p, basis: 'apparent' }, win)!
+    const air = score(syn, { ...p, basis: 'high' }, win)!
+    const at = (d: number) => causeLabel(BREACH | feel.breach[d])
+    expect(at(50)).toBe('too hot & humid · deal-breaker')
+    expect(at(150)).toBe('too hot · deal-breaker')
+    expect(at(250)).toBe('too cold & windy · deal-breaker')
+    expect(at(350)).toBe('too cold · deal-breaker')
+    // The humid day and the windy day are only written off because of the feels-like basis.
+    expect(air.breach[50]).toBe(0)
+    expect(air.breach[250]).toBe(0)
+    // Attribution is exclusive, and never fires on a plain-air basis.
+    for (let i = 0; i < 365; i++) {
+      expect(feel.breach[i] & B.humidHeat && feel.breach[i] & B.hot).toBeFalsy()
+      expect(feel.breach[i] & B.windChill && feel.breach[i] & B.cold).toBeFalsy()
+      expect(air.breach[i] & (B.humidHeat | B.windChill)).toBe(0)
+    }
   })
 
   it('derives Tacoma warm season as the six warmest months (roughly May–Oct)', () => {

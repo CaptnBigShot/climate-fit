@@ -60,11 +60,21 @@ export const B = {
   cloud: 32,
   wind: 64,
   wet: 128,
+  /** Feels-like basis only: the ceiling fell to humidity as much as to heat — the air
+   *  temperature on its own would have passed. Miami's air never reaches 95°F, yet a 95°F
+   *  feels-like ceiling writes off 1,672 days there. Labelled the same as a day that crossed
+   *  the temperature and dew-point limits separately, because it is the same weather: which
+   *  control noticed the humidity is not something the reader should have to care about. */
+  humidHeat: 256,
+  /** Feels-like basis only: the floor fell to wind chill, not to cold air alone. */
+  windChill: 512,
 } as const
 /** Adjectives that share one "too"; order fixes how a combination reads. */
 const ADJECTIVES: [number, string][] = [
   [B.hot, 'hot'],
   [B.cold, 'cold'],
+  [B.humidHeat, 'hot & humid'],
+  [B.windChill, 'cold & windy'],
   [B.humid, 'humid'],
 ]
 const CLAUSES: [number, string][] = [
@@ -82,13 +92,15 @@ export const DEAL = 'deal-breaker'
 /** A cause code: a soft-shortfall index into REASONS, or BREACH | a mask of B flags.
  *  The tag keeps the two spaces from colliding when both are counted in one map. */
 export type Cause = number
-export const BREACH = 256
+export const BREACH = 4096
 
 export const causeLabel = (c: Cause): string => {
   if (!(c & BREACH)) return REASONS[c] ?? ''
-  const adj = ADJECTIVES.filter(([b]) => c & b).map(([, l]) => l)
+  // humidHeat already reads "hot & humid"; the dew-limit bit would say humid twice.
+  const m = c & B.humidHeat ? c & ~B.humid : c
+  const adj = ADJECTIVES.filter(([b]) => m & b).map(([, l]) => l)
   const parts = adj.length ? [`too ${adj.join(' & ')}`] : []
-  for (const [b, l] of CLAUSES) if (c & b) parts.push(l)
+  for (const [b, l] of CLAUSES) if (m & b) parts.push(l)
   parts.push(DEAL)
   return parts.join(' · ')
 }
@@ -108,7 +120,7 @@ export interface Scored {
   /** Soft-shortfall reason, 0 on comfortable and on written-off days (see `breach`). */
   why: Uint8Array
   /** Mask of every B flag the day tripped; 0 unless the day was written off. */
-  breach: Uint8Array
+  breach: Uint16Array
   /** Warm-season weight per day of year (0 = cold-season band, 1 = warm-season band). */
   warmW: Float32Array
 }
@@ -212,6 +224,12 @@ export function idealFor(p: Prefs, warmW: number): [number, number] {
   ]
 }
 
+/** The day's plain air temperature under the same shift and sun load — what the score would
+ *  have compared against had the basis not been feels-like. Used only to attribute a breach. */
+export function airTemp(s: CitySeries, j: number, p: Prefs, shift = 0): number {
+  return s.high[j] + shift + (p.sun === 'sun' ? SUN_F_PER_MJ * (s.rad[j] || 0) : 0)
+}
+
 /** Temperature the score uses for the day's daytime reading, °F. `shift` adds uniform warming. */
 export function dayTemp(s: CitySeries, j: number, p: Prefs, shift = 0): number {
   const sun = p.sun === 'sun' ? SUN_F_PER_MJ * (s.rad[j] || 0) : 0
@@ -232,7 +250,7 @@ export function score(s: CitySeries, p: Prefs, w: Window, shift = 0, warmOverrid
   const band = new Uint8Array(N),
     sc = new Float32Array(N),
     why = new Uint8Array(N),
-    breach = new Uint8Array(N)
+    breach = new Uint16Array(N)
   // A partial year can't define its own seasons; callers scoring one pass the window's.
   const warmW = warmOverride ?? seasonWeights(s, w).warmW
   const t = p.temp
@@ -271,7 +289,17 @@ export function score(s: CitySeries, p: Prefs, w: Window, shift = 0, warmOverrid
       const r = ramp(v, t.hardMin, iMin, iMax, t.hardMax, SOFT.temp)
       const low = p.basis === 'low'
       const over = (x: number) => t.hardMax !== null && x > t.hardMax
-      if (r === OUT) mask |= over(v) ? B.hot : B.cold
+      if (r === OUT) {
+        if (over(v)) {
+          // On the feels-like basis humidity is hidden inside the temperature. Re-check the
+          // air alone: if it would have passed, the humidity broke the ceiling, not the heat.
+          mask |= p.basis === 'apparent' && !over(airTemp(s, j, p, shift)) ? B.humidHeat : B.hot
+        } else {
+          // Same on the cold side, where wind chill is what the air hides.
+          const air = airTemp(s, j, p, shift)
+          mask |= p.basis === 'apparent' && !(t.hardMin !== null && air < t.hardMin) ? B.windChill : B.cold
+        }
+      }
       if (both) {
         const lo = s.low[j] + shift
         const rl = ramp(lo, t.hardMin, iMin, iMax, t.hardMax, SOFT.temp)
