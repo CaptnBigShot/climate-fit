@@ -2,7 +2,7 @@ import { CO, REASON_FILL, REASON_TIP } from '../lib/colors'
 import { CUTOFF, windowLabel, type Prefs } from '../lib/prefs'
 import type { Model } from '../lib/model'
 import type { Budget } from '../lib/aggregate'
-import { Cap, Head, HatchDefs, Spark } from './ui'
+import { Cap, Head, Spark } from './ui'
 import { useWidth } from '../hooks/useWidth'
 import { YTD_MIN_DAYS, YTD_YEAR, fetchedDay, isFreshSnapshot, ytdBudget, ytdOutdoor, type Ytd } from '../lib/current'
 import { doyLabel } from '../lib/calendar'
@@ -32,7 +32,7 @@ export function Hero({
         {b && (
           <>
             <div className="section-head">
-              <Head tip="Every day of the year sorted into three buckets by your own thresholds, averaged per year across the lookback window. The hatched slice inside unbearable is the days that crossed a line you drew in the control bar.">
+              <Head tip="Every day of the year sorted into three buckets by your own thresholds, averaged per year across the lookback window.">
                 DAY BUDGET · YOUR FIT
               </Head>
               <span className="sub">365 days / yr · mean over {win}</span>
@@ -50,15 +50,15 @@ export function Hero({
                 label="TOLERABLE"
                 color={CO.tol}
                 n={b.counts[1]}
-                d="inside hard bounds, under cutoff"
-                tip="Days inside every hard bound but below the cutoff. Liveable with a compromise; the panel on the right says which compromise."
+                d="inside every limit, under cutoff"
+                tip="Days inside every limit you set but below the cutoff. Liveable with a compromise; the panel on the right says which compromise."
               />
               <Stat
                 label="UNBEARABLE"
                 color="#98a0ad"
                 n={b.counts[2]}
-                d={`${Math.round(b.hard)} crossed a line you drew ▨`}
-                tip="Days outside a hard bound or failing a deal-breaker. Written off, regardless of how well the rest of the day scored."
+                d="crossed a limit you set"
+                tip="Days that crossed a limit you set, on the temperature and dew-point sliders or in More controls. Written off, regardless of how well the rest of the day scored."
               />
               <div style={{ borderLeft: '1px solid var(--line)', paddingLeft: 26 }}>
                 <Stat
@@ -83,7 +83,7 @@ export function Hero({
               <div style={{ marginBottom: 10 }}>
                 <Head
                   small
-                  tip="Of the days that were not comfortable, which single condition was most responsible — the variable with the largest weighted shortfall, or the bound the day crossed. Lavender rows are tolerable days; gray rows are unbearable — hatched where a day crossed a line you drew, solid for a deal-breaker."
+                  tip="Of the days that were not comfortable, which single condition was most responsible — the variable with the largest weighted shortfall, or every limit the day crossed. Lavender rows are tolerable days; gray rows are days written off by a deal-breaker."
                 >
                   WHY DAYS FALL SHORT
                 </Head>
@@ -117,7 +117,7 @@ export function Hero({
                 {b.compromise ? (
                   <>
                     Across the {Math.round(b.counts[1])} tolerable days you would mostly be putting up with{' '}
-                    <b>{b.compromise.label}</b> ({b.compromise.pct}% of them) — days inside every hard bound you set but
+                    <b>{b.compromise.label}</b> ({b.compromise.pct}% of them) — days inside every limit you set but
                     short of the {CUTOFF[p.strict]} cutoff.
                   </>
                 ) : (
@@ -129,7 +129,7 @@ export function Hero({
               <div style={{ marginBottom: 8 }}>
                 <Head
                   small
-                  tip="For each hard line you drew, how many days loosening it alone would bring back inside your bounds."
+                  tip="For each limit you set, how many days loosening it alone would bring back inside your bounds."
                 >
                   DEAL-BREAKER RECLAIM
                 </Head>
@@ -145,7 +145,7 @@ export function Hero({
                   </div>
                 ))
               ) : (
-                <div className="prose">No hard bounds set — no single line is writing days off.</div>
+                <div className="prose">No limits set — no single line is writing days off.</div>
               )}
             </div>
           </>
@@ -202,20 +202,17 @@ export function BudgetBar({
   width,
   height,
   labels = true,
-  id = 'hatch-bb',
 }: {
   b: Budget
   width: number
   height: number
   labels?: boolean
-  id?: string
 }) {
   const x = (v: number) => (v / 365) * width
   const [c, t, un] = b.counts
   const cW = x(c),
     tW = x(t),
-    uW = x(un),
-    hW = x(b.hard)
+    uW = x(un)
   const H = height + (labels ? 20 : 0)
   const put = (x0: number, w: number, v: number) =>
     w > 26 ? (
@@ -236,22 +233,12 @@ export function BudgetBar({
       viewBox={`0 0 ${width} ${H}`}
       style={{ display: 'block', shapeRendering: 'crispEdges' }}
     >
-      <HatchDefs id={id} />
       <rect x={0} width={cW} height={height} fill={CO.comf} data-tip={`Comfortable: ${c.toFixed(1)} days/yr`} />
       <rect x={cW} width={tW} height={height} fill={CO.tol} data-tip={`Tolerable: ${t.toFixed(1)} days/yr`} />
       <rect x={cW + tW} width={uW} height={height} fill={CO.unb} data-tip={`Unbearable: ${un.toFixed(1)} days/yr`} />
-      <rect
-        x={cW + tW + uW - hW}
-        width={hW}
-        height={height}
-        fill={`url(#${id})`}
-        stroke="#8b929e"
-        strokeWidth={0.75}
-        data-tip={`Crossed a line you drew in the control bar: ${b.hard.toFixed(1)} of the ${un.toFixed(1)} unbearable days/yr`}
-      />
       {put(0, cW, c)}
       {put(cW, tW, t)}
-      {put(cW + tW, uW - hW, un)}
+      {put(cW + tW, uW, un)}
       {labels &&
         [0, 91, 182, 273, 365].map((d) => (
           <text
@@ -355,12 +342,12 @@ function YtdBlock({
           <span className="cap" style={{ color: 'var(--ink)' }}>
             {YTD_YEAR}
           </span>
-          <MiniBar counts={yb.ytd} hard={yb.hard} n={n} width={barW} id="hatch-ytd" />
+          <MiniBar counts={yb.ytd} n={n} width={barW} />
           <span className="mono" style={{ fontSize: 11, textAlign: 'right' }}>
             {yb.ytd.map((v) => Math.round(v)).join(' · ')}
           </span>
           <span className="cap">TYPICAL</span>
-          <MiniBar counts={yb.typical} hard={yb.typicalHard} n={n} width={barW} id="hatch-typ" dim />
+          <MiniBar counts={yb.typical} n={n} width={barW} dim />
           <span className="mono" style={{ fontSize: 11, textAlign: 'right', color: 'var(--dim)' }}>
             {yb.typical.map((v) => Math.round(v)).join(' · ')}
           </span>
@@ -382,28 +369,22 @@ function YtdBlock({
 
 function MiniBar({
   counts,
-  hard,
   n,
   width,
-  id,
   dim,
 }: {
   counts: [number, number, number]
-  hard: number
   n: number
   width: number
-  id: string
   dim?: boolean
 }) {
   const x = (v: number) => (v / n) * width
   const [c, t, un] = counts.map(x)
   return (
     <svg width={width} height={12} style={{ display: 'block', shapeRendering: 'crispEdges', opacity: dim ? 0.7 : 1 }}>
-      <HatchDefs id={id} />
       <rect width={c} height={12} fill={CO.comf} />
       <rect x={c} width={t} height={12} fill={CO.tol} />
       <rect x={c + t} width={un} height={12} fill={CO.unb} />
-      <rect x={c + t + un - x(hard)} width={x(hard)} height={12} fill={`url(#${id})`} />
     </svg>
   )
 }

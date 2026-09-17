@@ -1,7 +1,10 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { SERIES_KEYS, type CityFile, type CitySeries, type HourlyFile, type TerrainFile } from './data'
-import { apparent, ramp, score, seasonWeights, causeKind, causeLabel, B, BAND, BREACH } from './scoring'
+import { apparent, ramp, score, seasonWeights, causeKind, causeLabel, B, BAND, BREACH, REASONS } from './scoring'
+
+/** REASONS index for the soft 'too warm' shortfall. */
+const R_WARM = 1
 import { budget, activities } from './aggregate'
 import { AQI_LEVELS, AQ_FORMAT, aqStats, type AqSeries } from './aq'
 import { DEFAULT_PREFS, EXAMPLE_STATE, PRESETS, decodePrefs, encodePrefs, lookbackWindow, type Prefs } from './prefs'
@@ -69,16 +72,15 @@ describe('scoring real data', () => {
     const sc = score(s, example, w)!
     const b = budget(sc)
     expect(b.counts[0] + b.counts[1] + b.counts[2]).toBeCloseTo(365)
-    expect(b.hard).toBeLessThanOrEqual(b.counts[2] + 1e-9)
     expect(b.perYear).toHaveLength(10)
   })
 
-  it('stricter cutoff never adds comfortable days; hard bound breaches are always unbearable', () => {
+  it('stricter cutoff never adds comfortable days; breaches are always unbearable', () => {
     const lenient = budget(score(s, { ...example, strict: 'lenient' }, w)!)
     const strict = budget(score(s, { ...example, strict: 'strict' }, w)!)
     expect(strict.counts[0]).toBeLessThanOrEqual(lenient.counts[0])
     const sc = score(s, example, w)!
-    for (let i = 0; i < sc.band.length; i++) if (sc.hard[i]) expect(sc.band[i]).toBe(BAND.unb)
+    for (let i = 0; i < sc.band.length; i++) if (sc.breach[i]) expect(sc.band[i]).toBe(BAND.unb)
   })
 
   it('records every bound a written-off day crossed, not just the first', () => {
@@ -93,13 +95,27 @@ describe('scoring real data', () => {
       if (sc.breach[i] & B.hot && sc.breach[i] & B.humid) both++
     }
     expect(both).toBeGreaterThan(0)
-    expect(causeLabel(BREACH | B.hot | B.humid)).toBe('too hot & humid')
-    expect(causeLabel(BREACH | B.hot)).toBe('too hot')
-    expect(causeKind(BREACH | B.hot)).toBe('hard')
+    expect(causeLabel(BREACH | B.hot | B.humid)).toBe('too hot & humid · deal-breaker')
+    expect(causeLabel(BREACH | B.hot)).toBe('too hot · deal-breaker')
+    expect(causeKind(BREACH | B.hot)).toBe('deal')
     expect(causeKind(BREACH | B.wind)).toBe('deal')
+    expect(causeKind(R_WARM)).toBe('soft')
     // Combinations rank as their own cause, so dry heat never absorbs humid heat.
     const labels = budget(sc).reasons.map((r) => r.label)
-    expect(labels).toContain('too hot & humid')
+    expect(labels).toContain('too hot & humid · deal-breaker')
+  })
+
+  it('no soft label can ever read the same as a written-off one', () => {
+    const bits = Object.values(B)
+    const hard = new Set<string>()
+    // Every reachable combination of breach flags, against every soft shortfall.
+    for (let m = 1; m < 1 << bits.length; m++) {
+      let mask = 0
+      bits.forEach((b, k) => (m & (1 << k) ? (mask |= b) : 0))
+      hard.add(causeLabel(BREACH | mask))
+    }
+    for (let r = 1; r < REASONS.length; r++) expect(hard.has(causeLabel(r))).toBe(false)
+    expect(hard.size).toBe((1 << bits.length) - 1)
   })
 
   it('derives Tacoma warm season as the six warmest months (roughly May–Oct)', () => {
@@ -322,7 +338,7 @@ describe('current partial year', async () => {
       w = lookbackWindow(10)
     const wsc = score(s, example, w)!
     // Treat the window's last year as if it were the partial year: its own share must match exactly.
-    const last = { ...wsc, years: 1, band: wsc.band.subarray(9 * 365), hard: wsc.hard.subarray(9 * 365) }
+    const last = { ...wsc, years: 1, band: wsc.band.subarray(9 * 365) }
     const yb = ytdBudget(last, wsc, 120)
     expect(yb.ytd[0] + yb.ytd[1] + yb.ytd[2]).toBe(120)
     expect(yb.typical[0] + yb.typical[1] + yb.typical[2]).toBeCloseTo(120)

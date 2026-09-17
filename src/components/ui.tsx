@@ -102,28 +102,8 @@ export function Spark({ ys, w, h, color }: { ys: number[]; w: number; h: number;
   )
 }
 
-export function HatchDefs({ id }: { id: string }) {
-  return (
-    <defs>
-      <pattern id={id} width={5} height={5} patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-        <rect width={5} height={5} fill={CO.hardBase} />
-        <rect width={1.6} height={5} fill={CO.hardStripe} />
-      </pattern>
-    </defs>
-  )
-}
-
-export function HatchSwatch() {
-  return (
-    <svg width={22} height={9} viewBox="0 0 22 9" style={{ display: 'block' }}>
-      <HatchDefs id="hatch-sw" />
-      <rect width={22} height={9} fill="url(#hatch-sw)" />
-    </svg>
-  )
-}
-
-/** A one-line day budget for tables: the same three bands and hatch as the hero bar, unlabelled. */
-export function SplitBar({ b, width, height = 9, id }: { b: Budget; width: number; height?: number; id: string }) {
+/** A one-line day budget for tables: the same three bands as the hero bar, unlabelled. */
+export function SplitBar({ b, width, height = 9 }: { b: Budget; width: number; height?: number }) {
   const x = (v: number) => (v / 365) * width
   const [c, t, un] = b.counts
   return (
@@ -131,13 +111,11 @@ export function SplitBar({ b, width, height = 9, id }: { b: Budget; width: numbe
       width={width}
       height={height}
       style={{ display: 'block', flex: 'none', shapeRendering: 'crispEdges' }}
-      data-tip={`${Math.round(c)} comfortable · ${Math.round(t)} tolerable · ${Math.round(un)} unbearable days/yr, ${Math.round(b.hard)} of them crossing a line you drew`}
+      data-tip={`${Math.round(c)} comfortable · ${Math.round(t)} tolerable · ${Math.round(un)} unbearable days/yr`}
     >
-      <HatchDefs id={id} />
       <rect width={x(c)} height={height} fill={CO.comf} />
       <rect x={x(c)} width={x(t)} height={height} fill={CO.tol} />
       <rect x={x(c + t)} width={x(un)} height={height} fill={CO.unb} />
-      <rect x={x(c + t + un - b.hard)} width={x(b.hard)} height={height} fill={`url(#${id})`} />
     </svg>
   )
 }
@@ -176,10 +154,6 @@ export function BandLegend({ children }: { children?: ReactNode }) {
       <span className="item">
         <span className="sw" style={{ background: CO.unb }} />
         UNBEARABLE
-      </span>
-      <span className="item">
-        <HatchSwatch />
-        CROSSED A LINE YOU DREW
       </span>
       {children}
     </div>

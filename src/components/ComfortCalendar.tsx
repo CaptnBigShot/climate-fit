@@ -20,24 +20,6 @@ const LEFT = 40,
 export type CalMode = 'comfort' | 'activity' | 'temp'
 export type CalFill = 'banded' | 'continuous'
 
-function hatchPattern(ctx: CanvasRenderingContext2D, dpr: number): CanvasPattern | string {
-  const c = document.createElement('canvas'),
-    s = Math.round(5 * dpr)
-  c.width = c.height = s
-  const g = c.getContext('2d')!
-  g.fillStyle = CO.hardBase
-  g.fillRect(0, 0, s, s)
-  g.strokeStyle = CO.hardStripe
-  g.lineWidth = 1.4 * dpr
-  g.beginPath()
-  for (const o of [-s, 0, s]) {
-    g.moveTo(o, s)
-    g.lineTo(o + s, 0)
-  }
-  g.stroke()
-  return ctx.createPattern(c, 'repeat') ?? CO.hardBase
-}
-
 const dayInputs = (row: CalRow, d: number) => {
   const j = row.j0 + d,
     t = row.terrain
@@ -63,14 +45,7 @@ function actCode(row: CalRow, d: number, enabled: Activity[]) {
   return v
 }
 
-function cellFill(
-  row: CalRow,
-  d: number,
-  mode: CalMode,
-  fill: CalFill,
-  enabled: Activity[],
-  hatch: CanvasPattern | string,
-) {
+function cellFill(row: CalRow, d: number, mode: CalMode, fill: CalFill, enabled: Activity[]) {
   if (mode === 'temp') {
     const v = row.series.high[row.j0 + d]
     return Number.isNaN(v) ? CO.unscored : tempColor(v)
@@ -81,7 +56,7 @@ function cellFill(
   }
   const i = row.scBase + d
   if (!row.sc) return CO.unscored
-  if (row.sc.band[i] === BAND.unb) return row.sc.hard[i] ? hatch : fill === 'continuous' ? '#2a2e36' : CO.unb
+  if (row.sc.band[i] === BAND.unb) return fill === 'continuous' ? '#2a2e36' : CO.unb
   return fill === 'continuous' ? contColor(row.sc.score[i]) : BAND_COLOR[row.sc.band[i]]
 }
 
@@ -99,14 +74,13 @@ interface PaintSpec {
 }
 
 /** Cells, not-yet-observed outlines, band-edge contours, year labels and the hover outline. */
-function paint(ctx: CanvasRenderingContext2D, dpr: number, o: PaintSpec) {
+function paint(ctx: CanvasRenderingContext2D, o: PaintSpec) {
   const cw = (o.width - LEFT) / 365
-  const hatch = hatchPattern(ctx, dpr)
   const cellW = Math.max(0.8, cw - 0.25)
   o.rows.forEach((row, k) => {
     const top = o.top(k)
     for (let d = 0; d < row.observed; d++) {
-      ctx.fillStyle = cellFill(row, d, o.mode, o.fill, o.enabled, hatch)
+      ctx.fillStyle = cellFill(row, d, o.mode, o.fill, o.enabled)
       ctx.fillRect(LEFT + d * cw, top, cellW, o.rowH)
     }
     if (row.observed < 365) {
@@ -225,8 +199,8 @@ export function ComfortCalendar({
   useEffect(() => {
     const cv = canvas.current
     if (!cv || !width) return
-    const { ctx, dpr } = sizeCanvas(cv, width, H)
-    paint(ctx, dpr, {
+    const { ctx } = sizeCanvas(cv, width, H)
+    paint(ctx, {
       width,
       rows,
       top: rowTop,
@@ -422,8 +396,8 @@ export function CalendarStrip({
   useEffect(() => {
     const cv = canvas.current
     if (!cv || !width) return
-    const { ctx, dpr } = sizeCanvas(cv, width, H)
-    paint(ctx, dpr, {
+    const { ctx } = sizeCanvas(cv, width, H)
+    paint(ctx, {
       width,
       rows,
       top,

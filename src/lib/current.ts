@@ -118,29 +118,21 @@ export function scoreYtd(y: Ytd, s: CitySeries, p: Prefs, w: Window): Scored | n
 
 export interface YtdBudget {
   ytd: [number, number, number]
-  hard: number
   typical: [number, number, number]
-  typicalHard: number
 }
 
 /** Band counts over Jan 1 → day n: this year vs the mean of the window years over the same span. */
 export function ytdBudget(ysc: Scored, wsc: Scored, n: number): YtdBudget {
   const ytd: [number, number, number] = [0, 0, 0],
     typical: [number, number, number] = [0, 0, 0]
-  let hard = 0,
-    th = 0
-  for (let d = 0; d < n; d++) {
-    ytd[ysc.band[d]]++
-    if (ysc.hard[d]) hard++
-  }
+  for (let d = 0; d < n; d++) ytd[ysc.band[d]]++
   for (let y = 0; y < wsc.years; y++)
     for (let d = 0; d < n; d++) {
       const i = y * 365 + d
       typical[wsc.band[i]]++
-      if (wsc.hard[i]) th++
     }
   const k = 1 / wsc.years
-  return { ytd, hard, typical: [typical[0] * k, typical[1] * k, typical[2] * k], typicalHard: th * k }
+  return { ytd, typical: [typical[0] * k, typical[1] * k, typical[2] * k] }
 }
 
 /** Days matching pred over Jan 1 → day n, this year vs window mean. */

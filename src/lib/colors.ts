@@ -8,8 +8,6 @@ export const CO = {
   comf: '#3ecfa4',
   tol: '#9b8cf0',
   unb: '#4c5261',
-  hardBase: '#5b6272',
-  hardStripe: '#9aa2ae',
   act: '#d9a03c',
   actSnow: '#f2d8a0',
   actNone: '#26292f',
@@ -22,16 +20,16 @@ export const CO = {
 export const BAND_COLOR = [CO.comf, CO.tol, CO.unb]
 
 /** CSS fill for a "why days fall short" bar, in the budget bar's encoding: lavender for a
- *  tolerable shortfall, the hatch for a line drawn in the control bar, solid for a deal-breaker. */
+ *  tolerable shortfall, gray for a day written off. Where the limit was set — a control-bar
+ *  slider or a More-controls toggle — does not change what happened to the day, so it does
+ *  not change the encoding either. */
 export const REASON_FILL: Record<ReasonKind, string> = {
   soft: CO.tol,
-  hard: `repeating-linear-gradient(135deg, ${CO.hardStripe} 0 1.6px, ${CO.hardBase} 1.6px 5px)`,
   deal: CO.unb,
 }
 export const REASON_TIP: Record<ReasonKind, string> = {
-  soft: 'Tolerable days: inside every hard bound, short of the cutoff',
-  hard: 'Unbearable days: crossed a line you drew in the control bar',
-  deal: 'Unbearable days: failed a deal-breaker set in More controls',
+  soft: 'Tolerable days: inside every limit you set, short of the cutoff',
+  deal: 'Unbearable days: crossed a limit you set, and written off whatever else the day did',
 }
 
 /** Air-quality drivers. Ozone and PM2.5 are a validated categorical pair on the dark

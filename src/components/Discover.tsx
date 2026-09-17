@@ -341,7 +341,7 @@ function RankTable({
               </td>
               <td>{u.elev(byId[city.id].s.demElevM * FT)}</td>
               <td className="l">
-                <SplitBar b={b} width={200} id={`hatch-dr-${city.id}`} />
+                <SplitBar b={b} width={200} />
               </td>
               <td style={{ color: CO.comf }}>{Math.round(b.counts[0])}</td>
               <td style={{ color: CO.tol }}>{Math.round(b.counts[1])}</td>

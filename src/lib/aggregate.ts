@@ -9,7 +9,6 @@ import { median, ols, type Fit } from './stats'
 
 export interface Budget {
   counts: [number, number, number]
-  hard: number
   perYear: number[]
   trend: Fit
   months: { c: number; t: number; u: number }[]
@@ -25,8 +24,7 @@ export interface Budget {
 
 export function budget(sc: Scored): Budget {
   const counts = [0, 0, 0]
-  let hard = 0,
-    cur = 0,
+  let cur = 0,
     gap = 0,
     unb = 0,
     bestStreak = 0,
@@ -43,7 +41,6 @@ export function budget(sc: Scored): Budget {
         b = sc.band[i],
         m = months[doyMonth(d)]
       counts[b]++
-      if (sc.hard[i]) hard++
       if (b === BAND.comf) {
         yc++
         m.c++
@@ -87,7 +84,6 @@ export function budget(sc: Scored): Budget {
   })
   return {
     counts: [counts[0] * k, counts[1] * k, counts[2] * k],
-    hard: hard * k,
     perYear,
     trend: ols(perYear),
     months,

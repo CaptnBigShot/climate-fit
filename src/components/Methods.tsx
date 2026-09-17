@@ -136,7 +136,7 @@ export const MethodsPage = memo(function MethodsPage({
     [
       'Band',
       'Derived',
-      `Any hard bound or deal-breaker crossed → unbearable, checked first and not overridable by score. Else score ≥ cutoff (${CUTOFF.lenient} / ${CUTOFF.standard} / ${CUTOFF.strict}) → comfortable. Else tolerable`,
+      `Any deal-breaker crossed → unbearable, checked first and not overridable by score. Else score ≥ cutoff (${CUTOFF.lenient} / ${CUTOFF.standard} / ${CUTOFF.strict}) → comfortable. Else tolerable`,
     ],
     [
       'Season',
@@ -146,7 +146,7 @@ export const MethodsPage = memo(function MethodsPage({
     [
       'Failure attribution',
       'Derived',
-      'For each non-comfortable day, the variable with the largest weighted deficit, or the bound the day crossed. The compromise profile is the same count over tolerable days only',
+      'For each tolerable day, the variable with the largest weighted deficit. For each written-off day, every limit it crossed, counted as one combined cause. The compromise profile is the same count over tolerable days only',
     ],
     [
       'Trend slope',
@@ -376,12 +376,12 @@ export const MethodsPage = memo(function MethodsPage({
                 `Lenient ≥ ${CUTOFF.lenient} · Standard ≥ ${CUTOFF.standard} · Strict ≥ ${CUTOFF.strict} on the 0–100 fit score`,
               ],
               [
-                'Hatched unbearable',
-                'Crossed a line drawn in the control bar: the temperature floor or ceiling, or the dew-point hard limit. Solid unbearable: a deal-breaker set in More controls. A written-off day is labelled with every bound it crossed, so dry heat ("too hot") and humid heat ("too hot & humid") rank separately',
+                'Deal-breakers',
+                'Every limit that writes a day off reads the same way, whether drawn on a slider (the temperature floor and ceiling, the dew-point limit) or toggled in More controls (cloud, wind, precipitation) — where you set it does not change what happened to the day. A written-off day is labelled with every limit it crossed, so dry heat ("too hot · deal-breaker") and humid heat ("too hot & humid · deal-breaker") rank separately',
               ],
               [
                 'Open-ended bounds',
-                `An open bound never writes a day off; the score fades to 0 over a soft span past the ideal edge — temperature ${u.dt(SOFT.temp, 0).replace('+', '')}${u.tu}, dew point ${u.dt(SOFT.dew, 0).replace('+', '')}${u.tu}, cloud ${SOFT.cloud} pts, wind ${u.speed(SOFT.wind)}, precip ${u.len(SOFT.precip, 1)}`,
+                `An open bound never writes a day off; the score fades to 0 over a soft span past the ideal edge — temperature ${u.dt(SOFT.temp, 0).replace('+', '')}${u.tu}, cloud ${SOFT.cloud} pts, wind ${u.speed(SOFT.wind)}, precip ${u.len(SOFT.precip, 1)}. The dew-point limit is never open, so it has no soft span`,
               ],
               [
                 'Dew point',

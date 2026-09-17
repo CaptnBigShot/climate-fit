@@ -7,8 +7,10 @@ import { CUTOFF, FIRST_YEAR, WEIGHT_VALUE, hasPreference, windowYears, type Pref
 export const BAND = { comf: 0, tol: 1, unb: 2 } as const
 
 // Published constants — every one of these is listed in Data & Methods.
-/** Width of the soft ramp beyond an ideal edge whose hard bound is open (°F, %, mph, in). */
-export const SOFT = { temp: 30, dew: 15, cloud: 40, wind: 15, precip: 0.5 }
+/** Width of the soft ramp beyond an ideal edge whose hard bound is open (°F, %, mph, in).
+ *  Dew point has no entry: its hard limit is always DEW_HARD_GAP above the ideal edge, never
+ *  open, so the fade can never apply. */
+export const SOFT = { temp: 30, cloud: 40, wind: 15, precip: 0.5 }
 /** The dew-point control sets the ideal ceiling; the hard limit sits this far above it (°F). */
 export const DEW_HARD_GAP = 8
 /** In-sun mode: °F added to the daytime temperature per MJ/m² of daily shortwave radiation. */
@@ -19,18 +21,20 @@ export const DRY_IDEAL = 0.02
 /** Days over which the cold- and warm-season bands blend at each season boundary. */
 export const SEASON_BLEND_DAYS = 31
 
-/** Soft shortfalls: the single worst weighted deficit on a day that stayed inside every bound. */
+/** Soft shortfalls: the single worst weighted deficit on a day that stayed inside every bound.
+ *  Every one says which way the day went wrong; a written-off day says the same and adds
+ *  DEAL, so the two can never render as the same string. */
 export const REASONS = [
   '',
   'too warm',
   'too cold',
   'warm nights',
   'cold nights',
-  'dew point',
+  'humid',
   'too clear',
   'too cloudy',
-  'wind',
-  'precipitation',
+  'windy',
+  'wet',
 ] as const
 const R = {
   warm: 1,
@@ -57,8 +61,6 @@ export const B = {
   wind: 64,
   wet: 128,
 } as const
-/** Lines drawn in the control bar (rendered hatched). */
-const HARD_BITS = B.hot | B.cold | B.humid | B.hotNight | B.coldNight
 /** Adjectives that share one "too"; order fixes how a combination reads. */
 const ADJECTIVES: [number, string][] = [
   [B.hot, 'hot'],
@@ -68,10 +70,14 @@ const ADJECTIVES: [number, string][] = [
 const CLAUSES: [number, string][] = [
   [B.hotNight, 'hot nights'],
   [B.coldNight, 'cold nights'],
-  [B.cloud, 'cloud deal-breaker'],
-  [B.wind, 'wind deal-breaker'],
-  [B.wet, 'precip deal-breaker'],
+  [B.cloud, 'cloud'],
+  [B.wind, 'wind'],
+  [B.wet, 'precip'],
 ]
+/** Every hard limit reads the same way, whether it was drawn on a control-bar slider or
+ *  toggled in More controls — one vocabulary, because a written-off day is a written-off
+ *  day. The suffix is what separates "too hot" (tolerable) from "too hot · deal-breaker". */
+export const DEAL = 'deal-breaker'
 
 /** A cause code: a soft-shortfall index into REASONS, or BREACH | a mask of B flags.
  *  The tag keeps the two spaces from colliding when both are counted in one map. */
@@ -83,14 +89,14 @@ export const causeLabel = (c: Cause): string => {
   const adj = ADJECTIVES.filter(([b]) => c & b).map(([, l]) => l)
   const parts = adj.length ? [`too ${adj.join(' & ')}`] : []
   for (const [b, l] of CLAUSES) if (c & b) parts.push(l)
+  parts.push(DEAL)
   return parts.join(' · ')
 }
 
-/** Soft shortfalls only ever explain tolerable days; bounds (hatched) and deal-breakers
- *  (solid) only unbearable ones — so each cause belongs to exactly one band. A day that
- *  crossed a bound *and* failed a deal-breaker reads as hatched, matching `hard`. */
-export type ReasonKind = 'soft' | 'hard' | 'deal'
-export const causeKind = (c: Cause): ReasonKind => (!(c & BREACH) ? 'soft' : c & HARD_BITS ? 'hard' : 'deal')
+/** Soft shortfalls only ever explain tolerable days, deal-breakers only unbearable ones —
+ *  so each cause belongs to exactly one band. */
+export type ReasonKind = 'soft' | 'deal'
+export const causeKind = (c: Cause): ReasonKind => (c & BREACH ? 'deal' : 'soft')
 
 export interface Scored {
   window: Window
@@ -99,8 +105,6 @@ export interface Scored {
   off: number
   band: Uint8Array
   score: Float32Array
-  /** 1 where the day crossed a line drawn in the control bar (rendered hatched). */
-  hard: Uint8Array
   /** Soft-shortfall reason, 0 on comfortable and on written-off days (see `breach`). */
   why: Uint8Array
   /** Mask of every B flag the day tripped; 0 unless the day was written off. */
@@ -227,7 +231,6 @@ export function score(s: CitySeries, p: Prefs, w: Window, shift = 0, warmOverrid
   const cut = CUTOFF[p.strict]
   const band = new Uint8Array(N),
     sc = new Float32Array(N),
-    hard = new Uint8Array(N),
     why = new Uint8Array(N),
     breach = new Uint8Array(N)
   // A partial year can't define its own seasons; callers scoring one pass the window's.
@@ -281,7 +284,8 @@ export function score(s: CitySeries, p: Prefs, w: Window, shift = 0, warmOverrid
       } else if (r !== OUT) take(r, wt.temp, low ? (v > iMax ? R.warmNight : R.coldNight) : v > iMax ? R.warm : R.cold)
     }
     if (p.dewMax !== null) {
-      const r = ramp(s.dew[j] + shift, null, null, p.dewMax, p.dewMax + DEW_HARD_GAP, SOFT.dew)
+      // Hard limit is never open here, so the soft span is unreachable.
+      const r = ramp(s.dew[j] + shift, null, null, p.dewMax, p.dewMax + DEW_HARD_GAP, 0)
       if (r === OUT) mask |= B.humid
       else take(r, wt.dew, R.dew)
     }
@@ -307,7 +311,6 @@ export function score(s: CitySeries, p: Prefs, w: Window, shift = 0, warmOverrid
     if (mask) {
       band[i] = BAND.unb
       sc[i] = 0
-      hard[i] = mask & HARD_BITS ? 1 : 0
       breach[i] = mask
     } else {
       const v = wsum ? (acc / wsum) * 100 : 100
@@ -316,5 +319,5 @@ export function score(s: CitySeries, p: Prefs, w: Window, shift = 0, warmOverrid
       why[i] = band[i] === BAND.comf ? 0 : worst
     }
   }
-  return { window: w, years, off, band, score: sc, hard, why, breach, warmW }
+  return { window: w, years, off, band, score: sc, why, breach, warmW }
 }

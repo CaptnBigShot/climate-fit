@@ -294,11 +294,7 @@ function BudgetRow({
       </div>
       <div ref={ref} style={{ minWidth: 0 }}>
         {width > 0 &&
-          (b ? (
-            <BudgetBar b={b} width={width} height={30} id={`hatch-cmp-${r.city.id}`} />
-          ) : (
-            <WalkBar days={act.per.walk.days} width={width} />
-          ))}
+          (b ? <BudgetBar b={b} width={width} height={30} /> : <WalkBar days={act.per.walk.days} width={width} />)}
       </div>
       <div className="stats">
         {b ? (
@@ -309,8 +305,7 @@ function BudgetRow({
               label="UNB"
               color="#98a0ad"
               v={b.counts[2]}
-              sub={`${Math.round(b.hard)} hard ▨`}
-              tip="Unbearable days a year; the hatched share crossed a line you drew in the control bar."
+              tip="Unbearable days a year: each one crossed a limit you set."
             />
           </>
         ) : (
@@ -392,7 +387,7 @@ function WhyShort({ r, p, u }: { r: CityRow; p: Prefs; u: Units }) {
       </div>
       <div className="bars">
         {b.reasons.slice(0, 3).map((x) => (
-          <div className="row" key={x.label} data-tip={REASON_TIP[x.kind]}>
+          <div className="row" key={`${x.kind}:${x.label}`} data-tip={REASON_TIP[x.kind]}>
             <span className="lab">{x.label}</span>
             <span className="track">
               <span style={{ width: `${Math.max(1, x.pct)}%`, background: REASON_FILL[x.kind] }} />
@@ -405,8 +400,8 @@ function WhyShort({ r, p, u }: { r: CityRow; p: Prefs; u: Units }) {
       <div className="prose cmp-sep">
         {b.compromise ? (
           <>
-            Across the {Math.round(b.counts[1])} tolerable days you would mostly be putting up with{' '}
-            <b>{b.compromise.label}</b> ({b.compromise.pct}% of them).
+            Across the {Math.round(b.counts[1])} tolerable days the usual complaint is <b>{b.compromise.label}</b> (
+            {b.compromise.pct}% of them).
           </>
         ) : (
           <>No tolerable days — every day is either comfortable or written off.</>
