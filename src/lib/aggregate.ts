@@ -4,9 +4,7 @@ import type { CitySeries, TerrainSeries } from './data'
 import { MD, MONTH_START, doyMonth } from './calendar'
 import { ACTIVITIES, RIDE_DEPTH_IN, SEASON_RELIABILITY, type DayInputs, type LossReason } from './activities'
 import {
-  B,
   BAND,
-  BREACH,
   CLOUD_CLEAR_IDEAL,
   CLOUD_OVERCAST_IDEAL,
   DRY_IDEAL,
@@ -15,8 +13,6 @@ import {
   causeVars,
   dayCause,
   dayTemp,
-  softIsUpper,
-  softReasonFor,
   type CauseVar,
   type ReasonKind,
   type Scored,
@@ -41,15 +37,6 @@ export interface Reason {
   kind: ReasonKind
   /** Days per year this cause accounts for. */
   days: number
-  stats: CauseStat[]
-}
-
-/** Causes past the shown rows, gathered so the bars always account for every
- *  non-comfortable day. Without it the rows silently covered as little as 56%. */
-export interface OtherReasons {
-  pct: number
-  days: number
-  causes: { label: string; pct: number; days: number }[]
 }
 
 /** Shortfall rows returned to the UI. Six covers every realistic profile outright — the
@@ -60,13 +47,30 @@ export const REASON_ROWS = 6
  *  render as a "0%" bar, which is noise. Those fall into `other` instead. */
 export const MIN_ROW_PCT = 1
 
+/** One measurement and every non-comfortable day it had a hand in. Seven rows about heat
+ *  and humidity at assorted severities answer "which combination" but bury "what is wrong
+ *  here"; this answers the second. A day involving two measurements counts under both, so
+ *  these are shares of involvement and deliberately sum past 100%. */
+export interface Driver {
+  v: CauseVar
+  /** Days per year involving this measurement, and its share of non-comfortable days. */
+  days: number
+  pct: number
+  /** Split of those days by what happened to them. */
+  deal: number
+  soft: number
+  stat: CauseStat | null
+  /** The exact causes making it up, largest first. */
+  causes: { label: string; days: number }[]
+}
+
 export interface Budget {
   counts: [number, number, number]
   perYear: number[]
   trend: Fit
   months: { c: number; t: number; u: number }[]
   reasons: Reason[]
-  other: OtherReasons | null
+  drivers: Driver[]
   nonComf: number
   compromise: { label: string; pct: number } | null
   bestStreak: number
@@ -89,6 +93,7 @@ export function budget(sc: Scored, s: CitySeries, p: Prefs): Budget {
   const reasons = new Map<number, number>(),
     compro = new Map<number, number>()
   const stats = new Map<number, Map<CauseVar, { min: number; max: number; sum: number; n: number }>>()
+  const drive = new Map<CauseVar, { deal: number; soft: number; min: number; max: number; sum: number; n: number }>()
   const measure = (v: CauseVar, j: number): number =>
     v === 'temp'
       ? dayTemp(s, j, p)
@@ -138,9 +143,18 @@ export function budget(sc: Scored, s: CitySeries, p: Prefs): Budget {
             st = new Map<CauseVar, { min: number; max: number; sum: number; n: number }>()
             stats.set(cause, st)
           }
+          const deal = causeKind(cause) === 'deal'
           for (const v of causeVars(cause)) {
             const x = measure(v, sc.off + i)
+            let d = drive.get(v)
+            if (!d) drive.set(v, (d = { deal: 0, soft: 0, min: Infinity, max: -Infinity, sum: 0, n: 0 }))
+            if (deal) d.deal++
+            else d.soft++
             if (Number.isNaN(x)) continue
+            if (x < d.min) d.min = x
+            if (x > d.max) d.max = x
+            d.sum += x
+            d.n++
             const t = st.get(v)
             if (!t) st.set(v, { min: x, max: x, sum: x, n: 1 })
             else {
@@ -168,10 +182,28 @@ export function budget(sc: Scored, s: CitySeries, p: Prefs): Budget {
     if (share(m, i) > share(months[bestMonth], bestMonth)) bestMonth = i
   })
   const shownRows = ranked.filter(([, n]) => pctOf(n) >= MIN_ROW_PCT).slice(0, REASON_ROWS)
-  const shownSet = new Set(shownRows.map(([r]) => r))
-  const rest = ranked.filter(([r]) => !shownSet.has(r))
+  // Which exact causes feed each measurement, for the hover breakdown.
+  const byVar = new Map<CauseVar, { label: string; days: number }[]>()
+  for (const [r, n] of ranked)
+    for (const v of causeVars(r)) {
+      const list = byVar.get(v) ?? []
+      list.push({ label: causeLabel(r), days: n * k })
+      byVar.set(v, list)
+    }
+  const drivers: Driver[] = [...drive.entries()]
+    .map(([v, d]) => ({
+      v,
+      days: (d.deal + d.soft) * k,
+      pct: pctOf(d.deal + d.soft),
+      deal: d.deal * k,
+      soft: d.soft * k,
+      stat: d.n ? { v, min: d.min, max: d.max, mean: d.sum / d.n } : null,
+      causes: byVar.get(v) ?? [],
+    }))
+    .sort((a, b) => b.days - a.days)
   return {
     counts: [counts[0] * k, counts[1] * k, counts[2] * k],
+    drivers,
     perYear,
     trend: ols(perYear),
     months,
@@ -181,23 +213,7 @@ export function budget(sc: Scored, s: CitySeries, p: Prefs): Budget {
       pct: pctOf(n),
       kind: causeKind(r),
       days: n * k,
-      stats: causeVars(r)
-        .map((v) => {
-          const t = stats.get(r)?.get(v)
-          return t ? { v, min: t.min, max: t.max, mean: t.sum / t.n } : null
-        })
-        .filter((x): x is CauseStat => x !== null),
     })),
-    other: (() => {
-      if (!rest.length) return null
-      const n = rest.reduce((a, x) => a + x[1], 0)
-      return {
-        // From the raw sum, not from summing rounded row percentages.
-        pct: pctOf(n),
-        days: n * k,
-        causes: rest.map(([r, c]) => ({ label: causeLabel(r), pct: pctOf(c), days: c * k })),
-      }
-    })(),
     nonComf: nonComf * k,
     compromise: cr && counts[1] ? { label: causeLabel(cr[0]), pct: Math.round((cr[1] / counts[1]) * 100) } : null,
     bestStreak,
@@ -208,47 +224,33 @@ export function budget(sc: Scored, s: CitySeries, p: Prefs): Budget {
   }
 }
 
-/** The limit a cause crossed, in the user's own numbers — the other half of the sentence.
- *  Kept next to the stats so a row reads "how far past" and "past what" together. */
-function limitPhrase(cause: number, v: CauseVar, p: Prefs, u: Units): string | null {
-  const t = p.temp
-  const hot = (cause & BREACH) !== 0 && (cause & (B.hot | B.humidHeat | B.hotNight)) !== 0
+/** The band the reader drew for one measurement, in their own numbers. A driver row covers
+ *  days that crossed the ideal edge and days that crossed the hard limit, so it states the
+ *  whole band rather than the single line any one day happened to cross. */
+function limitsFor(v: CauseVar, p: Prefs, u: Units): string | null {
+  const T = (n: number) => `${u.t(n)}${u.tu}`
   if (v === 'temp' || v === 'low') {
+    const t = p.temp
     if (!t) return null
-    if (cause & BREACH)
-      return hot
-        ? t.hardMax === null
-          ? null
-          : `over your ${u.t(t.hardMax)}${u.tu} ceiling`
-        : t.hardMin === null
-          ? null
-          : `under your ${u.t(t.hardMin)}${u.tu} floor`
-    // Soft: the ideal edge, which has two values when seasonal bands are on. The direction
-    // comes from the reason for this measurement, not the cause code — a cause can pack two.
-    const up = softIsUpper(softReasonFor(cause, v))
-    const main = up ? t.idealMax : t.idealMin
-    const cold = up ? p.cold.idealMax : p.cold.idealMin
-    const edge = p.seasonal ? `${u.t(main)}${u.tu} warm / ${u.t(cold)}${u.tu} cold` : `${u.t(main)}${u.tu}`
-    return `${up ? 'over' : 'under'} your ${edge} ideal edge`
+    const edge = p.seasonal
+      ? `${T(t.idealMin)}–${T(t.idealMax)} warm, ${T(p.cold.idealMin)}–${T(p.cold.idealMax)} cold`
+      : `${T(t.idealMin)}–${T(t.idealMax)}`
+    const floor = t.hardMin === null ? 'no floor' : `floor ${T(t.hardMin)}`
+    const ceil = t.hardMax === null ? 'no ceiling' : `ceiling ${T(t.hardMax)}`
+    return `your ideal ${edge}, ${floor}, ${ceil}`
   }
-  if (v === 'dew') {
-    if (!p.dew) return null
-    if (cause & BREACH) return p.dew.hardMax === null ? null : `over your ${u.t(p.dew.hardMax)}${u.tu} dew ceiling`
-    return `over your ${u.t(p.dew.idealMax)}${u.tu} dew edge`
-  }
+  if (v === 'dew')
+    return p.dew
+      ? `your ideal to ${T(p.dew.idealMax)}, ${p.dew.hardMax === null ? 'no ceiling' : `ceiling ${T(p.dew.hardMax)}`}`
+      : null
   if (v === 'cloud')
     return p.cloud === 'overcast'
-      ? `under your ${CLOUD_OVERCAST_IDEAL}% cloud edge`
+      ? `your ideal ${CLOUD_OVERCAST_IDEAL}% cloud or more`
       : p.cloud === 'clear'
-        ? `over your ${CLOUD_CLEAR_IDEAL}% cloud edge`
+        ? `your ideal ${CLOUD_CLEAR_IDEAL}% cloud or less`
         : null
-  if (v === 'wind')
-    return cause & B.windChill && !(cause & B.wind)
-      ? 'which is what pushed the feels-like reading under your floor'
-      : p.windMax === null
-        ? null
-        : `over your ${u.speed(p.windMax)} limit`
-  return `over your ${u.len(DRY_IDEAL, 2)} dry edge`
+  if (v === 'wind') return p.windMax === null ? null : `your ideal to ${u.speed(p.windMax)}`
+  return `your ideal to ${u.len(DRY_IDEAL, 2)}`
 }
 
 /** Name the daytime measurement as the reader set it up, not generically: on the feels-like
@@ -273,40 +275,33 @@ const VAR_NAME: Record<CauseVar, string> = {
 const fmtVar = (v: CauseVar, n: number, u: Units): string =>
   v === 'cloud' ? `${Math.round(n)}%` : v === 'wind' ? u.speed(n) : v === 'precip' ? u.len(n, 2) : `${u.t(n)}${u.tu}`
 
-/** Full hover text for a "why days fall short" row: the band, how many days, and for each
- *  measurement the observed spread against the line the user drew. */
-const fmtDays = (d: number) => d.toFixed(d < 10 ? 1 : 0)
-
-export function reasonTip(r: Reason, p: Prefs, u: Units): string {
-  const head = `${r.kind === 'deal' ? 'Unbearable' : 'Tolerable'} · ${fmtDays(r.days)} days/yr`
-  const parts = r.stats.map((st) => {
-    const lim = limitPhrase(r.cause, st.v, p, u)
-    const spread =
-      st.min === st.max
-        ? fmtVar(st.v, st.mean, u)
-        : `${fmtVar(st.v, st.min, u)}–${fmtVar(st.v, st.max, u)}, averaging ${fmtVar(st.v, st.mean, u)}`
-    const name = st.v === 'temp' ? tempName(p) : VAR_NAME[st.v]
-    return `${name} ${spread}${lim ? `, ${lim}` : ''}`
-  })
-  return parts.length ? `${head}. ${parts.join(' · ')}.` : `${head}.`
+/** What each measurement is called as a driver of shortfall. */
+export const DRIVER_NAME: Record<CauseVar, string> = {
+  temp: 'temperature',
+  low: 'nights',
+  dew: 'humidity',
+  cloud: 'sky',
+  wind: 'wind',
+  precip: 'precipitation',
 }
+/** Exact causes named in a driver's hover before the rest are summarised. */
+const DRIVER_CAUSES = 3
 
-/** How many hidden causes the remainder tooltip names before summarising the rest. */
-const OTHER_LISTED = 6
+const fmtDays = (d: number) => (d === 0 ? '0' : d.toFixed(d < 10 ? 1 : 0))
 
-/** Hover text for the remainder row: what is in it, largest first. Bounded, because a fully
- *  configured profile can push 20-odd causes in here and a tooltip is 320px wide. */
-export function otherTip(o: OtherReasons): string {
-  const shown = o.causes.slice(0, OTHER_LISTED)
-  const rest = o.causes.length - shown.length
-  const n = o.causes.length
-  const head = `${fmtDays(o.days)} days/yr across ${n} further cause${n === 1 ? '' : 's'}`
-  // Semicolons: the labels contain " · " themselves.
-  // Below a percent, the share rounds to "0%" and says nothing; the day count still does.
-  const body = shown
-    .map((c) => `${c.label} ${c.pct >= MIN_ROW_PCT ? `${c.pct}% (${fmtDays(c.days)}/yr)` : `${fmtDays(c.days)}/yr`}`)
-    .join('; ')
-  return `${head}. ${body}${rest ? `; and ${rest} smaller cause${rest === 1 ? '' : 's'}` : ''}.`
+/** Hover text for a driver row: how many days, split by what happened to them, the observed
+ *  spread of that measurement, and the exact causes underneath. */
+export function driverTip(d: Driver, p: Prefs, u: Units): string {
+  const head = `Involved in ${fmtDays(d.days)} days/yr — ${fmtDays(d.deal)} written off, ${fmtDays(d.soft)} tolerable`
+  const name = d.v === 'temp' ? tempName(p) : VAR_NAME[d.v]
+  const spread = d.stat
+    ? ` ${name} ${fmtVar(d.v, d.stat.min, u)}–${fmtVar(d.v, d.stat.max, u)}, averaging ${fmtVar(d.v, d.stat.mean, u)}.`
+    : ''
+  const lim = limitsFor(d.v, p, u)
+  const shown = d.causes.slice(0, DRIVER_CAUSES)
+  const rest = d.causes.length - shown.length
+  const body = shown.map((c) => `${c.label} ${fmtDays(c.days)}/yr`).join('; ')
+  return `${head}.${spread}${lim ? ` Against ${lim}.` : ''} ${body}${rest ? `; and ${rest} more` : ''}.`
 }
 
 // ---------- Terrain ----------

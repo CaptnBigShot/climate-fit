@@ -2,7 +2,6 @@
 //  1. comfort bands — fit to the user's stated preferences (teal / lavender / gray)
 //  2. raw temperature — neutral blue-gray, never reused for comfort
 //  3. activity days — amber
-import type { ReasonKind } from './scoring'
 
 export const CO = {
   comf: '#3ecfa4',
@@ -18,23 +17,6 @@ export const CO = {
   grid: '#23262c',
 }
 export const BAND_COLOR = [CO.comf, CO.tol, CO.unb]
-
-/** CSS fill for a "why days fall short" bar, in the budget bar's encoding: lavender for a
- *  tolerable shortfall, gray for a day written off. Where the limit was set — a control-bar
- *  slider or a More-controls toggle — does not change what happened to the day, so it does
- *  not change the encoding either. */
-export const REASON_FILL: Record<ReasonKind, string> = {
-  soft: CO.tol,
-  deal: CO.unb,
-}
-/** The remainder row is a mixture of both kinds, so it borrows neither encoding. */
-export const OTHER_FILL = CO.faint
-export const OTHER_TIP = 'Every remaining cause, so the rows account for all non-comfortable days'
-
-export const REASON_TIP: Record<ReasonKind, string> = {
-  soft: 'Tolerable days: inside every limit you set, short of the cutoff',
-  deal: 'Unbearable days: crossed a limit you set, and written off whatever else the day did',
-}
 
 /** Air-quality drivers. Ozone and PM2.5 are a validated categorical pair on the dark
  *  panel (CVD ΔE 15.9, normal 26.5); everything else folds into a neutral "other". */

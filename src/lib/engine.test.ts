@@ -21,7 +21,7 @@ import {
 
 /** REASONS index for the soft 'too warm' shortfall. */
 const R_WARM = 1
-import { budget, activities, otherTip, reasonTip, MIN_ROW_PCT, REASON_ROWS } from './aggregate'
+import { budget, activities, driverTip, DRIVER_NAME, MIN_ROW_PCT, REASON_ROWS } from './aggregate'
 import { units } from './units'
 import { AQI_LEVELS, AQ_FORMAT, aqStats, type AqSeries } from './aq'
 import {
@@ -261,31 +261,28 @@ describe('scoring real data', () => {
     expect(faded).toBeGreaterThan(0)
   })
 
-  it('explains each shortfall row with the observed spread against the line the user drew', () => {
+  it('explains each driver row with the days, the split and the observed spread', () => {
     const u = units(false)
     const b = budget(score(s, example, w)!, s, example)
-    for (const r of b.reasons) {
-      const tip = reasonTip(r, example, u)
-      // Band, a day count, and at least one measurement with real numbers in it.
-      expect(tip).toMatch(r.kind === 'deal' ? /^Unbearable · / : /^Tolerable · /)
-      expect(tip).toMatch(/\d+(\.\d)? days\/yr/)
-      expect(r.stats.length).toBeGreaterThan(0)
-      for (const st of r.stats) {
-        expect(st.min).toBeLessThanOrEqual(st.mean)
-        expect(st.mean).toBeLessThanOrEqual(st.max)
-        expect(Number.isFinite(st.mean)).toBe(true)
-      }
-      // Every row names the user's own limit, not just the observation.
+    expect(b.drivers.length).toBeGreaterThan(0)
+    for (const d of b.drivers) {
+      const tip = driverTip(d, example, u)
+      expect(tip).toMatch(/Involved in [0-9.]+ days\/yr/)
+      expect(tip).toMatch(/written off, [0-9.]+ tolerable/)
+      // Both halves: what happened to the days, and which of the reader's numbers it is against.
       expect(tip).toMatch(/your /)
+      expect(d.deal + d.soft).toBeCloseTo(d.days, 6)
+      expect(d.causes.length).toBeGreaterThan(0)
+      if (d.stat) {
+        expect(d.stat.min).toBeLessThanOrEqual(d.stat.mean)
+        expect(d.stat.mean).toBeLessThanOrEqual(d.stat.max)
+      }
+      expect(DRIVER_NAME[d.v]).toBeTruthy()
     }
-    // A combined cause quotes both measurements.
-    const combo = b.reasons.find((r) => r.stats.length > 1)
-    if (combo) expect(reasonTip(combo, example, u)).toMatch(/ · /)
+    for (let i = 1; i < b.drivers.length; i++) expect(b.drivers[i].days).toBeLessThanOrEqual(b.drivers[i - 1].days)
   })
 
-  it('the shortfall rows plus the remainder account for every non-comfortable day', () => {
-    // A fully configured profile is where the cause space explodes: night bounds and three
-    // deal-breakers can push past 20 distinct causes, far more than the rows can show.
+  it('every non-comfortable day is represented in the drivers, with nothing truncated', () => {
     const maximal: Prefs = {
       ...example,
       basis: 'both',
@@ -298,22 +295,14 @@ describe('scoring real data', () => {
     }
     for (const p of [example, maximal]) {
       const b = budget(score(s, p, w)!, s, p)
-      const shown = b.reasons.reduce((a, r) => a + r.days, 0)
-      const total = shown + (b.other?.days ?? 0)
-      expect(total).toBeCloseTo(b.nonComf, 6)
-      expect(b.reasons.length).toBeLessThanOrEqual(REASON_ROWS)
-      // No row ever renders as "0%" — those are folded into the remainder instead.
+      // Drivers overlap by design, so their total is at least every non-comfortable day and
+      // at most one count per measurement per day. Nothing falls off the end.
+      const total = b.drivers.reduce((a, d) => a + d.days, 0)
+      expect(total).toBeGreaterThanOrEqual(b.nonComf - 1e-6)
+      expect(total).toBeLessThanOrEqual(b.nonComf * 6 + 1e-6)
+      expect(b.drivers.length).toBeLessThanOrEqual(6)
       for (const r of b.reasons) expect(r.pct).toBeGreaterThanOrEqual(MIN_ROW_PCT)
-      if (b.other) {
-        expect(b.other.causes.length).toBeGreaterThan(0)
-        // The remainder only ever holds causes smaller than the smallest shown row.
-        if (b.reasons.length)
-          expect(b.other.causes[0].days).toBeLessThanOrEqual(b.reasons[b.reasons.length - 1].days + 1e-9)
-        const tip = otherTip(b.other)
-        expect(tip).toMatch(/days\/yr across \d+ further cause/)
-        // Bounded: a long tail is summarised, never dumped.
-        expect(tip.length).toBeLessThan(400)
-      }
+      expect(b.reasons.length).toBeLessThanOrEqual(REASON_ROWS)
     }
   })
 

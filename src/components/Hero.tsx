@@ -1,9 +1,9 @@
-import { CO, OTHER_FILL, REASON_FILL } from '../lib/colors'
+import { CO } from '../lib/colors'
 import { CUTOFF, windowLabel, type Prefs } from '../lib/prefs'
 import type { Model } from '../lib/model'
-import { otherTip, reasonTip, type Budget } from '../lib/aggregate'
+import { DRIVER_NAME, type Budget } from '../lib/aggregate'
 import type { Units } from '../lib/units'
-import { Cap, Head, Spark } from './ui'
+import { Cap, DriverBars, Head, Spark } from './ui'
 import { useWidth } from '../hooks/useWidth'
 import { YTD_MIN_DAYS, YTD_YEAR, fetchedDay, isFreshSnapshot, ytdBudget, ytdOutdoor, type Ytd } from '../lib/current'
 import { doyLabel } from '../lib/calendar'
@@ -86,31 +86,16 @@ export function Hero({
               <div style={{ marginBottom: 10 }}>
                 <Head
                   small
-                  tip="Of the days that were not comfortable, which single condition was most responsible — the variable with the largest weighted shortfall, or every limit the day crossed. Lavender rows are tolerable days; gray rows are days written off by a deal-breaker."
+                  tip="Of the days that were not comfortable, which measurements had a hand in it. Gray is the share written off by a limit you set; lavender the share that stayed tolerable. A day involving two measurements counts under both, so the rows pass 100%. Hover a row for the exact combinations."
                 >
                   WHY DAYS FALL SHORT
                 </Head>
               </div>
-              <div className="bars">
-                {b.reasons.map((r) => (
-                  <div className="row" key={`${r.kind}:${r.label}`} data-tip={reasonTip(r, p, u)}>
-                    <span className="lab">{r.label}</span>
-                    <span style={{ height: 8, width: Math.max(1, r.pct * 1.3), background: REASON_FILL[r.kind] }} />
-                    <span className="pct">{r.pct}%</span>
-                  </div>
-                ))}
-                {b.other && (
-                  <div className="row" data-tip={otherTip(b.other)}>
-                    <span className="lab dim">everything else</span>
-                    <span style={{ height: 8, width: Math.max(1, b.other.pct * 1.3), background: OTHER_FILL }} />
-                    <span className="pct">{b.other.pct}%</span>
-                  </div>
-                )}
-              </div>
-              {b.reasons[0] && (
+              <DriverBars b={b} p={p} u={u} />
+              {b.drivers[0] && (
                 <div className="prose" style={{ marginTop: 9, fontSize: 10.5 }}>
-                  Of {Math.round(b.nonComf)} non-comfortable days a year, {b.reasons[0].pct}% fell short on{' '}
-                  {b.reasons[0].label}.
+                  Of {Math.round(b.nonComf)} non-comfortable days a year, {DRIVER_NAME[b.drivers[0].v]} had a hand in{' '}
+                  {b.drivers[0].pct}%.
                 </div>
               )}
             </div>

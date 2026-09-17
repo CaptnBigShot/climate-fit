@@ -1,5 +1,8 @@
 import type { ReactNode } from 'react'
 import { CO } from '../lib/colors'
+import { DRIVER_NAME, driverTip } from '../lib/aggregate'
+import type { Prefs } from '../lib/prefs'
+import type { Units } from '../lib/units'
 import { ols } from '../lib/stats'
 import type { Budget } from '../lib/aggregate'
 
@@ -99,6 +102,45 @@ export function Spark({ ys, w, h, color }: { ys: number[]; w: number; h: number;
         strokeDasharray="3 2"
       />
     </svg>
+  )
+}
+
+/** Why days fall short, by measurement rather than by exact cause: one row per thing that
+ *  had a hand in it, split by what happened to those days. Seven rows about heat and
+ *  humidity at assorted severities buried the question this answers. */
+export function DriverBars({ b, p, u, note = true }: { b: Budget; p: Prefs; u: Units; note?: boolean }) {
+  if (!b.drivers.length) return <div className="prose">Every day is comfortable under these settings.</div>
+  const max = Math.max(...b.drivers.map((d) => d.pct))
+  return (
+    <>
+      <div className="bars">
+        {b.drivers.map((d) => {
+          // Scaled to the largest row, so the shape is readable when nothing dominates.
+          const w = (d.pct / max) * 100
+          const dealW = d.days ? (d.deal / d.days) * w : 0
+          const softW = w - dealW
+          return (
+            <div className="row" key={d.v} data-tip={driverTip(d, p, u)}>
+              <span className="lab">{DRIVER_NAME[d.v]}</span>
+              <span className="track">
+                {dealW > 0 && <span className="seg" style={{ width: `${dealW}%`, background: CO.unb }} />}
+                {softW > 0 && <span className="seg" style={{ width: `${softW}%`, background: CO.tol }} />}
+              </span>
+              <span className="pct">{d.pct}%</span>
+            </div>
+          )
+        })}
+      </div>
+      <div className="bars-key">
+        <span>
+          <i style={{ background: CO.unb }} /> written off
+        </span>
+        <span>
+          <i style={{ background: CO.tol }} /> tolerable
+        </span>
+        {note && <span className="note">days can count in more than one row</span>}
+      </div>
+    </>
   )
 }
 

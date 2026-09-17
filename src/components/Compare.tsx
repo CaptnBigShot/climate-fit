@@ -5,16 +5,16 @@
 import { memo, useMemo, useRef, useState } from 'react'
 import { cityById, type CityMeta, type Manifest } from '../lib/data'
 import { MN, windowRows } from '../lib/calendar'
-import { CO, OTHER_FILL, REASON_FILL } from '../lib/colors'
+import { CO } from '../lib/colors'
 import { cityPoint } from '../lib/mapView'
-import { facts, monthly, otherTip, reasonTip, terrainCover } from '../lib/aggregate'
+import { facts, monthly, terrainCover } from '../lib/aggregate'
 import { MAX_COMPARE, PIVOT, pivot, toggleCompare, type PivotMetric } from '../lib/compare'
 import { windowLabel, type Prefs } from '../lib/prefs'
 import { hasTerrainWithin, type CityRow } from '../lib/model'
 import type { Units } from '../lib/units'
 import { BudgetBar } from './Hero'
 import { CalendarStrip, MonthAxis, TempLegend, type CalFill, type CalMode } from './ComfortCalendar'
-import { BandLegend, Cap, Head, Seg } from './ui'
+import { BandLegend, Cap, DriverBars, Head, Seg } from './ui'
 import { CityList } from './CityPicker'
 import { WorldMap } from './WorldMap'
 import { useDismiss } from '../hooks/useDismiss'
@@ -385,27 +385,7 @@ function WhyShort({ r, p, u }: { r: CityRow; p: Prefs; u: Units }) {
       <div className="h-sm" style={{ marginBottom: 10 }}>
         {r.city.name} — why days fall short
       </div>
-      <div className="bars">
-        {b.reasons.map((x) => (
-          <div className="row" key={`${x.kind}:${x.label}`} data-tip={reasonTip(x, p, u)}>
-            <span className="lab">{x.label}</span>
-            <span className="track">
-              <span style={{ width: `${Math.max(1, x.pct)}%`, background: REASON_FILL[x.kind] }} />
-            </span>
-            <span className="pct">{x.pct}%</span>
-          </div>
-        ))}
-        {b.other && (
-          <div className="row" data-tip={otherTip(b.other)}>
-            <span className="lab dim">everything else</span>
-            <span className="track">
-              <span style={{ width: `${Math.max(1, b.other.pct)}%`, background: OTHER_FILL }} />
-            </span>
-            <span className="pct">{b.other.pct}%</span>
-          </div>
-        )}
-        {!b.reasons.length && <div className="prose">Every day is comfortable under these settings.</div>}
-      </div>
+      <DriverBars b={b} p={p} u={u} note={false} />
       <div className="prose cmp-sep">
         {b.compromise ? (
           <>
