@@ -4,19 +4,25 @@ import type { CitySeries, TerrainSeries } from './data'
 import { MD, MONTH_START, doyMonth } from './calendar'
 import { ACTIVITIES, RIDE_DEPTH_IN, SEASON_RELIABILITY, type DayInputs, type LossReason } from './activities'
 import {
+  B,
   BAND,
   BREACH,
+  CLOUD_CLEAR_IDEAL,
+  CLOUD_OVERCAST_IDEAL,
+  DRY_IDEAL,
   causeKind,
   causeLabel,
   causeVars,
+  dayCause,
   dayTemp,
+  softIsUpper,
+  softReasonFor,
   type CauseVar,
   type ReasonKind,
   type Scored,
 } from './scoring'
 import { FIRST_YEAR, windowYears, type ActivityId, type Prefs, type Window } from './prefs'
 import { median, ols, type Fit } from './stats'
-import { B, CLOUD_CLEAR_IDEAL, CLOUD_OVERCAST_IDEAL, DRY_IDEAL } from './scoring'
 import type { Units } from './units'
 
 /** Observed spread of one measurement over the days a cause explains. The bar says how
@@ -123,7 +129,7 @@ export function budget(sc: Scored, s: CitySeries, p: Prefs): Budget {
         }
         // Written-off days count under the full set of bounds they crossed, so
         // "too hot" and "too hot & humid" rank as the distinct climates they are.
-        const cause = sc.breach[i] ? BREACH | sc.breach[i] : sc.why[i]
+        const cause = dayCause(sc, i)
         if (cause) {
           reasons.set(cause, (reasons.get(cause) ?? 0) + 1)
           if (b === BAND.tol) compro.set(cause, (compro.get(cause) ?? 0) + 1)
@@ -217,8 +223,9 @@ function limitPhrase(cause: number, v: CauseVar, p: Prefs, u: Units): string | n
         : t.hardMin === null
           ? null
           : `under your ${u.t(t.hardMin)}${u.tu} floor`
-    // Soft: the ideal edge, which has two values when seasonal bands are on.
-    const up = cause === 1 || cause === 3
+    // Soft: the ideal edge, which has two values when seasonal bands are on. The direction
+    // comes from the reason for this measurement, not the cause code — a cause can pack two.
+    const up = softIsUpper(softReasonFor(cause, v))
     const main = up ? t.idealMax : t.idealMin
     const cold = up ? p.cold.idealMax : p.cold.idealMin
     const edge = p.seasonal ? `${u.t(main)}${u.tu} warm / ${u.t(cold)}${u.tu} cold` : `${u.t(main)}${u.tu}`

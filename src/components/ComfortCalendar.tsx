@@ -3,7 +3,7 @@ import type { CitySeries, TerrainSeries } from '../lib/data'
 import { MN, MONTH_START, doyLabel, windowRows, type CalRow } from '../lib/calendar'
 import { BAND_COLOR, CO, TEMP_DOMAIN, contColor, tempColor } from '../lib/colors'
 import { ACTIVITIES, LOSS_LABEL, type Activity } from '../lib/activities'
-import { BAND, BREACH, causeLabel, dayTemp, type Scored } from '../lib/scoring'
+import { BAND, causeLabel, dayCause, dayTemp, type Scored } from '../lib/scoring'
 import { FIRST_YEAR, windowLabel, type Prefs } from '../lib/prefs'
 import { YTD_YEAR, type Ytd } from '../lib/current'
 import type { Units } from '../lib/units'
@@ -590,9 +590,7 @@ function DayTip({
             {['Comfortable', 'Tolerable', 'Unbearable'][sc.band[i]]}
           </span>
           {sc.band[i] !== BAND.unb && <span className="mono"> · fit {Math.round(sc.score[i])}</span>}
-          {(sc.breach[i] || sc.why[i]) > 0 && (
-            <span> · {causeLabel(sc.breach[i] ? BREACH | sc.breach[i] : sc.why[i])}</span>
-          )}
+          {dayCause(sc, i) > 0 && <span> · {causeLabel(dayCause(sc, i))}</span>}
         </div>
       )}
       {mode === 'activity' && (

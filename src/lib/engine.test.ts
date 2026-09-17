@@ -1,7 +1,23 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { SERIES_KEYS, type CityFile, type CitySeries, type HourlyFile, type TerrainFile } from './data'
-import { apparent, ramp, score, seasonWeights, causeKind, causeLabel, B, BAND, BREACH, REASONS } from './scoring'
+import {
+  apparent,
+  ramp,
+  score,
+  seasonWeights,
+  causeKind,
+  causeLabel,
+  dayCause,
+  dayTemp,
+  idealFor,
+  softIsUpper,
+  softReasonFor,
+  B,
+  BAND,
+  BREACH,
+  REASONS,
+} from './scoring'
 
 /** REASONS index for the soft 'too warm' shortfall. */
 const R_WARM = 1
@@ -147,7 +163,18 @@ describe('scoring real data', () => {
       bits.forEach((b, k) => (m & (1 << k) ? (mask |= b) : 0))
       hard.add(causeLabel(BREACH | mask))
     }
-    for (let r = 1; r < REASONS.length; r++) expect(hard.has(causeLabel(r))).toBe(false)
+    // Every soft cause, singles and pairs alike, against every breach combination.
+    const soft: number[] = []
+    for (let a = 1; a < REASONS.length; a++) {
+      soft.push(a)
+      for (let b = a + 1; b < REASONS.length; b++) soft.push(a | (b << 4))
+    }
+    for (const c of soft) expect(hard.has(causeLabel(c))).toBe(false)
+    // Pairs are canonical: the same two reasons always read the same way.
+    expect(causeLabel(1 | (5 << 4))).toBe('too warm & humid')
+    expect(causeLabel(5 | (6 << 4))).toBe('too humid & clear')
+    expect(causeLabel(3 | (5 << 4))).toBe('too humid · warm nights')
+    expect(causeLabel(5)).toBe('too humid')
     // Humid heat reads exactly like crossing the temperature and dew-point limits separately:
     // the same weather earns the same label, whichever control caught it.
     expect(causeLabel(BREACH | B.humidHeat)).toBe(causeLabel(BREACH | B.hot | B.humid))
@@ -288,6 +315,42 @@ describe('scoring real data', () => {
         expect(tip.length).toBeLessThan(400)
       }
     }
+  })
+
+  it('names a second soft cause only when it cost a real share of the first', () => {
+    const sc = score(s, example, w)!
+    let paired = 0
+    for (let i = 0; i < sc.band.length; i++) {
+      if (sc.breach[i]) {
+        // A written-off day has no soft cause at all.
+        expect(sc.why[i]).toBe(0)
+        expect(sc.why2[i]).toBe(0)
+        continue
+      }
+      if (!sc.why2[i]) continue
+      paired++
+      // A runner-up never appears without a winner, and never duplicates it.
+      expect(sc.why[i]).toBeGreaterThan(0)
+      expect(sc.why2[i]).not.toBe(sc.why[i])
+      // The pair reads as one phrase, not two rows.
+      expect(causeLabel(dayCause(sc, i))).toMatch(/ & | · /)
+    }
+    expect(paired).toBeGreaterThan(0)
+    // A packed pair must not lose which way each measurement went: reading direction off
+    // the cause code itself said a 71°F day was under a −30°F floor.
+    let mis = 0
+    for (let i = 0; i < sc.band.length; i++) {
+      if (sc.band[i] !== BAND.tol) continue
+      const r = softReasonFor(dayCause(sc, i), 'temp')
+      if (!r) continue
+      const [, iMax] = idealFor(example, sc.warmW[i % 365])
+      if (dayTemp(s, sc.off + i, example) > iMax !== softIsUpper(r)) mis++
+    }
+    expect(mis).toBe(0)
+    // Order of discovery must not change the cause code.
+    expect(dayCause({ ...sc, why: Uint8Array.of(5), why2: Uint8Array.of(1), breach: Uint16Array.of(0) }, 0)).toBe(
+      dayCause({ ...sc, why: Uint8Array.of(1), why2: Uint8Array.of(5), breach: Uint16Array.of(0) }, 0),
+    )
   })
 
   it('derives Tacoma warm season as the six warmest months (roughly May–Oct)', () => {

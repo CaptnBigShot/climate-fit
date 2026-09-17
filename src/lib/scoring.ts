@@ -17,21 +17,35 @@ export const DRY_IDEAL = 0.02
 /** Days over which the cold- and warm-season bands blend at each season boundary. */
 export const SEASON_BLEND_DAYS = 31
 
-/** Soft shortfalls: the single worst weighted deficit on a day that stayed inside every bound.
- *  Every one says which way the day went wrong; a written-off day says the same and adds
- *  DEAL, so the two can never render as the same string. */
-export const REASONS = [
-  '',
-  'too warm',
-  'too cold',
-  'warm nights',
-  'cold nights',
-  'humid',
-  'too clear',
-  'too cloudy',
-  'windy',
-  'wet',
-] as const
+/** Soft shortfalls, as bare adjectives and clauses so a pair reads under one "too" —
+ *  the same grammar the breach labels use. */
+const SOFT_ADJ: Record<number, string> = {
+  1: 'warm',
+  2: 'cold',
+  5: 'humid',
+  6: 'clear',
+  7: 'cloudy',
+  8: 'windy',
+  9: 'wet',
+}
+const SOFT_CLAUSE: Record<number, string> = { 3: 'warm nights', 4: 'cold nights' }
+
+/** A tolerable day names a second shortfall when it cost at least this much of what the
+ *  first did. Around a third of tolerable days have one: filing them all under whichever
+ *  deficit merely edged out splits "warm and humid" across two unrelated rows. */
+export const SOFT_PAIR = 0.5
+
+const softLabel = (r1: number, r2: number): string => {
+  const rs = [r1, r2].filter((r) => r > 0)
+  const adj = rs.filter((r) => SOFT_ADJ[r]).map((r) => SOFT_ADJ[r])
+  const parts = adj.length ? [`too ${adj.join(' & ')}`] : []
+  for (const r of rs) if (SOFT_CLAUSE[r]) parts.push(SOFT_CLAUSE[r])
+  return parts.join(' · ')
+}
+
+/** Single-cause soft labels, derived so there is one source of truth for the wording. */
+export const REASONS: readonly string[] = Array.from({ length: 10 }, (_, r) => (r ? softLabel(r, 0) : ''))
+
 const R = {
   warm: 1,
   cold: 2,
@@ -91,7 +105,7 @@ export type Cause = number
 export const BREACH = 4096
 
 export const causeLabel = (c: Cause): string => {
-  if (!(c & BREACH)) return REASONS[c] ?? ''
+  if (!(c & BREACH)) return softLabel(c & 15, (c >> 4) & 15)
   // humidHeat already reads "hot & humid"; the dew-limit bit would say humid twice.
   const m = c & B.humidHeat ? c & ~B.humid : c
   const adj = ADJECTIVES.filter(([b]) => m & b).map(([, l]) => l)
@@ -107,7 +121,11 @@ export type CauseVar = 'temp' | 'low' | 'dew' | 'cloud' | 'wind' | 'precip'
 const SOFT_VAR: CauseVar[] = ['temp', 'temp', 'temp', 'low', 'low', 'dew', 'cloud', 'cloud', 'wind', 'precip']
 
 export function causeVars(c: Cause): CauseVar[] {
-  if (!(c & BREACH)) return SOFT_VAR[c] ? [SOFT_VAR[c]] : []
+  if (!(c & BREACH)) {
+    const v = new Set<CauseVar>()
+    for (const r of [c & 15, (c >> 4) & 15]) if (r && SOFT_VAR[r]) v.add(SOFT_VAR[r])
+    return [...v]
+  }
   const v = new Set<CauseVar>()
   if (c & (B.hot | B.cold | B.humidHeat | B.windChill)) v.add('temp')
   if (c & (B.hotNight | B.coldNight)) v.add('low')
@@ -117,6 +135,26 @@ export function causeVars(c: Cause): CauseVar[] {
   if (c & B.cloud) v.add('cloud')
   if (c & B.wet) v.add('precip')
   return [...v]
+}
+
+/** The soft reason inside a cause that concerns one measurement, or 0. A cause can pack two
+ *  reasons, so "which direction did this variable go" cannot be read off the code itself. */
+export const softReasonFor = (c: Cause, v: CauseVar): number => {
+  if (c & BREACH) return 0
+  for (const r of [c & 15, (c >> 4) & 15]) if (r && SOFT_VAR[r] === v) return r
+  return 0
+}
+
+/** True when a soft temperature reason means "above the ideal edge" rather than below. */
+export const softIsUpper = (r: number): boolean => r === R.warm || r === R.warmNight
+
+/** The cause code for one scored day: a breach mask, or up to two soft reasons packed one
+ *  per nibble, smaller index first so the same pair always yields the same code and label. */
+export const dayCause = (sc: Scored, i: number): Cause => {
+  if (sc.breach[i]) return BREACH | sc.breach[i]
+  const a = sc.why[i],
+    b = sc.why2[i]
+  return b ? Math.min(a, b) | (Math.max(a, b) << 4) : a
 }
 
 /** Soft shortfalls only ever explain tolerable days, deal-breakers only unbearable ones —
@@ -131,8 +169,10 @@ export interface Scored {
   off: number
   band: Uint8Array
   score: Float32Array
-  /** Soft-shortfall reason, 0 on comfortable and on written-off days (see `breach`). */
+  /** Worst soft-shortfall reason, 0 on comfortable and on written-off days (see `breach`). */
   why: Uint8Array
+  /** Runner-up soft shortfall when it cost at least SOFT_PAIR of the worst; 0 otherwise. */
+  why2: Uint8Array
   /** Mask of every B flag the day tripped; 0 unless the day was written off. */
   breach: Uint16Array
   /** Warm-season weight per day of year (0 = cold-season band, 1 = warm-season band). */
@@ -264,6 +304,7 @@ export function score(s: CitySeries, p: Prefs, w: Window, shift = 0, warmOverrid
   const band = new Uint8Array(N),
     sc = new Float32Array(N),
     why = new Uint8Array(N),
+    why2 = new Uint8Array(N),
     breach = new Uint16Array(N)
   // A partial year can't define its own seasons; callers scoring one pass the window's.
   const warmW = warmOverride ?? seasonWeights(s, w).warmW
@@ -286,14 +327,22 @@ export function score(s: CitySeries, p: Prefs, w: Window, shift = 0, warmOverrid
       acc = 0,
       mask = 0,
       worst = 0,
-      worstDef = -1
+      worstDef = -1,
+      second = 0,
+      secondDef = -1
     const take = (r: number, weight: number, reason: number) => {
       wsum += weight
       acc += weight * r
+      if (r >= 1) return
       const def = weight * (1 - r)
-      if (def > worstDef && r < 1) {
+      if (def > worstDef) {
+        second = worst
+        secondDef = worstDef
         worstDef = def
         worst = reason
+      } else if (def > secondDef) {
+        secondDef = def
+        second = reason
       }
     }
 
@@ -357,8 +406,11 @@ export function score(s: CitySeries, p: Prefs, w: Window, shift = 0, warmOverrid
       const v = wsum ? (acc / wsum) * 100 : 100
       sc[i] = v
       band[i] = v >= cut ? BAND.comf : BAND.tol
-      why[i] = band[i] === BAND.comf ? 0 : worst
+      if (band[i] !== BAND.comf) {
+        why[i] = worst
+        if (second && secondDef >= SOFT_PAIR * worstDef) why2[i] = second
+      }
     }
   }
-  return { window: w, years, off, band, score: sc, why, breach, warmW }
+  return { window: w, years, off, band, score: sc, why, why2, breach, warmW }
 }
