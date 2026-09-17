@@ -17,6 +17,13 @@ export interface TempBand {
   idealMax: number
   hardMax: number | null
 }
+/** Dew point is one-sided: nothing below the ideal edge is ever penalised, so there is no
+ *  floor and no ideal minimum. null on hardMax = open ("humidity alone never writes a day off";
+ *  the score fades over SOFT.dew instead). */
+export interface DewBand {
+  idealMax: number
+  hardMax: number | null
+}
 export interface Window {
   from: number
   to: number
@@ -36,7 +43,7 @@ export interface Prefs {
   seasonal: boolean
   /** Cold-season ideal band; the main band becomes the warm-season band when seasonal is on. */
   cold: { idealMin: number; idealMax: number }
-  dewMax: number | null
+  dew: DewBand | null
   strict: Strictness
   drive: 1 | 2 | 3
   window: Window
@@ -63,6 +70,13 @@ export const WEIGHT_VALUE: Record<Weight, number> = { minor: 0.5, normal: 1, cri
 /** Temperature slider scale, °F. */
 export const T_MIN = -30
 export const T_MAX = 110
+/** Where the dew-point ceiling is placed when the control is first set, °F above the ideal
+ *  edge. Only a starting position — the ceiling is the user's to drag, or to open. It is also
+ *  what a link from before the ceiling was exposed meant, so old URLs keep their behaviour. */
+export const DEW_HARD_GAP = 8
+/** Dew-point slider domain, °F. Below 30 nothing is ever uncomfortable; above 85 is unlived-in. */
+export const D_MIN = 30
+export const D_MAX = 85
 
 export const lookbackWindow = (n: number): Window => ({ from: LAST_YEAR - n + 1, to: LAST_YEAR })
 export const windowYears = (w: Window) => w.to - w.from + 1
@@ -72,7 +86,7 @@ export const DEFAULT_PREFS: Prefs = {
   temp: null,
   seasonal: false,
   cold: { idealMin: 20, idealMax: 45 },
-  dewMax: null,
+  dew: null,
   strict: 'standard',
   drive: 2,
   window: lookbackWindow(10),
@@ -101,7 +115,7 @@ export const PRESETS: Preset[] = [
     apply: {
       temp: { hardMin: null, idealMin: 20, idealMax: 45, hardMax: 60 },
       seasonal: false,
-      dewMax: 35,
+      dew: { idealMax: 35, hardMax: 43 },
       cloud: 'any',
       dry: true,
     },
@@ -111,7 +125,7 @@ export const PRESETS: Preset[] = [
     apply: {
       temp: { hardMin: 25, idealMin: 45, idealMax: 62, hardMax: 72 },
       seasonal: false,
-      dewMax: 50,
+      dew: { idealMax: 50, hardMax: 58 },
       cloud: 'overcast',
       dry: false,
     },
@@ -122,7 +136,7 @@ export const PRESETS: Preset[] = [
       temp: { hardMin: -10, idealMin: 68, idealMax: 84, hardMax: 95 },
       seasonal: true,
       cold: { idealMin: 20, idealMax: 40 },
-      dewMax: 62,
+      dew: { idealMax: 62, hardMax: 70 },
       cloud: 'any',
       dry: false,
     },
@@ -132,7 +146,7 @@ export const PRESETS: Preset[] = [
     apply: {
       temp: { hardMin: 40, idealMin: 60, idealMax: 75, hardMax: 88 },
       seasonal: false,
-      dewMax: 58,
+      dew: { idealMax: 58, hardMax: 66 },
       cloud: 'any',
       dry: false,
     },
@@ -143,7 +157,7 @@ export const PRESETS: Preset[] = [
       temp: { hardMin: null, idealMin: 55, idealMax: 75, hardMax: 85 },
       seasonal: true,
       cold: { idealMin: 15, idealMax: 32 },
-      dewMax: 55,
+      dew: { idealMax: 55, hardMax: 63 },
       cloud: 'any',
       dry: false,
     },
@@ -153,7 +167,7 @@ export const PRESETS: Preset[] = [
     apply: {
       temp: { hardMin: 55, idealMin: 78, idealMax: 92, hardMax: 105 },
       seasonal: false,
-      dewMax: 50,
+      dew: { idealMax: 50, hardMax: 58 },
       cloud: 'clear',
       dry: true,
     },
@@ -163,7 +177,7 @@ export const PRESETS: Preset[] = [
     apply: {
       temp: { hardMin: 60, idealMin: 80, idealMax: 90, hardMax: 98 },
       seasonal: false,
-      dewMax: 72,
+      dew: { idealMax: 72, hardMax: 80 },
       cloud: 'any',
       dry: false,
     },
@@ -175,7 +189,7 @@ export const EXAMPLE_STATE: Partial<Prefs> = {
   temp: { hardMin: null, idealMin: 35, idealMax: 58, hardMax: 68 },
   seasonal: true,
   cold: { idealMin: 25, idealMax: 48 },
-  dewMax: 45,
+  dew: { idealMax: 45, hardMax: 53 },
   cloud: 'overcast',
   drive: 2,
   acts: ['walk', 'ride'],
@@ -200,7 +214,7 @@ export function encodePrefs(p: Prefs, q: URLSearchParams) {
       [openNum(p.temp.hardMin, true), p.temp.idealMin, p.temp.idealMax, openNum(p.temp.hardMax, false)].join(','),
     )
   if (p.seasonal) q.set('cb', `${p.cold.idealMin},${p.cold.idealMax}`)
-  if (p.dewMax !== null) q.set('dp', String(p.dewMax))
+  if (p.dew) q.set('dp', `${p.dew.idealMax},${openNum(p.dew.hardMax, false)}`)
   if (p.strict !== d.strict) q.set('s', p.strict)
   if (p.drive !== d.drive) q.set('snow', String(p.drive))
   const n = windowYears(p.window)
@@ -237,7 +251,12 @@ export function decodePrefs(q: URLSearchParams): Prefs {
     p.seasonal = true
     p.cold = { idealMin: cb[0], idealMax: cb[1] }
   }
-  p.dewMax = num(q.get('dp'))
+  const dp = q.get('dp')?.split(',')
+  if (dp) {
+    const iMax = num(dp[0])
+    // One value is a link from before the ceiling was exposed: it meant the fixed gap.
+    if (iMax !== null) p.dew = { idealMax: iMax, hardMax: dp.length > 1 ? num(dp[1]) : iMax + DEW_HARD_GAP }
+  }
   const s = q.get('s')
   if (s === 'lenient' || s === 'standard' || s === 'strict') p.strict = s
   const snow = Number(q.get('snow'))
@@ -288,7 +307,7 @@ export function decodePrefs(q: URLSearchParams): Prefs {
 
 /** Is any comfort preference stated? Until one is, nothing is scored. */
 export const hasPreference = (p: Prefs) =>
-  p.temp !== null || p.dewMax !== null || p.cloud !== 'any' || p.windMax !== null || p.dry
+  p.temp !== null || p.dew !== null || p.cloud !== 'any' || p.windMax !== null || p.dry
 
 /** Every value a preset sets, formatted with the caller's unit formatter. */
 export function presetNote(pr: Preset, t: (f: number) => string, tu: string): string {
@@ -303,7 +322,7 @@ export function presetNote(pr: Preset, t: (f: number) => string, tu: string): st
     parts.push(a.temp.hardMin === null ? 'no floor' : `floor ${t(a.temp.hardMin)}`)
     parts.push(a.temp.hardMax === null ? 'no ceiling' : `ceiling ${t(a.temp.hardMax)}`)
   }
-  if (a.dewMax != null) parts.push(`dew pt <${t(a.dewMax)}`)
+  if (a.dew) parts.push(`dew pt <${t(a.dew.idealMax)}${a.dew.hardMax === null ? '' : ` · ceiling ${t(a.dew.hardMax)}`}`)
   if (a.cloud && a.cloud !== 'any') parts.push(a.cloud)
   if (a.dry) parts.push('prefer dry')
   return parts.join(' · ')

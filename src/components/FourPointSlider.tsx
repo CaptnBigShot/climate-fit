@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { CO } from '../lib/colors'
-import { T_MAX, T_MIN, type TempBand } from '../lib/prefs'
+import { T_MAX as T_MAX_DEF, T_MIN as T_MIN_DEF, type TempBand } from '../lib/prefs'
 import { SOFT } from '../lib/scoring'
 
 type Handle = 'hardMin' | 'idealMin' | 'idealMax' | 'hardMax'
@@ -8,13 +8,20 @@ type Handle = 'hardMin' | 'idealMin' | 'idealMax' | 'hardMax'
 /** Four-point ramp slider: hard floor · ideal min · ideal max · hard ceiling.
  *  Drag a hard handle off either end of the track to make that bound open (±∞).
  *  With value null (unset) both ideal handles rest at the track ends; dragging
- *  either one states a preference — the app never proposes a starting band. */
+ *  either one states a preference — the app never proposes a starting band.
+ *
+ *  `side: 'max'` drops the two lower handles for a one-sided variable like dew point,
+ *  where nothing below the ideal edge is ever penalised: the comfortable zone simply
+ *  runs from the left end of the track to the ideal edge. */
 export function FourPointSlider({
   value,
   onChange,
   hardEditable = true,
   label,
   fixedHard,
+  domain = [T_MIN_DEF, T_MAX_DEF],
+  side = 'both',
+  soft = SOFT.temp,
 }: {
   value: TempBand | null
   onChange: (b: TempBand) => void
@@ -22,9 +29,15 @@ export function FourPointSlider({
   label: string
   /** Hard bounds shown as ticks but not draggable (seasonal cold band shares the main bounds). */
   fixedHard?: { hardMin: number | null; hardMax: number | null }
+  domain?: [number, number]
+  side?: 'both' | 'max'
+  /** Soft-span width, for drawing the fade where a hard bound is open. */
+  soft?: number
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const drag = useRef<Handle | null>(null)
+  const [T_MIN, T_MAX] = domain
+  const oneSided = side === 'max'
   const span = T_MAX - T_MIN
   const pct = (v: number) => ((Math.max(T_MIN, Math.min(T_MAX, v)) - T_MIN) / span) * 100
   const b: TempBand = value ?? { hardMin: null, idealMin: T_MIN, idealMax: T_MAX, hardMax: null }
@@ -54,12 +67,14 @@ export function FourPointSlider({
   }
 
   const nearest = (v: number): Handle => {
-    const cands: [Handle, number][] = [
-      ['idealMin', b.idealMin],
-      ['idealMax', b.idealMax],
-    ]
+    const cands: [Handle, number][] = oneSided
+      ? [['idealMax', b.idealMax]]
+      : [
+          ['idealMin', b.idealMin],
+          ['idealMax', b.idealMax],
+        ]
     if (hardEditable && value) {
-      if (b.hardMin !== null) cands.push(['hardMin', b.hardMin])
+      if (!oneSided && b.hardMin !== null) cands.push(['hardMin', b.hardMin])
       if (b.hardMax !== null) cands.push(['hardMax', b.hardMax])
     }
     return cands.sort((x, y) => Math.abs(x[1] - v) - Math.abs(y[1] - v))[0][0]
@@ -121,7 +136,7 @@ export function FourPointSlider({
         style={{ left: `${pct(b.idealMin)}%`, width: `${pct(b.idealMax) - pct(b.idealMin)}%`, background: CO.comf }}
       />,
     )
-    const hiEnd = hMax ?? b.idealMax + SOFT.temp
+    const hiEnd = hMax ?? b.idealMax + soft
     segs.push(
       <div
         key="rh"
@@ -133,18 +148,19 @@ export function FourPointSlider({
         }}
       />,
     )
-    const loEnd = hMin ?? b.idealMin - SOFT.temp
-    segs.push(
-      <div
-        key="rl"
-        className="fp-seg"
-        style={{
-          left: `${pct(loEnd)}%`,
-          width: `${pct(b.idealMin) - pct(loEnd)}%`,
-          background: `linear-gradient(90deg, ${hMin === null ? 'transparent' : CO.unb}, ${CO.comf})`,
-        }}
-      />,
-    )
+    const loEnd = hMin ?? b.idealMin - soft
+    if (!oneSided)
+      segs.push(
+        <div
+          key="rl"
+          className="fp-seg"
+          style={{
+            left: `${pct(loEnd)}%`,
+            width: `${pct(b.idealMin) - pct(loEnd)}%`,
+            background: `linear-gradient(90deg, ${hMin === null ? 'transparent' : CO.unb}, ${CO.comf})`,
+          }}
+        />,
+      )
     if (fixedHard) {
       if (hMax !== null)
         segs.push(
@@ -175,9 +191,13 @@ export function FourPointSlider({
     >
       <div className="fp-track" />
       {segs}
-      {value && hardEditable && b.hardMin !== null && handle('hardMin', b.hardMin, 'hard-min', 'hard floor')}
+      {!oneSided &&
+        value &&
+        hardEditable &&
+        b.hardMin !== null &&
+        handle('hardMin', b.hardMin, 'hard-min', 'hard floor')}
       {value && hardEditable && b.hardMax !== null && handle('hardMax', b.hardMax, 'hard-max', 'hard ceiling')}
-      {handle('idealMin', b.idealMin, value ? 'ideal' : 'ghost', 'ideal minimum')}
+      {!oneSided && handle('idealMin', b.idealMin, value ? 'ideal' : 'ghost', 'ideal minimum')}
       {handle('idealMax', b.idealMax, value ? 'ideal' : 'ghost', 'ideal maximum')}
     </div>
   )

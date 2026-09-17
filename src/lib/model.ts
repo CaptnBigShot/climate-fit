@@ -15,7 +15,7 @@ import {
   type MonthRow,
   type TerrainChoice,
 } from './aggregate'
-import { score, seasonWeights, DEW_HARD_GAP, type Scored } from './scoring'
+import { score, seasonWeights, type Scored } from './scoring'
 import type { Prefs } from './prefs'
 
 export interface Reclaim {
@@ -166,10 +166,12 @@ export function buildModel(
         days: gain({ temp: { ...t, hardMin: t.hardMin - RECLAIM_STEP } }),
       })
     }
-    if (p.dewMax !== null) {
+    // An open dew ceiling writes nothing off, so there is no line to loosen.
+    if (p.dew && p.dew.hardMax !== null) {
+      const d = p.dew
       reclaim.push({
-        text: `Raising your dew-point limit from ${fmtT(p.dewMax + DEW_HARD_GAP)}${tu} to ${fmtT(p.dewMax + DEW_HARD_GAP + RECLAIM_STEP)}${tu}`,
-        days: gain({ dewMax: p.dewMax + RECLAIM_STEP }),
+        text: `Raising your dew-point ceiling from ${fmtT(d.hardMax!)}${tu} to ${fmtT(d.hardMax! + RECLAIM_STEP)}${tu}`,
+        days: gain({ dew: { ...d, hardMax: d.hardMax! + RECLAIM_STEP } }),
       })
     }
   }

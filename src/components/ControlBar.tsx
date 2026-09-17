@@ -11,13 +11,16 @@ import {
   PRESETS,
   T_MAX,
   T_MIN,
+  D_MAX,
+  D_MIN,
+  DEW_HARD_GAP,
   hasPreference,
   windowLabel,
   windowYears,
   type Prefs,
   type Weight,
 } from '../lib/prefs'
-import { DEW_HARD_GAP } from '../lib/scoring'
+import { SOFT } from '../lib/scoring'
 import type { View } from '../lib/session'
 import type { Units } from '../lib/units'
 import { useDismiss } from '../hooks/useDismiss'
@@ -133,12 +136,16 @@ export function ControlBar(props: BarProps) {
 
   const toggle = (m: Menu) => setMenu((cur) => (cur === m ? null : m))
   const t = p.temp
+  const dew = p.dew
   const n = windowYears(p.window)
   const isPreset = p.window.to === LAST_YEAR && LOOKBACKS.includes(n)
 
   const bandReadout = t
     ? `${t.hardMin === null ? '−∞' : u.t(t.hardMin)} · ${u.t(t.idealMin)} – ${u.t(t.idealMax)} · ${t.hardMax === null ? '+∞' : u.t(t.hardMax)}`
     : 'unset — no band stated'
+  const dewReadout = dew
+    ? `< ${u.t(dew.idealMax)} · ${dew.hardMax === null ? '+∞' : u.t(dew.hardMax)}`
+    : 'unset — not scored'
   const expand = () => {
     pinned.current = true
     lastY.current = window.scrollY
@@ -148,7 +155,7 @@ export function ControlBar(props: BarProps) {
   const summary = [
     t ? `${u.t(t.idealMin)}–${u.t(t.idealMax)}${u.tu}` : 'band unset',
     t ? `ceiling ${t.hardMax === null ? '+∞' : u.t(t.hardMax)}` : null,
-    p.dewMax !== null ? `dew pt <${u.t(p.dewMax)}` : null,
+    p.dew ? `dew pt <${u.t(p.dew.idealMax)}` : null,
     p.strict,
     `${windowLabel(p.window)}`,
     p.sun === 'sun' ? 'in sun' : 'shade',
@@ -261,32 +268,58 @@ export function ControlBar(props: BarProps) {
           </div>
         </div>
 
-        <div className="bar-cell" style={{ width: 150 }}>
-          <Cap
-            tip={`Humidity, measured as dew point rather than relative humidity. This sets the top of your ideal range; the hard limit sits ${DEW_HARD_GAP}°F above it. Roughly: under 55°F feels dry, 60–65°F sticky, above 70°F oppressive.`}
-          >
-            DEW PT CEILING
-          </Cap>
+        <div className="bar-cell" style={{ width: 268 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-            <span className={p.dewMax === null ? 'readout big unset' : 'readout big'}>
-              {p.dewMax === null ? 'unset' : `< ${u.t(p.dewMax)}${u.tu}`}
+            <Cap
+              tip={`Humidity, measured as dew point rather than relative humidity. The green handle is the top of your ideal range; the thin ceiling handle is where a day is written off. Between them a day degrades linearly. Drag the ceiling off the right end to make it open-ended — humidity alone then never writes a day off, it only fades the score over ${SOFT.dew}°F. Dry air is never penalised. Roughly: under 55°F feels dry, 60–65°F sticky, above 70°F oppressive. Scale ${D_MIN} to ${D_MAX}°F.`}
+            >
+              DEW POINT · {u.tu}
+            </Cap>
+            <span className={dew ? 'readout' : 'readout unset'}>{dewReadout}</span>
+          </div>
+          <FourPointSlider
+            label="Dew point"
+            side="max"
+            domain={[D_MIN, D_MAX]}
+            soft={SOFT.dew}
+            value={dew ? { hardMin: null, idealMin: D_MIN, idealMax: dew.idealMax, hardMax: dew.hardMax } : null}
+            // First drag from unset seeds the ceiling where it always used to sit, so turning
+            // the control on still writes the same days off; from there it is the user's to move.
+            onChange={(b) =>
+              set({
+                dew: {
+                  idealMax: b.idealMax,
+                  hardMax: dew ? b.hardMax : Math.min(D_MAX, b.idealMax + DEW_HARD_GAP),
+                },
+              })
+            }
+          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span className="cap" style={{ flex: 1 }}>
+              {dew ? 'DRAG · OFF-TRACK = OPEN' : 'NOT SCORED UNTIL SET'}
             </span>
-            {p.dewMax !== null && (
-              <button className="x-btn" onClick={() => set({ dewMax: null })} data-tip="Stop scoring dew point.">
+            {dew && (
+              <button
+                className={`chip${dew.hardMax === null ? ' open' : ''}`}
+                onClick={() =>
+                  set({
+                    dew: {
+                      ...dew,
+                      hardMax: dew.hardMax === null ? Math.min(D_MAX, dew.idealMax + DEW_HARD_GAP) : null,
+                    },
+                  })
+                }
+                data-tip="No hard ceiling: humidity alone never writes a day off, though days above your ideal edge still lose points on a soft ramp. Click to set a real ceiling."
+              >
+                {dew.hardMax === null ? '+∞ CEILING' : `CEILING ${u.t(dew.hardMax)}°`}
+              </button>
+            )}
+            {dew && (
+              <button className="x-btn" onClick={() => set({ dew: null })} data-tip="Stop scoring dew point.">
                 ✕
               </button>
             )}
           </div>
-          <input
-            type="range"
-            min={30}
-            max={78}
-            step={1}
-            value={p.dewMax ?? 78}
-            className={p.dewMax === null ? 'unset' : ''}
-            onChange={(e) => set({ dewMax: +e.target.value })}
-            aria-label="Dew point ceiling"
-          />
         </div>
 
         <div className="bar-cell">

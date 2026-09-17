@@ -7,12 +7,8 @@ import { CUTOFF, FIRST_YEAR, WEIGHT_VALUE, hasPreference, windowYears, type Pref
 export const BAND = { comf: 0, tol: 1, unb: 2 } as const
 
 // Published constants — every one of these is listed in Data & Methods.
-/** Width of the soft ramp beyond an ideal edge whose hard bound is open (°F, %, mph, in).
- *  Dew point has no entry: its hard limit is always DEW_HARD_GAP above the ideal edge, never
- *  open, so the fade can never apply. */
-export const SOFT = { temp: 30, cloud: 40, wind: 15, precip: 0.5 }
-/** The dew-point control sets the ideal ceiling; the hard limit sits this far above it (°F). */
-export const DEW_HARD_GAP = 8
+/** Width of the soft ramp beyond an ideal edge whose hard bound is open (°F, %, mph, in). */
+export const SOFT = { temp: 30, dew: 15, cloud: 40, wind: 15, precip: 0.5 }
 /** In-sun mode: °F added to the daytime temperature per MJ/m² of daily shortwave radiation. */
 export const SUN_F_PER_MJ = 0.45
 export const CLOUD_OVERCAST_IDEAL = 60
@@ -311,9 +307,8 @@ export function score(s: CitySeries, p: Prefs, w: Window, shift = 0, warmOverrid
         }
       } else if (r !== OUT) take(r, wt.temp, low ? (v > iMax ? R.warmNight : R.coldNight) : v > iMax ? R.warm : R.cold)
     }
-    if (p.dewMax !== null) {
-      // Hard limit is never open here, so the soft span is unreachable.
-      const r = ramp(s.dew[j] + shift, null, null, p.dewMax, p.dewMax + DEW_HARD_GAP, 0)
+    if (p.dew) {
+      const r = ramp(s.dew[j] + shift, null, null, p.dew.idealMax, p.dew.hardMax, SOFT.dew)
       if (r === OUT) mask |= B.humid
       else take(r, wt.dew, R.dew)
     }

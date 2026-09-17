@@ -16,14 +16,13 @@ import { ACTIVITIES, RIDE_DEPTH_IN, SEASON_RELIABILITY, ruleParts } from '../lib
 import {
   CLOUD_CLEAR_IDEAL,
   CLOUD_OVERCAST_IDEAL,
-  DEW_HARD_GAP,
   DRY_IDEAL,
   SEASON_BLEND_DAYS,
   SOFT,
   SUN_F_PER_MJ,
   seasonWeights,
 } from '../lib/scoring'
-import { CUTOFF, windowLabel, windowYears, type Prefs } from '../lib/prefs'
+import { CUTOFF, DEW_HARD_GAP, windowLabel, windowYears, type Prefs } from '../lib/prefs'
 import { terrainAt, type Model } from '../lib/model'
 import { MN } from '../lib/calendar'
 import type { Units } from '../lib/units'
@@ -385,7 +384,7 @@ export const MethodsPage = memo(function MethodsPage({
               ],
               [
                 'Dew point',
-                `The control sets the top of your ideal range; the hard limit sits ${u.dt(DEW_HARD_GAP, 0).replace('+', '')}${u.tu} above it`,
+                `Two handles, like the comfort band: the ideal edge and the ceiling a day is written off past. The ceiling starts ${u.dt(DEW_HARD_GAP, 0).replace('+', '')}${u.tu} above the ideal edge and is yours to move, or to open. Dry air is never penalised — there is no floor`,
               ],
               [
                 'Sky',

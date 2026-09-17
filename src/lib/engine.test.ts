@@ -9,6 +9,7 @@ import { budget, activities } from './aggregate'
 import { AQI_LEVELS, AQ_FORMAT, aqStats, type AqSeries } from './aq'
 import {
   DEFAULT_PREFS,
+  DEW_HARD_GAP,
   EXAMPLE_STATE,
   FIRST_YEAR,
   PRESETS,
@@ -60,6 +61,23 @@ describe('URL state', () => {
       expect(decodePrefs(q)).toEqual(p)
     }
   })
+  it('a dew-point link from before the ceiling was exposed keeps its old meaning', () => {
+    // Those links carried one number and meant "hard limit DEW_HARD_GAP above it".
+    expect(decodePrefs(new URLSearchParams('dp=45')).dew).toEqual({ idealMax: 45, hardMax: 45 + DEW_HARD_GAP })
+    for (const dew of [{ idealMax: 45, hardMax: 53 }, { idealMax: 60, hardMax: null }, null]) {
+      const q = new URLSearchParams()
+      encodePrefs({ ...structuredClone(DEFAULT_PREFS), dew } as Prefs, q)
+      expect(decodePrefs(q).dew).toEqual(dew)
+    }
+  })
+
+  it('every preset still places the ceiling where the fixed gap used to', () => {
+    for (const pre of [{ apply: EXAMPLE_STATE }, ...PRESETS]) {
+      const p = { ...structuredClone(DEFAULT_PREFS), ...pre.apply } as Prefs
+      if (p.dew) expect(p.dew.hardMax).toBe(p.dew.idealMax + DEW_HARD_GAP)
+    }
+  })
+
   it('opens unset: no band, no dew point, nothing scored', () => {
     expect(decodePrefs(new URLSearchParams()).temp).toBeNull()
   })
@@ -94,7 +112,12 @@ describe('scoring real data', () => {
 
   it('records every bound a written-off day crossed, not just the first', () => {
     // Forced so Tacoma's warm days trip the ceiling and the dew limit together.
-    const p: Prefs = { ...example, seasonal: false, temp: { ...example.temp!, hardMax: 65 }, dewMax: 40 }
+    const p: Prefs = {
+      ...example,
+      seasonal: false,
+      temp: { ...example.temp!, hardMax: 65 },
+      dew: { idealMax: 40, hardMax: 48 },
+    }
     const sc = score(s, p, w)!
     let both = 0
     for (let i = 0; i < sc.band.length; i++) {
@@ -164,7 +187,7 @@ describe('scoring real data', () => {
       seasonal: false,
       sun: 'shade',
       temp: { hardMin: 10, idealMin: 40, idealMax: 70, hardMax: 90 },
-      dewMax: null,
+      dew: null,
       cloud: 'any',
       windMax: null,
       dry: false,
@@ -186,6 +209,28 @@ describe('scoring real data', () => {
       expect(feel.breach[i] & B.windChill && feel.breach[i] & B.cold).toBeFalsy()
       expect(air.breach[i] & (B.humidHeat | B.windChill)).toBe(0)
     }
+  })
+
+  it('an open dew ceiling writes nothing off and fades over the soft span instead', () => {
+    const base: Prefs = {
+      ...example,
+      seasonal: false,
+      temp: { hardMin: null, idealMin: 20, idealMax: 90, hardMax: null },
+    }
+    const shut = score(s, { ...base, dew: { idealMax: 40, hardMax: 48 } }, w)!
+    const open = score(s, { ...base, dew: { idealMax: 40, hardMax: null } }, w)!
+    let shutUnb = 0,
+      openUnb = 0,
+      faded = 0
+    for (let i = 0; i < shut.band.length; i++) {
+      if (shut.band[i] === BAND.unb) shutUnb++
+      if (open.band[i] === BAND.unb) openUnb++
+      // Open never writes off, but still costs the day points.
+      if (open.score[i] < 100) faded++
+    }
+    expect(shutUnb).toBeGreaterThan(0)
+    expect(openUnb).toBe(0)
+    expect(faded).toBeGreaterThan(0)
   })
 
   it('derives Tacoma warm season as the six warmest months (roughly May–Oct)', () => {
