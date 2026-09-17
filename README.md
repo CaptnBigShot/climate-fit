@@ -14,6 +14,10 @@ npm run build     # static site in dist/, no server needed
 
 React 19, TypeScript and Vite. There's no backend: all scoring runs in the browser against pre-fetched JSON in `public/data/`, which is committed (~185 MB).
 
+## Deploy
+
+Every push to `main` builds the site and publishes it to GitHub Pages (`.github/workflows/deploy.yml`) at `https://captnbigshot.github.io/climate-fit/`. Production builds use the `/climate-fit/` base path (`vite.config.ts`); `npm run dev` still serves from `/`. The first time, set the repo's Settings → Pages source to **GitHub Actions**.
+
 ## Screens
 
 Tabs in the control bar switch between four screens. They all share one session state, so changing a preference re-scores every screen. The whole session is kept in the URL.
@@ -66,3 +70,4 @@ public/data/      generated data, committed
 - Mobile layout (desktop-first, min width 1100px) and a light theme.
 - Scoring on relative humidity, snowfall and daylight.
 - Discover's elevation-range and deal-breaker filters.
+- Keeping the deployed data fresh. `nightly` / `fetch-data` only write files locally, so the Pages site's `ytd/` snapshots are only as new as the last push; past a day old the browser falls back to live Open-Meteo fetches. Options to look into: a scheduled GitHub Action that runs `fetch-data` and commits, or committing the nightly output automatically.
