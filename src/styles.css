@@ -659,7 +659,9 @@ input[type='range'].unset::-webkit-slider-thumb {
 .bars .lab {
   font: 400 10.5px/1.2 var(--mono);
   color: var(--mid);
-  width: 150px;
+  /* Wide enough for "too hot & humid · deal-breaker" on one line: a wrapped label
+     pushes its bar out of line with the rest of the column. */
+  width: 196px;
   flex: none;
 }
 .bars .pct {

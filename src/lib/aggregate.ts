@@ -3,16 +3,47 @@
 import type { CitySeries, TerrainSeries } from './data'
 import { MD, MONTH_START, doyMonth } from './calendar'
 import { ACTIVITIES, RIDE_DEPTH_IN, SEASON_RELIABILITY, type DayInputs, type LossReason } from './activities'
-import { BAND, BREACH, causeKind, causeLabel, type ReasonKind, type Scored } from './scoring'
-import { FIRST_YEAR, windowYears, type ActivityId, type Window } from './prefs'
+import {
+  BAND,
+  BREACH,
+  causeKind,
+  causeLabel,
+  causeVars,
+  dayTemp,
+  type CauseVar,
+  type ReasonKind,
+  type Scored,
+} from './scoring'
+import { FIRST_YEAR, windowYears, type ActivityId, type Prefs, type Window } from './prefs'
 import { median, ols, type Fit } from './stats'
+import { B, CLOUD_CLEAR_IDEAL, CLOUD_OVERCAST_IDEAL, DRY_IDEAL } from './scoring'
+import type { Units } from './units'
+
+/** Observed spread of one measurement over the days a cause explains. The bar says how
+ *  often; this says how far past the line — 16°F over a dew ceiling and 3°F over it are
+ *  the same bar and very different places to live. */
+export interface CauseStat {
+  v: CauseVar
+  min: number
+  max: number
+  mean: number
+}
+export interface Reason {
+  cause: number
+  label: string
+  pct: number
+  kind: ReasonKind
+  /** Days per year this cause accounts for. */
+  days: number
+  stats: CauseStat[]
+}
 
 export interface Budget {
   counts: [number, number, number]
   perYear: number[]
   trend: Fit
   months: { c: number; t: number; u: number }[]
-  reasons: { label: string; pct: number; kind: ReasonKind }[]
+  reasons: Reason[]
   nonComf: number
   compromise: { label: string; pct: number } | null
   bestStreak: number
@@ -22,7 +53,7 @@ export interface Budget {
   bestMonth: number
 }
 
-export function budget(sc: Scored): Budget {
+export function budget(sc: Scored, s: CitySeries, p: Prefs): Budget {
   const counts = [0, 0, 0]
   let cur = 0,
     gap = 0,
@@ -34,6 +65,19 @@ export function budget(sc: Scored): Budget {
   const months = Array.from({ length: 12 }, () => ({ c: 0, t: 0, u: 0 }))
   const reasons = new Map<number, number>(),
     compro = new Map<number, number>()
+  const stats = new Map<number, Map<CauseVar, { min: number; max: number; sum: number; n: number }>>()
+  const measure = (v: CauseVar, j: number): number =>
+    v === 'temp'
+      ? dayTemp(s, j, p)
+      : v === 'low'
+        ? s.low[j]
+        : v === 'dew'
+          ? s.dew[j]
+          : v === 'cloud'
+            ? s.cloud[j]
+            : v === 'wind'
+              ? s.wind[j]
+              : s.precip[j]
   for (let y = 0; y < sc.years; y++) {
     let yc = 0
     for (let d = 0; d < 365; d++) {
@@ -66,6 +110,23 @@ export function budget(sc: Scored): Budget {
         if (cause) {
           reasons.set(cause, (reasons.get(cause) ?? 0) + 1)
           if (b === BAND.tol) compro.set(cause, (compro.get(cause) ?? 0) + 1)
+          let st = stats.get(cause)
+          if (!st) {
+            st = new Map<CauseVar, { min: number; max: number; sum: number; n: number }>()
+            stats.set(cause, st)
+          }
+          for (const v of causeVars(cause)) {
+            const x = measure(v, sc.off + i)
+            if (Number.isNaN(x)) continue
+            const t = st.get(v)
+            if (!t) st.set(v, { min: x, max: x, sum: x, n: 1 })
+            else {
+              if (x < t.min) t.min = x
+              if (x > t.max) t.max = x
+              t.sum += x
+              t.n++
+            }
+          }
         }
       }
     }
@@ -87,9 +148,19 @@ export function budget(sc: Scored): Budget {
     perYear,
     trend: ols(perYear),
     months,
-    reasons: ranked
-      .slice(0, 4)
-      .map(([r, n]) => ({ label: causeLabel(r), pct: Math.round((n / nonComf) * 100), kind: causeKind(r) })),
+    reasons: ranked.slice(0, 4).map(([r, n]) => ({
+      cause: r,
+      label: causeLabel(r),
+      pct: Math.round((n / nonComf) * 100),
+      kind: causeKind(r),
+      days: n * k,
+      stats: causeVars(r)
+        .map((v) => {
+          const t = stats.get(r)?.get(v)
+          return t ? { v, min: t.min, max: t.max, mean: t.sum / t.n } : null
+        })
+        .filter((x): x is CauseStat => x !== null),
+    })),
     nonComf: nonComf * k,
     compromise: cr && counts[1] ? { label: causeLabel(cr[0]), pct: Math.round((cr[1] / counts[1]) * 100) } : null,
     bestStreak,
@@ -98,6 +169,86 @@ export function budget(sc: Scored): Budget {
     worstMonth,
     bestMonth,
   }
+}
+
+/** The limit a cause crossed, in the user's own numbers — the other half of the sentence.
+ *  Kept next to the stats so a row reads "how far past" and "past what" together. */
+function limitPhrase(cause: number, v: CauseVar, p: Prefs, u: Units): string | null {
+  const t = p.temp
+  const hot = (cause & BREACH) !== 0 && (cause & (B.hot | B.humidHeat | B.hotNight)) !== 0
+  if (v === 'temp' || v === 'low') {
+    if (!t) return null
+    if (cause & BREACH)
+      return hot
+        ? t.hardMax === null
+          ? null
+          : `over your ${u.t(t.hardMax)}${u.tu} ceiling`
+        : t.hardMin === null
+          ? null
+          : `under your ${u.t(t.hardMin)}${u.tu} floor`
+    // Soft: the ideal edge, which has two values when seasonal bands are on.
+    const up = cause === 1 || cause === 3
+    const main = up ? t.idealMax : t.idealMin
+    const cold = up ? p.cold.idealMax : p.cold.idealMin
+    const edge = p.seasonal ? `${u.t(main)}${u.tu} warm / ${u.t(cold)}${u.tu} cold` : `${u.t(main)}${u.tu}`
+    return `${up ? 'over' : 'under'} your ${edge} ideal edge`
+  }
+  if (v === 'dew') {
+    if (!p.dew) return null
+    if (cause & BREACH) return p.dew.hardMax === null ? null : `over your ${u.t(p.dew.hardMax)}${u.tu} dew ceiling`
+    return `over your ${u.t(p.dew.idealMax)}${u.tu} dew edge`
+  }
+  if (v === 'cloud')
+    return p.cloud === 'overcast'
+      ? `under your ${CLOUD_OVERCAST_IDEAL}% cloud edge`
+      : p.cloud === 'clear'
+        ? `over your ${CLOUD_CLEAR_IDEAL}% cloud edge`
+        : null
+  if (v === 'wind')
+    return cause & B.windChill && !(cause & B.wind)
+      ? 'which is what pushed the feels-like reading under your floor'
+      : p.windMax === null
+        ? null
+        : `over your ${u.speed(p.windMax)} limit`
+  return `over your ${u.len(DRY_IDEAL, 2)} dry edge`
+}
+
+/** Name the daytime measurement as the reader set it up, not generically: on the feels-like
+ *  basis the quoted numbers are heat-index/wind-chill values, not air temperature, and saying
+ *  "daily high" for those would misreport what the numbers are. */
+const tempName = (p: Prefs): string =>
+  p.basis === 'low'
+    ? 'Overnight low'
+    : p.basis === 'apparent'
+      ? `Feels-like high${p.sun === 'sun' ? ' in sun' : ''}`
+      : `Daily high${p.sun === 'sun' ? ' in sun' : ''}`
+
+const VAR_NAME: Record<CauseVar, string> = {
+  temp: 'Daily high',
+  low: 'Overnight low',
+  dew: 'Dew point',
+  cloud: 'Cloud cover',
+  wind: 'Wind',
+  precip: 'Precipitation',
+}
+
+const fmtVar = (v: CauseVar, n: number, u: Units): string =>
+  v === 'cloud' ? `${Math.round(n)}%` : v === 'wind' ? u.speed(n) : v === 'precip' ? u.len(n, 2) : `${u.t(n)}${u.tu}`
+
+/** Full hover text for a "why days fall short" row: the band, how many days, and for each
+ *  measurement the observed spread against the line the user drew. */
+export function reasonTip(r: Reason, p: Prefs, u: Units): string {
+  const head = `${r.kind === 'deal' ? 'Unbearable' : 'Tolerable'} · ${r.days.toFixed(r.days < 10 ? 1 : 0)} days/yr`
+  const parts = r.stats.map((st) => {
+    const lim = limitPhrase(r.cause, st.v, p, u)
+    const spread =
+      st.min === st.max
+        ? fmtVar(st.v, st.mean, u)
+        : `${fmtVar(st.v, st.min, u)}–${fmtVar(st.v, st.max, u)}, averaging ${fmtVar(st.v, st.mean, u)}`
+    const name = st.v === 'temp' ? tempName(p) : VAR_NAME[st.v]
+    return `${name} ${spread}${lim ? `, ${lim}` : ''}`
+  })
+  return parts.length ? `${head}. ${parts.join(' · ')}.` : `${head}.`
 }
 
 // ---------- Terrain ----------

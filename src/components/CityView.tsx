@@ -85,7 +85,7 @@ export function CityView({
         exportCsv={() => downloadMonthlyCsv(city, m.months, p, u)}
         openCity={openCity}
       />
-      {!unset && <Hero m={m} p={p} ytd={ytd} ytdSc={ytdSc} ytdError={ytdError} />}
+      {!unset && <Hero m={m} p={p} u={u} ytd={ytd} ytdSc={ytdSc} ytdError={ytdError} />}
       <ComfortCalendar
         s={s}
         sc={m.sc}

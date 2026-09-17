@@ -101,6 +101,24 @@ export const causeLabel = (c: Cause): string => {
   return parts.join(' · ')
 }
 
+/** The measurements that explain a cause — what a tooltip quotes numbers for. */
+export type CauseVar = 'temp' | 'low' | 'dew' | 'cloud' | 'wind' | 'precip'
+/** Indexed by REASONS: which measurement a soft shortfall is about. */
+const SOFT_VAR: CauseVar[] = ['temp', 'temp', 'temp', 'low', 'low', 'dew', 'cloud', 'cloud', 'wind', 'precip']
+
+export function causeVars(c: Cause): CauseVar[] {
+  if (!(c & BREACH)) return SOFT_VAR[c] ? [SOFT_VAR[c]] : []
+  const v = new Set<CauseVar>()
+  if (c & (B.hot | B.cold | B.humidHeat | B.windChill)) v.add('temp')
+  if (c & (B.hotNight | B.coldNight)) v.add('low')
+  if (c & (B.humid | B.humidHeat)) v.add('dew')
+  // Wind explains a wind-chill breach as much as the temperature does.
+  if (c & (B.wind | B.windChill)) v.add('wind')
+  if (c & B.cloud) v.add('cloud')
+  if (c & B.wet) v.add('precip')
+  return [...v]
+}
+
 /** Soft shortfalls only ever explain tolerable days, deal-breakers only unbearable ones —
  *  so each cause belongs to exactly one band. */
 export type ReasonKind = 'soft' | 'deal'

@@ -498,7 +498,7 @@ export function ClimateDrift({ s, m, p, u }: { s: CitySeries; m: Model; p: Prefs
     if (m.b && p.temp) {
       const bs = score(s, p, base)
       if (bs) {
-        const bb = budget(bs)
+        const bb = budget(bs, s, p)
         const dc = m.b.counts[0] - bb.counts[0],
           du = m.b.counts[2] - bb.counts[2]
         out.push({

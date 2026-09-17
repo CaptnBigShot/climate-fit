@@ -1,7 +1,8 @@
-import { CO, REASON_FILL, REASON_TIP } from '../lib/colors'
+import { CO, REASON_FILL } from '../lib/colors'
 import { CUTOFF, windowLabel, type Prefs } from '../lib/prefs'
 import type { Model } from '../lib/model'
-import type { Budget } from '../lib/aggregate'
+import { reasonTip, type Budget } from '../lib/aggregate'
+import type { Units } from '../lib/units'
 import { Cap, Head, Spark } from './ui'
 import { useWidth } from '../hooks/useWidth'
 import { YTD_MIN_DAYS, YTD_YEAR, fetchedDay, isFreshSnapshot, ytdBudget, ytdOutdoor, type Ytd } from '../lib/current'
@@ -12,12 +13,14 @@ import type { Scored } from '../lib/scoring'
 export function Hero({
   m,
   p,
+  u,
   ytd,
   ytdSc,
   ytdError,
 }: {
   m: Model
   p: Prefs
+  u: Units
   ytd: Ytd | null
   ytdSc: Scored | null
   ytdError: string | null
@@ -90,7 +93,7 @@ export function Hero({
               </div>
               <div className="bars">
                 {b.reasons.map((r) => (
-                  <div className="row" key={r.label} data-tip={REASON_TIP[r.kind]}>
+                  <div className="row" key={`${r.kind}:${r.label}`} data-tip={reasonTip(r, p, u)}>
                     <span className="lab">{r.label}</span>
                     <span style={{ height: 8, width: Math.max(1, r.pct * 1.3), background: REASON_FILL[r.kind] }} />
                     <span className="pct">{r.pct}%</span>
@@ -116,7 +119,7 @@ export function Hero({
               <div className="prose">
                 {b.compromise ? (
                   <>
-                    Across the {Math.round(b.counts[1])} tolerable days you would mostly be putting up with{' '}
+                    Across the {Math.round(b.counts[1])} tolerable days the usual complaint is{' '}
                     <b>{b.compromise.label}</b> ({b.compromise.pct}% of them) — days inside every limit you set but
                     short of the {CUTOFF[p.strict]} cutoff.
                   </>

@@ -5,7 +5,8 @@ import { apparent, ramp, score, seasonWeights, causeKind, causeLabel, B, BAND, B
 
 /** REASONS index for the soft 'too warm' shortfall. */
 const R_WARM = 1
-import { budget, activities } from './aggregate'
+import { budget, activities, reasonTip } from './aggregate'
+import { units } from './units'
 import { AQI_LEVELS, AQ_FORMAT, aqStats, type AqSeries } from './aq'
 import {
   DEFAULT_PREFS,
@@ -97,14 +98,14 @@ describe('scoring real data', () => {
 
   it('splits all 365 days per year into three bands', () => {
     const sc = score(s, example, w)!
-    const b = budget(sc)
+    const b = budget(sc, s, example)
     expect(b.counts[0] + b.counts[1] + b.counts[2]).toBeCloseTo(365)
     expect(b.perYear).toHaveLength(10)
   })
 
   it('stricter cutoff never adds comfortable days; breaches are always unbearable', () => {
-    const lenient = budget(score(s, { ...example, strict: 'lenient' }, w)!)
-    const strict = budget(score(s, { ...example, strict: 'strict' }, w)!)
+    const lenient = budget(score(s, { ...example, strict: 'lenient' }, w)!, s, example)
+    const strict = budget(score(s, { ...example, strict: 'strict' }, w)!, s, example)
     expect(strict.counts[0]).toBeLessThanOrEqual(lenient.counts[0])
     const sc = score(s, example, w)!
     for (let i = 0; i < sc.band.length; i++) if (sc.breach[i]) expect(sc.band[i]).toBe(BAND.unb)
@@ -133,7 +134,7 @@ describe('scoring real data', () => {
     expect(causeKind(BREACH | B.wind)).toBe('deal')
     expect(causeKind(R_WARM)).toBe('soft')
     // Combinations rank as their own cause, so dry heat never absorbs humid heat.
-    const labels = budget(sc).reasons.map((r) => r.label)
+    const labels = budget(sc, s, p).reasons.map((r) => r.label)
     expect(labels).toContain('too hot & humid · deal-breaker')
   })
 
@@ -233,6 +234,28 @@ describe('scoring real data', () => {
     expect(faded).toBeGreaterThan(0)
   })
 
+  it('explains each shortfall row with the observed spread against the line the user drew', () => {
+    const u = units(false)
+    const b = budget(score(s, example, w)!, s, example)
+    for (const r of b.reasons) {
+      const tip = reasonTip(r, example, u)
+      // Band, a day count, and at least one measurement with real numbers in it.
+      expect(tip).toMatch(r.kind === 'deal' ? /^Unbearable · / : /^Tolerable · /)
+      expect(tip).toMatch(/\d+(\.\d)? days\/yr/)
+      expect(r.stats.length).toBeGreaterThan(0)
+      for (const st of r.stats) {
+        expect(st.min).toBeLessThanOrEqual(st.mean)
+        expect(st.mean).toBeLessThanOrEqual(st.max)
+        expect(Number.isFinite(st.mean)).toBe(true)
+      }
+      // Every row names the user's own limit, not just the observation.
+      expect(tip).toMatch(/your /)
+    }
+    // A combined cause quotes both measurements.
+    const combo = b.reasons.find((r) => r.stats.length > 1)
+    if (combo) expect(reasonTip(combo, example, u)).toMatch(/ · /)
+  })
+
   it('derives Tacoma warm season as the six warmest months (roughly May–Oct)', () => {
     const { warmMonths } = seasonWeights(s, w)
     expect(warmMonths.filter(Boolean)).toHaveLength(6)
@@ -244,7 +267,7 @@ describe('scoring real data', () => {
     const w30 = lookbackWindow(30)
     const t0 = performance.now()
     for (let k = 0; k < 10; k++) {
-      budget(score(s, example, w30)!)
+      budget(score(s, example, w30)!, s, example)
       activities(s, w30, example.acts, null)
     }
     expect((performance.now() - t0) / 10).toBeLessThan(40)

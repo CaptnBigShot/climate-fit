@@ -79,7 +79,7 @@ export interface CityRow {
 
 export function fitOf(s: CitySeries, p: Prefs): Fit | null {
   const sc = score(s, p, p.window)
-  return sc ? { sc, b: budget(sc) } : null
+  return sc ? { sc, b: budget(sc, s, p) } : null
 }
 
 export function outdoorOf(
@@ -138,7 +138,7 @@ export function buildModel(
 ): Model {
   const w = p.window
   const sc = score(s, p, w)
-  const b = sc ? budget(sc) : null
+  const b = sc ? budget(sc, s, p) : null
   const { warmMonths } = seasonWeights(s, w)
 
   const terrain = terrainAt(city, terrains, p.drive, w)
@@ -150,7 +150,7 @@ export function buildModel(
   if (b && p.temp) {
     const kept = b.counts[0] + b.counts[1]
     const gain = (patch: Partial<Prefs>) => {
-      const b2 = budget(score(s, { ...p, ...patch }, w)!)
+      const b2 = budget(score(s, { ...p, ...patch }, w)!, s, { ...p, ...patch })
       return Math.round(b2.counts[0] + b2.counts[1] - kept)
     }
     const t = p.temp
