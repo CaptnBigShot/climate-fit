@@ -377,7 +377,7 @@ export const MethodsPage = memo(function MethodsPage({
               ],
               [
                 'Hatched unbearable',
-                'Crossed a line drawn in the control bar: the temperature floor or ceiling, or the dew-point hard limit. Solid unbearable: a deal-breaker set in More controls',
+                'Crossed a line drawn in the control bar: the temperature floor or ceiling, or the dew-point hard limit. Solid unbearable: a deal-breaker set in More controls. A written-off day is labelled with every bound it crossed, so dry heat ("too hot") and humid heat ("too hot & humid") rank separately',
               ],
               [
                 'Open-ended bounds',

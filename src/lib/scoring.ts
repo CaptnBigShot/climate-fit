@@ -19,6 +19,7 @@ export const DRY_IDEAL = 0.02
 /** Days over which the cold- and warm-season bands blend at each season boundary. */
 export const SEASON_BLEND_DAYS = 31
 
+/** Soft shortfalls: the single worst weighted deficit on a day that stayed inside every bound. */
 export const REASONS = [
   '',
   'too warm',
@@ -30,13 +31,6 @@ export const REASONS = [
   'too cloudy',
   'wind',
   'precipitation',
-  'over your ceiling',
-  'under your floor',
-  'over dew-pt limit',
-  'overnight low past a bound',
-  'cloud deal-breaker',
-  'wind deal-breaker',
-  'precip deal-breaker',
 ] as const
 const R = {
   warm: 1,
@@ -48,19 +42,55 @@ const R = {
   cloudy: 7,
   wind: 8,
   wet: 9,
-  ceiling: 10,
-  floor: 11,
-  dewLimit: 12,
-  lowBound: 13,
-  cloudDeal: 14,
-  windDeal: 15,
-  wetDeal: 16,
+}
+
+/** Breach flags. A written-off day records every bound it crossed, not just the first —
+ *  90%+ of Miami's over-ceiling days are also over the dew limit while only 19% of
+ *  Phoenix's are, and collapsing both to "too hot" hides the distinction that matters. */
+export const B = {
+  hot: 1,
+  cold: 2,
+  humid: 4,
+  hotNight: 8,
+  coldNight: 16,
+  cloud: 32,
+  wind: 64,
+  wet: 128,
+} as const
+/** Lines drawn in the control bar (rendered hatched). */
+const HARD_BITS = B.hot | B.cold | B.humid | B.hotNight | B.coldNight
+/** Adjectives that share one "too"; order fixes how a combination reads. */
+const ADJECTIVES: [number, string][] = [
+  [B.hot, 'hot'],
+  [B.cold, 'cold'],
+  [B.humid, 'humid'],
+]
+const CLAUSES: [number, string][] = [
+  [B.hotNight, 'hot nights'],
+  [B.coldNight, 'cold nights'],
+  [B.cloud, 'cloud deal-breaker'],
+  [B.wind, 'wind deal-breaker'],
+  [B.wet, 'precip deal-breaker'],
+]
+
+/** A cause code: a soft-shortfall index into REASONS, or BREACH | a mask of B flags.
+ *  The tag keeps the two spaces from colliding when both are counted in one map. */
+export type Cause = number
+export const BREACH = 256
+
+export const causeLabel = (c: Cause): string => {
+  if (!(c & BREACH)) return REASONS[c] ?? ''
+  const adj = ADJECTIVES.filter(([b]) => c & b).map(([, l]) => l)
+  const parts = adj.length ? [`too ${adj.join(' & ')}`] : []
+  for (const [b, l] of CLAUSES) if (c & b) parts.push(l)
+  return parts.join(' · ')
 }
 
 /** Soft shortfalls only ever explain tolerable days; bounds (hatched) and deal-breakers
- *  (solid) only unbearable ones — so each reason belongs to exactly one band. */
+ *  (solid) only unbearable ones — so each cause belongs to exactly one band. A day that
+ *  crossed a bound *and* failed a deal-breaker reads as hatched, matching `hard`. */
 export type ReasonKind = 'soft' | 'hard' | 'deal'
-export const reasonKind = (r: number): ReasonKind => (r >= R.cloudDeal ? 'deal' : r >= R.ceiling ? 'hard' : 'soft')
+export const causeKind = (c: Cause): ReasonKind => (!(c & BREACH) ? 'soft' : c & HARD_BITS ? 'hard' : 'deal')
 
 export interface Scored {
   window: Window
@@ -71,7 +101,10 @@ export interface Scored {
   score: Float32Array
   /** 1 where the day crossed a line drawn in the control bar (rendered hatched). */
   hard: Uint8Array
+  /** Soft-shortfall reason, 0 on comfortable and on written-off days (see `breach`). */
   why: Uint8Array
+  /** Mask of every B flag the day tripped; 0 unless the day was written off. */
+  breach: Uint8Array
   /** Warm-season weight per day of year (0 = cold-season band, 1 = warm-season band). */
   warmW: Float32Array
 }
@@ -195,7 +228,8 @@ export function score(s: CitySeries, p: Prefs, w: Window, shift = 0, warmOverrid
   const band = new Uint8Array(N),
     sc = new Float32Array(N),
     hard = new Uint8Array(N),
-    why = new Uint8Array(N)
+    why = new Uint8Array(N),
+    breach = new Uint8Array(N)
   // A partial year can't define its own seasons; callers scoring one pass the window's.
   const warmW = warmOverride ?? seasonWeights(s, w).warmW
   const t = p.temp
@@ -215,8 +249,7 @@ export function score(s: CitySeries, p: Prefs, w: Window, shift = 0, warmOverrid
       doy = i % 365
     let wsum = 0,
       acc = 0,
-      breach = 0,
-      primary = 0,
+      mask = 0,
       worst = 0,
       worstDef = -1
     const take = (r: number, weight: number, reason: number) => {
@@ -234,53 +267,48 @@ export function score(s: CitySeries, p: Prefs, w: Window, shift = 0, warmOverrid
       const v = dayTemp(s, j, p, shift)
       const r = ramp(v, t.hardMin, iMin, iMax, t.hardMax, SOFT.temp)
       const low = p.basis === 'low'
-      if (r === OUT) {
-        breach = t.hardMax !== null && v > t.hardMax ? R.ceiling : R.floor
-        primary = 1
-      } else if (both) {
+      const over = (x: number) => t.hardMax !== null && x > t.hardMax
+      if (r === OUT) mask |= over(v) ? B.hot : B.cold
+      if (both) {
         const lo = s.low[j] + shift
         const rl = ramp(lo, t.hardMin, iMin, iMax, t.hardMax, SOFT.temp)
-        if (rl === OUT) {
-          breach = R.lowBound
-          primary = 1
-        } else {
+        if (rl === OUT) mask |= over(lo) ? B.hotNight : B.coldNight
+        else if (r !== OUT) {
           const rMin = Math.min(r, rl),
             lowWorse = rl < r
           take(rMin, wt.temp, lowWorse ? (lo > iMax ? R.warmNight : R.coldNight) : v > iMax ? R.warm : R.cold)
         }
-      } else take(r, wt.temp, low ? (v > iMax ? R.warmNight : R.coldNight) : v > iMax ? R.warm : R.cold)
+      } else if (r !== OUT) take(r, wt.temp, low ? (v > iMax ? R.warmNight : R.coldNight) : v > iMax ? R.warm : R.cold)
     }
-    if (!breach && p.dewMax !== null) {
+    if (p.dewMax !== null) {
       const r = ramp(s.dew[j] + shift, null, null, p.dewMax, p.dewMax + DEW_HARD_GAP, SOFT.dew)
-      if (r === OUT) {
-        breach = R.dewLimit
-        primary = 1
-      } else take(r, wt.dew, R.dew)
+      if (r === OUT) mask |= B.humid
+      else take(r, wt.dew, R.dew)
     }
-    if (!breach && p.cloud !== 'any') {
+    if (p.cloud !== 'any') {
       const deal = p.deal.cloud
       const hMin = cloudIdealMin !== null && deal ? cloudIdealMin - SOFT.cloud : null
       const hMax = cloudIdealMax !== null && deal ? cloudIdealMax + SOFT.cloud : null
       const r = ramp(s.cloud[j], hMin, cloudIdealMin, cloudIdealMax, hMax, SOFT.cloud)
-      if (r === OUT) breach = R.cloudDeal
+      if (r === OUT) mask |= B.cloud
       else take(r, wt.cloud, p.cloud === 'overcast' ? R.clear : R.cloudy)
     }
-    if (!breach && p.windMax !== null) {
+    if (p.windMax !== null) {
       const r = ramp(s.wind[j], null, null, p.windMax, p.deal.wind ? p.windMax + SOFT.wind : null, SOFT.wind)
-      if (r === OUT) breach = R.windDeal
+      if (r === OUT) mask |= B.wind
       else take(r, wt.wind, R.wind)
     }
-    if (!breach && p.dry) {
+    if (p.dry) {
       const r = ramp(s.precip[j], null, null, DRY_IDEAL, p.deal.precip ? DRY_IDEAL + SOFT.precip : null, SOFT.precip)
-      if (r === OUT) breach = R.wetDeal
+      if (r === OUT) mask |= B.wet
       else take(r, wt.precip, R.wet)
     }
 
-    if (breach) {
+    if (mask) {
       band[i] = BAND.unb
       sc[i] = 0
-      hard[i] = primary
-      why[i] = breach
+      hard[i] = mask & HARD_BITS ? 1 : 0
+      breach[i] = mask
     } else {
       const v = wsum ? (acc / wsum) * 100 : 100
       sc[i] = v
@@ -288,5 +316,5 @@ export function score(s: CitySeries, p: Prefs, w: Window, shift = 0, warmOverrid
       why[i] = band[i] === BAND.comf ? 0 : worst
     }
   }
-  return { window: w, years, off, band, score: sc, hard, why, warmW }
+  return { window: w, years, off, band, score: sc, hard, why, breach, warmW }
 }

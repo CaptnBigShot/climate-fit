@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { SERIES_KEYS, type CityFile, type CitySeries, type HourlyFile, type TerrainFile } from './data'
-import { apparent, ramp, score, seasonWeights, BAND } from './scoring'
+import { apparent, ramp, score, seasonWeights, causeKind, causeLabel, B, BAND, BREACH } from './scoring'
 import { budget, activities } from './aggregate'
 import { AQI_LEVELS, AQ_FORMAT, aqStats, type AqSeries } from './aq'
 import { DEFAULT_PREFS, EXAMPLE_STATE, PRESETS, decodePrefs, encodePrefs, lookbackWindow, type Prefs } from './prefs'
@@ -79,6 +79,27 @@ describe('scoring real data', () => {
     expect(strict.counts[0]).toBeLessThanOrEqual(lenient.counts[0])
     const sc = score(s, example, w)!
     for (let i = 0; i < sc.band.length; i++) if (sc.hard[i]) expect(sc.band[i]).toBe(BAND.unb)
+  })
+
+  it('records every bound a written-off day crossed, not just the first', () => {
+    // Forced so Tacoma's warm days trip the ceiling and the dew limit together.
+    const p: Prefs = { ...example, seasonal: false, temp: { ...example.temp!, hardMax: 65 }, dewMax: 40 }
+    const sc = score(s, p, w)!
+    let both = 0
+    for (let i = 0; i < sc.band.length; i++) {
+      expect(!!sc.breach[i]).toBe(sc.band[i] === BAND.unb)
+      // A breach and a soft shortfall are mutually exclusive: each day has one cause space.
+      if (sc.breach[i]) expect(sc.why[i]).toBe(0)
+      if (sc.breach[i] & B.hot && sc.breach[i] & B.humid) both++
+    }
+    expect(both).toBeGreaterThan(0)
+    expect(causeLabel(BREACH | B.hot | B.humid)).toBe('too hot & humid')
+    expect(causeLabel(BREACH | B.hot)).toBe('too hot')
+    expect(causeKind(BREACH | B.hot)).toBe('hard')
+    expect(causeKind(BREACH | B.wind)).toBe('deal')
+    // Combinations rank as their own cause, so dry heat never absorbs humid heat.
+    const labels = budget(sc).reasons.map((r) => r.label)
+    expect(labels).toContain('too hot & humid')
   })
 
   it('derives Tacoma warm season as the six warmest months (roughly May–Oct)', () => {

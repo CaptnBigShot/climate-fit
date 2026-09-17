@@ -3,7 +3,7 @@
 import type { CitySeries, TerrainSeries } from './data'
 import { MD, MONTH_START, doyMonth } from './calendar'
 import { ACTIVITIES, RIDE_DEPTH_IN, SEASON_RELIABILITY, type DayInputs, type LossReason } from './activities'
-import { BAND, REASONS, reasonKind, type ReasonKind, type Scored } from './scoring'
+import { BAND, BREACH, causeKind, causeLabel, type ReasonKind, type Scored } from './scoring'
 import { FIRST_YEAR, windowYears, type ActivityId, type Window } from './prefs'
 import { median, ols, type Fit } from './stats'
 
@@ -63,10 +63,12 @@ export function budget(sc: Scored): Budget {
           unb++
           unbStreak = Math.max(unbStreak, unb)
         }
-        const why = sc.why[i]
-        if (why) {
-          reasons.set(why, (reasons.get(why) ?? 0) + 1)
-          if (b === BAND.tol) compro.set(why, (compro.get(why) ?? 0) + 1)
+        // Written-off days count under the full set of bounds they crossed, so
+        // "too hot" and "too hot & humid" rank as the distinct climates they are.
+        const cause = sc.breach[i] ? BREACH | sc.breach[i] : sc.why[i]
+        if (cause) {
+          reasons.set(cause, (reasons.get(cause) ?? 0) + 1)
+          if (b === BAND.tol) compro.set(cause, (compro.get(cause) ?? 0) + 1)
         }
       }
     }
@@ -91,9 +93,9 @@ export function budget(sc: Scored): Budget {
     months,
     reasons: ranked
       .slice(0, 4)
-      .map(([r, n]) => ({ label: REASONS[r], pct: Math.round((n / nonComf) * 100), kind: reasonKind(r) })),
+      .map(([r, n]) => ({ label: causeLabel(r), pct: Math.round((n / nonComf) * 100), kind: causeKind(r) })),
     nonComf: nonComf * k,
-    compromise: cr && counts[1] ? { label: REASONS[cr[0]], pct: Math.round((cr[1] / counts[1]) * 100) } : null,
+    compromise: cr && counts[1] ? { label: causeLabel(cr[0]), pct: Math.round((cr[1] / counts[1]) * 100) } : null,
     bestStreak,
     unbStreak,
     worstGap,

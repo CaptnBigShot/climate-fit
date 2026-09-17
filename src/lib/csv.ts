@@ -1,7 +1,7 @@
 import type { CitySeries, CityMeta } from './data'
 import { MN, MONTH_START, doyMonth } from './calendar'
 import type { MonthRow } from './aggregate'
-import { score, REASONS } from './scoring'
+import { score, BREACH, causeLabel } from './scoring'
 import { FIRST_YEAR, windowLabel, windowYears, type Prefs } from './prefs'
 import type { Units } from './units'
 
@@ -101,7 +101,7 @@ export function downloadDailyCsv(city: CityMeta, s: CitySeries, p: Prefs, u: Uni
         s.sun[j].toFixed(1),
         sc ? ['comfortable', 'tolerable', 'unbearable'][sc.band[i]] : '',
         sc ? sc.score[i].toFixed(0) : '',
-        sc ? REASONS[sc.why[i]] : '',
+        sc ? causeLabel(sc.breach[i] ? BREACH | sc.breach[i] : sc.why[i]) : '',
       ].join(','),
     )
   }
