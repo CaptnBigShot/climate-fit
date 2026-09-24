@@ -11,8 +11,15 @@ export function Tooltip() {
 
   useEffect(() => {
     let current: Element | null = null
+    // A tap arrives as mouseover then mousedown, which would show the tip and hide it at once. On touch,
+    // a tap on explanatory text shows its tip until the next tap; a tap on a control just works the control.
+    let touch = false
+    const pointer = (e: PointerEvent) => {
+      touch = e.pointerType === 'touch'
+    }
     const over = (e: MouseEvent) => {
-      const el = (e.target as Element | null)?.closest?.('[data-tip]') ?? null
+      let el = (e.target as Element | null)?.closest?.('[data-tip]') ?? null
+      if (touch && el?.closest('button, a, input, select, label')) el = null
       if (el === current) return
       current = el
       // A control whose menu is open doesn't also need its tooltip covering the menu.
@@ -27,16 +34,23 @@ export function Tooltip() {
       setY(r.bottom + GAP)
     }
     const hide = () => {
+      if (touch) return
       current = null
       setTip(null)
     }
+    const scrolled = () => {
+      current = null
+      setTip(null)
+    }
+    document.addEventListener('pointerdown', pointer, true)
     document.addEventListener('mouseover', over, true)
     document.addEventListener('mousedown', hide, true)
-    window.addEventListener('scroll', hide, { passive: true })
+    window.addEventListener('scroll', scrolled, { passive: true })
     return () => {
+      document.removeEventListener('pointerdown', pointer, true)
       document.removeEventListener('mouseover', over, true)
       document.removeEventListener('mousedown', hide, true)
-      window.removeEventListener('scroll', hide)
+      window.removeEventListener('scroll', scrolled)
     }
   }, [])
 

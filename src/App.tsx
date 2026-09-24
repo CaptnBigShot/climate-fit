@@ -17,6 +17,8 @@ import { decodeSession, sessionSearch, toggleStar, type Session, type View } fro
 import { toggleCompare } from './lib/compare'
 import type { DiscoverQuery } from './lib/discover'
 import { ControlBar } from './components/ControlBar'
+import { MobileBar } from './components/MobileBar'
+import { useMobile } from './hooks/useMobile'
 import { CityView } from './components/CityView'
 import { Compare } from './components/Compare'
 import { Discover } from './components/Discover'
@@ -202,9 +204,12 @@ export default function App() {
     [fits],
   )
 
+  // Phones get their own bar: the same controls, in a sheet, with the screens in a bottom tab bar.
+  const Bar = useMobile() ? MobileBar : ControlBar
+
   return (
     <>
-      <ControlBar
+      <Bar
         prefs={p}
         set={set}
         reset={reset}

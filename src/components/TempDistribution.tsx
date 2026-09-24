@@ -112,13 +112,20 @@ export function TempDistribution({ s, p, u, ytd }: { s: CitySeries; p: Prefs; u:
     rx = x(rd + 0.5),
     ry = yv(rv)
   const recLabel = `${which === 'high' ? 'RECORD HIGH' : 'RECORD LOW'} ${u.t(rv)}${u.tu} · ${doyLabel(rd)}, ${p.window.from + Math.floor(ri / 365)}`
+  // Late in the year the label hangs left of the mark. On a narrow chart, when that side has no
+  // room, it takes the other side, or failing both is pinned inside the plot.
+  const recW = recLabel.length * 5.8 // 9.5px mono advance
+  const fitsRight = rx + 7 + recW <= W - PAD_R,
+    fitsLeft = rx - 7 - recW >= PAD_L
+  const leftward = fitsLeft && (rd > 250 || !fitsRight)
+  const recX = leftward ? rx - 7 : fitsRight ? rx + 7 : Math.max(PAD_L, W - PAD_R - recW)
   const recMark = (
     <g>
       <circle cx={rx} cy={ry} r={3.5} fill="none" stroke="#ffd18a" strokeWidth={1.2} />
       <text
-        x={rx + (rd > 250 ? -7 : 7)}
+        x={recX}
         y={ry + (which === 'high' ? -6 : 13)}
-        textAnchor={rd > 250 ? 'end' : 'start'}
+        textAnchor={leftward ? 'end' : 'start'}
         fill="#ffd18a"
         style={{ font: "500 9.5px 'JetBrains Mono', monospace" }}
       >

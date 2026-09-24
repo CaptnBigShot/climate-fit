@@ -25,6 +25,7 @@ import {
 import type { Units } from '../lib/units'
 import { DaysBar, Seg, SplitBar, StarButton } from './ui'
 import { CitySelect } from './CityPicker'
+import { useMobile } from '../hooks/useMobile'
 import { WorldMap } from './WorldMap'
 
 const FT = 3.28084
@@ -260,6 +261,8 @@ function RankTable({
   /** What an empty table says: still loading, or nothing in the star scope. */
   empty: string
 }) {
+  // On a phone the bar shortens and region and elevation are hidden, so the counts fit on screen.
+  const barW = useMobile() ? 96 : 200
   const comfort = R.mode === 'comfort'
   const star = (x: Ranked) => (
     <td className="l" style={{ padding: '0 0 0 4px' }}>
@@ -290,8 +293,8 @@ function RankTable({
             <th />
             <th className="l">#</th>
             <th className="l">CITY</th>
-            <th className="l">REGION</th>
-            <th>ELEV</th>
+            <th className="l reg">REGION</th>
+            <th className="elev">ELEV</th>
             <th className="l">BAND SPLIT · 365 D</th>
             <th>COMF</th>
             <th>TOL</th>
@@ -312,7 +315,7 @@ function RankTable({
             <th />
             <th className="l">#</th>
             <th className="l">CITY</th>
-            <th className="l">REGION</th>
+            <th className="l reg">REGION</th>
             <th className="l">WALK-VIABLE · 365 D</th>
             <th>WALK</th>
             <th>RUN</th>
@@ -336,12 +339,12 @@ function RankTable({
               {star(x)}
               {rk}
               <td className="l strong">{name(x)}</td>
-              <td className="l" style={{ color: 'var(--dim)' }}>
+              <td className="l reg" style={{ color: 'var(--dim)' }}>
                 {city.continent}
               </td>
-              <td>{u.elev(byId[city.id].s.demElevM * FT)}</td>
+              <td className="elev">{u.elev(byId[city.id].s.demElevM * FT)}</td>
               <td className="l">
-                <SplitBar b={b} width={200} />
+                <SplitBar b={b} width={barW} />
               </td>
               <td style={{ color: CO.comf }}>{Math.round(b.counts[0])}</td>
               <td style={{ color: CO.tol }}>{Math.round(b.counts[1])}</td>
@@ -370,11 +373,11 @@ function RankTable({
               {star(x)}
               {rk}
               <td className="l strong">{name(x)}</td>
-              <td className="l" style={{ color: 'var(--dim)' }}>
+              <td className="l reg" style={{ color: 'var(--dim)' }}>
                 {city.continent}
               </td>
               <td className="l">
-                <DaysBar days={act.per.walk.days} width={200} height={9} />
+                <DaysBar days={act.per.walk.days} width={barW} height={9} />
               </td>
               <td style={{ color: CO.act }}>{Math.round(act.per.walk.days)}</td>
               <td>{Math.round(act.per.run.days)}</td>
