@@ -34,7 +34,7 @@ import {
   yearAt,
   type DateSpan,
 } from '../lib/extras'
-import { windowLabel, type Prefs, type Window } from '../lib/prefs'
+import { hasPreference, windowLabel, type Prefs, type Window } from '../lib/prefs'
 import { idealFor, type Scored } from '../lib/scoring'
 import { signed, type Units } from '../lib/units'
 import { Head, Seg, Spark } from './ui'
@@ -341,7 +341,8 @@ const TARGETS = [50, 100, 150, 200]
 export function WhatWouldChangePanel({ s, p, u, b }: { s: CitySeries; p: Prefs; u: Units; b: Budget | null }) {
   const [target, setTarget] = useState(100)
   const dp = useDeferredValue(p) // several full re-scores; let the rest of the page update first while dragging
-  const scored = b !== null
+  // The deferred prefs trail `b` by a render: the first preference set arrives in `b` before `dp` has one to score.
+  const scored = b !== null && hasPreference(dp)
   const sens = useMemo(() => (scored ? sensitivity(s, dp, dp.window) : null), [s, dp, scored])
   const trend = useMemo(() => warmingTrend(s), [s])
   const [ref, width] = useWidth<HTMLDivElement>()
