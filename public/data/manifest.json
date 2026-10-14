@@ -1936,6 +1936,222 @@
    "seasonStdF": 16.75,
    "demElevM": 209,
    "gridElevM": 228
+  },
+  "bellevue": {
+   "solarIdx": 34,
+   "seasonsIdx": 42,
+   "meanRadMJ": 12.3,
+   "seasonStdF": 10.06,
+   "demElevM": 27,
+   "gridElevM": 64
+  },
+  "berkeley": {
+   "solarIdx": 76,
+   "seasonsIdx": 25,
+   "meanRadMJ": 18.53,
+   "seasonStdF": 6.12,
+   "demElevM": 56,
+   "gridElevM": 121
+  },
+  "golden": {
+   "solarIdx": 72,
+   "seasonsIdx": 67,
+   "meanRadMJ": 17.95,
+   "seasonStdF": 15.78,
+   "demElevM": 1733,
+   "gridElevM": 2122
+  },
+  "leavenworth": {
+   "solarIdx": 53,
+   "seasonsIdx": 64,
+   "meanRadMJ": 15.14,
+   "seasonStdF": 14.95,
+   "demElevM": 358,
+   "gridElevM": 932
+  },
+  "breckenridge": {
+   "solarIdx": 80,
+   "seasonsIdx": 63,
+   "meanRadMJ": 19.15,
+   "seasonStdF": 14.75,
+   "demElevM": 2968,
+   "gridElevM": 3409
+  },
+  "estes-park": {
+   "solarIdx": 75,
+   "seasonsIdx": 62,
+   "meanRadMJ": 18.34,
+   "seasonStdF": 14.51,
+   "demElevM": 2309,
+   "gridElevM": 2519
+  },
+  "san-bruno": {
+   "solarIdx": 73,
+   "seasonsIdx": 18,
+   "meanRadMJ": 18.09,
+   "seasonStdF": 4.46,
+   "demElevM": 6,
+   "gridElevM": 76
+  },
+  "silverthorne": {
+   "solarIdx": 79,
+   "seasonsIdx": 63,
+   "meanRadMJ": 19.01,
+   "seasonStdF": 14.89,
+   "demElevM": 2667,
+   "gridElevM": 3087
+  },
+  "santa-cruz": {
+   "solarIdx": 73,
+   "seasonsIdx": 22,
+   "meanRadMJ": 18.17,
+   "seasonStdF": 5.52,
+   "demElevM": 8,
+   "gridElevM": 0
+  },
+  "redwood-city": {
+   "solarIdx": 75,
+   "seasonsIdx": 27,
+   "meanRadMJ": 18.39,
+   "seasonStdF": 6.5,
+   "demElevM": 11,
+   "gridElevM": 94
+  },
+  "walnut-creek": {
+   "solarIdx": 77,
+   "seasonsIdx": 34,
+   "meanRadMJ": 18.67,
+   "seasonStdF": 8.14,
+   "demElevM": 58,
+   "gridElevM": 213
+  },
+  "mountain-view": {
+   "solarIdx": 77,
+   "seasonsIdx": 30,
+   "meanRadMJ": 18.72,
+   "seasonStdF": 7.28,
+   "demElevM": 37,
+   "gridElevM": 5
+  },
+  "port-townsend": {
+   "solarIdx": 36,
+   "seasonsIdx": 35,
+   "meanRadMJ": 12.57,
+   "seasonStdF": 8.44,
+   "demElevM": 41,
+   "gridElevM": 0
+  },
+  "crested-butte": {
+   "solarIdx": 81,
+   "seasonsIdx": 62,
+   "meanRadMJ": 19.25,
+   "seasonStdF": 14.59,
+   "demElevM": 2717,
+   "gridElevM": 2998
+  },
+  "telluride": {
+   "solarIdx": 82,
+   "seasonsIdx": 60,
+   "meanRadMJ": 19.43,
+   "seasonStdF": 14.05,
+   "demElevM": 2688,
+   "gridElevM": 3468
+  },
+  "vail": {
+   "solarIdx": 77,
+   "seasonsIdx": 66,
+   "meanRadMJ": 18.75,
+   "seasonStdF": 15.36,
+   "demElevM": 2493,
+   "gridElevM": 3155
+  },
+  "aspen": {
+   "solarIdx": 77,
+   "seasonsIdx": 65,
+   "meanRadMJ": 18.73,
+   "seasonStdF": 15.24,
+   "demElevM": 2404,
+   "gridElevM": 2866
+  },
+  "olympia": {
+   "solarIdx": 36,
+   "seasonsIdx": 42,
+   "meanRadMJ": 12.55,
+   "seasonStdF": 9.9,
+   "demElevM": 6,
+   "gridElevM": 53
+  },
+  "south-lake-tahoe": {
+   "solarIdx": 85,
+   "seasonsIdx": 59,
+   "meanRadMJ": 19.9,
+   "seasonStdF": 13.93,
+   "demElevM": 1901,
+   "gridElevM": 0
+  },
+  "truckee": {
+   "solarIdx": 81,
+   "seasonsIdx": 58,
+   "meanRadMJ": 19.29,
+   "seasonStdF": 13.65,
+   "demElevM": 1774,
+   "gridElevM": 1989
+  },
+  "steamboat-springs": {
+   "solarIdx": 72,
+   "seasonsIdx": 72,
+   "meanRadMJ": 17.98,
+   "seasonStdF": 16.82,
+   "demElevM": 2053,
+   "gridElevM": 2213
+  },
+  "mammoth-lakes": {
+   "solarIdx": 90,
+   "seasonsIdx": 59,
+   "meanRadMJ": 20.63,
+   "seasonStdF": 13.8,
+   "demElevM": 2408,
+   "gridElevM": 2482
+  },
+  "ellensburg": {
+   "solarIdx": 56,
+   "seasonsIdx": 66,
+   "meanRadMJ": 15.61,
+   "seasonStdF": 15.37,
+   "demElevM": 470,
+   "gridElevM": 428
+  },
+  "durango": {
+   "solarIdx": 83,
+   "seasonsIdx": 70,
+   "meanRadMJ": 19.58,
+   "seasonStdF": 16.38,
+   "demElevM": 1992,
+   "gridElevM": 2306
+  },
+  "wenatchee": {
+   "solarIdx": 55,
+   "seasonsIdx": 69,
+   "meanRadMJ": 15.38,
+   "seasonStdF": 16.19,
+   "demElevM": 206,
+   "gridElevM": 496
+  },
+  "arcata": {
+   "solarIdx": 61,
+   "seasonsIdx": 20,
+   "meanRadMJ": 16.35,
+   "seasonStdF": 4.98,
+   "demElevM": 7,
+   "gridElevM": 63
+  },
+  "san-luis-obispo": {
+   "solarIdx": 82,
+   "seasonsIdx": 24,
+   "meanRadMJ": 19.44,
+   "seasonStdF": 5.98,
+   "demElevM": 75,
+   "gridElevM": 187
   }
  },
  "terrain": [
@@ -2121,7 +2337,17 @@
   "red-lodge-mountain",
   "antelope-butte",
   "mount-ashland",
-  "marquette-mountain"
+  "marquette-mountain",
+  "hurricane-ridge",
+  "crested-butte-mountain",
+  "monarch-mountain",
+  "telluride",
+  "aspen-snowmass",
+  "ski-cooper",
+  "mammoth-mountain",
+  "steamboat",
+  "purgatory",
+  "wolf-creek"
  ],
  "hourly": [
   "tacoma",
@@ -2365,6 +2591,33 @@
   "oakland",
   "san-mateo",
   "palo-alto",
-  "marquette"
+  "marquette",
+  "bellevue",
+  "berkeley",
+  "golden",
+  "leavenworth",
+  "breckenridge",
+  "estes-park",
+  "san-bruno",
+  "silverthorne",
+  "santa-cruz",
+  "redwood-city",
+  "walnut-creek",
+  "mountain-view",
+  "port-townsend",
+  "crested-butte",
+  "telluride",
+  "vail",
+  "aspen",
+  "olympia",
+  "south-lake-tahoe",
+  "truckee",
+  "steamboat-springs",
+  "mammoth-lakes",
+  "ellensburg",
+  "durango",
+  "wenatchee",
+  "arcata",
+  "san-luis-obispo"
  ]
 }

@@ -183,7 +183,17 @@
     "red-lodge-mountain": { "name": "Red Lodge Mountain", "lat": 45.1897, "lon": -109.3533, "elevFt": 8200 },
     "antelope-butte": { "name": "Antelope Butte", "lat": 44.6068, "lon": -107.5162, "elevFt": 8900 },
     "mount-ashland": { "name": "Mount Ashland", "lat": 42.0843, "lon": -122.7112, "elevFt": 6900 },
-    "marquette-mountain": { "name": "Marquette Mountain", "lat": 46.5053, "lon": -87.4191, "elevFt": 1000 }
+    "marquette-mountain": { "name": "Marquette Mountain", "lat": 46.5053, "lon": -87.4191, "elevFt": 1000 },
+    "hurricane-ridge": { "name": "Hurricane Ridge", "lat": 47.9723, "lon": -123.4943, "elevFt": 5200 },
+    "crested-butte-mountain": { "name": "Crested Butte Mountain Resort", "lat": 38.8988, "lon": -106.9436, "elevFt": 10300 },
+    "monarch-mountain": { "name": "Monarch Mountain", "lat": 38.5122, "lon": -106.3427, "elevFt": 11200 },
+    "telluride": { "name": "Telluride Ski Area", "lat": 37.9212, "lon": -107.8468, "elevFt": 10600 },
+    "aspen-snowmass": { "name": "Aspen Snowmass", "lat": 39.1864, "lon": -106.9502, "elevFt": 10300 },
+    "ski-cooper": { "name": "Ski Cooper", "lat": 39.3544, "lon": -106.2888, "elevFt": 11200 },
+    "mammoth-mountain": { "name": "Mammoth Mountain", "lat": 37.6402, "lon": -119.0205, "elevFt": 9500 },
+    "steamboat": { "name": "Steamboat Ski Resort", "lat": 40.4539, "lon": -106.7752, "elevFt": 8700 },
+    "purgatory": { "name": "Purgatory Resort", "lat": 37.6233, "lon": -107.8357, "elevFt": 9800 },
+    "wolf-creek": { "name": "Wolf Creek Ski Area", "lat": 37.4643, "lon": -106.7872, "elevFt": 11000 }
   },
   "cities": [
     {
@@ -1395,6 +1405,141 @@
       "id": "marquette", "name": "Marquette", "code": "MI", "region": "Michigan · United States",
       "lat": 46.5435, "lon": -87.3954, "pop": 21297, "coastal": false, "continent": "North America",
       "terrain": [["marquette-mountain", 5]]
+    },
+    {
+      "id": "bellevue", "name": "Bellevue", "code": "WA", "region": "Washington · United States",
+      "lat": 47.6104, "lon": -122.2007, "pop": 139820, "coastal": true, "continent": "North America",
+      "terrain": [["alpental", 50], ["crystal", 100]]
+    },
+    {
+      "id": "berkeley", "name": "Berkeley", "code": "CA", "region": "California · United States",
+      "lat": 37.8716, "lon": -122.2728, "pop": 120972, "coastal": true, "continent": "North America",
+      "terrain": [["sugar-bowl", 175]]
+    },
+    {
+      "id": "golden", "name": "Golden", "code": "CO", "region": "Colorado · United States",
+      "lat": 39.7555, "lon": -105.2211, "pop": 20330, "coastal": false, "continent": "North America",
+      "terrain": [["loveland", 55]]
+    },
+    {
+      "id": "leavenworth", "name": "Leavenworth", "code": "WA", "region": "Washington · United States",
+      "lat": 47.5962, "lon": -120.6615, "pop": 2002, "coastal": false, "continent": "North America",
+      "terrain": [["mission-ridge", 55]]
+    },
+    {
+      "id": "breckenridge", "name": "Breckenridge", "code": "CO", "region": "Colorado · United States",
+      "lat": 39.4817, "lon": -106.0383, "pop": 4896, "coastal": false, "continent": "North America",
+      "terrain": [["loveland", 35]]
+    },
+    {
+      "id": "estes-park", "name": "Estes Park", "code": "CO", "region": "Colorado · United States",
+      "lat": 40.3772, "lon": -105.5217, "pop": 6257, "coastal": false, "continent": "North America",
+      "terrain": [["eldora", 75], ["loveland", 130]]
+    },
+    {
+      "id": "san-bruno", "name": "San Bruno", "code": "CA", "region": "California · United States",
+      "lat": 37.6305, "lon": -122.4111, "pop": 43185, "coastal": true, "continent": "North America",
+      "terrain": []
+    },
+    {
+      "id": "silverthorne", "name": "Silverthorne", "code": "CO", "region": "Colorado · United States",
+      "lat": 39.6321, "lon": -106.0743, "pop": 4418, "coastal": false, "continent": "North America",
+      "terrain": [["loveland", 15]]
+    },
+    {
+      "id": "santa-cruz", "name": "Santa Cruz", "code": "CA", "region": "California · United States",
+      "lat": 36.9741, "lon": -122.0308, "pop": 64220, "coastal": true, "continent": "North America",
+      "terrain": []
+    },
+    {
+      "id": "redwood-city", "name": "Redwood City", "code": "CA", "region": "California · United States",
+      "lat": 37.4852, "lon": -122.2364, "pop": 85288, "coastal": true, "continent": "North America",
+      "terrain": []
+    },
+    {
+      "id": "walnut-creek", "name": "Walnut Creek", "code": "CA", "region": "California · United States",
+      "lat": 37.9063, "lon": -122.065, "pop": 68910, "coastal": true, "continent": "North America",
+      "terrain": [["sugar-bowl", 170]]
+    },
+    {
+      "id": "mountain-view", "name": "Mountain View", "code": "CA", "region": "California · United States",
+      "lat": 37.386, "lon": -122.0838, "pop": 80435, "coastal": true, "continent": "North America",
+      "terrain": []
+    },
+    {
+      "id": "port-townsend", "name": "Port Townsend", "code": "WA", "region": "Washington · United States",
+      "lat": 48.1174, "lon": -122.7607, "pop": 9335, "coastal": true, "continent": "North America",
+      "terrain": [["hurricane-ridge", 100]]
+    },
+    {
+      "id": "crested-butte", "name": "Crested Butte", "code": "CO", "region": "Colorado · United States",
+      "lat": 38.8697, "lon": -106.9878, "pop": 1579, "coastal": false, "continent": "North America",
+      "terrain": [["crested-butte-mountain", 5], ["monarch-mountain", 85]]
+    },
+    {
+      "id": "telluride", "name": "Telluride", "code": "CO", "region": "Colorado · United States",
+      "lat": 37.9375, "lon": -107.8123, "pop": 2399, "coastal": false, "continent": "North America",
+      "terrain": [["telluride", 5]]
+    },
+    {
+      "id": "vail", "name": "Vail", "code": "CO", "region": "Colorado · United States",
+      "lat": 39.6403, "lon": -106.3742, "pop": 5461, "coastal": false, "continent": "North America",
+      "terrain": [["loveland", 45]]
+    },
+    {
+      "id": "aspen", "name": "Aspen", "code": "CO", "region": "Colorado · United States",
+      "lat": 39.1911, "lon": -106.8175, "pop": 6882, "coastal": false, "continent": "North America",
+      "terrain": [["aspen-snowmass", 15], ["ski-cooper", 115], ["loveland", 155]]
+    },
+    {
+      "id": "olympia", "name": "Olympia", "code": "WA", "region": "Washington · United States",
+      "lat": 47.0449, "lon": -122.9017, "pop": 55733, "coastal": true, "continent": "North America",
+      "terrain": [["crystal", 115]]
+    },
+    {
+      "id": "south-lake-tahoe", "name": "South Lake Tahoe", "code": "CA", "region": "California · United States",
+      "lat": 38.9332, "lon": -119.9844, "pop": 21706, "coastal": false, "continent": "North America",
+      "terrain": [["mount-rose-ski", 55], ["mammoth-mountain", 170]]
+    },
+    {
+      "id": "truckee", "name": "Truckee", "code": "CA", "region": "California · United States",
+      "lat": 39.328, "lon": -120.1833, "pop": 16299, "coastal": false, "continent": "North America",
+      "terrain": [["mount-rose-ski", 40]]
+    },
+    {
+      "id": "steamboat-springs", "name": "Steamboat Springs", "code": "CO", "region": "Colorado · United States",
+      "lat": 40.485, "lon": -106.8317, "pop": 12435, "coastal": false, "continent": "North America",
+      "terrain": [["steamboat", 5], ["loveland", 120]]
+    },
+    {
+      "id": "mammoth-lakes", "name": "Mammoth Lakes", "code": "CA", "region": "California · United States",
+      "lat": 37.6486, "lon": -118.9721, "pop": 7946, "coastal": false, "continent": "North America",
+      "terrain": [["mammoth-mountain", 5]]
+    },
+    {
+      "id": "ellensburg", "name": "Ellensburg", "code": "WA", "region": "Washington · United States",
+      "lat": 46.9965, "lon": -120.5478, "pop": 19001, "coastal": false, "continent": "North America",
+      "terrain": [["alpental", 55], ["mission-ridge", 105]]
+    },
+    {
+      "id": "durango", "name": "Durango", "code": "CO", "region": "Colorado · United States",
+      "lat": 37.2753, "lon": -107.8801, "pop": 18006, "coastal": false, "continent": "North America",
+      "terrain": [["purgatory", 30], ["wolf-creek", 100]]
+    },
+    {
+      "id": "wenatchee", "name": "Wenatchee", "code": "WA", "region": "Washington · United States",
+      "lat": 47.4235, "lon": -120.3103, "pop": 33636, "coastal": false, "continent": "North America",
+      "terrain": [["mission-ridge", 25]]
+    },
+    {
+      "id": "arcata", "name": "Arcata", "code": "CA", "region": "California · United States",
+      "lat": 40.8665, "lon": -124.0828, "pop": 17843, "coastal": true, "continent": "North America",
+      "terrain": []
+    },
+    {
+      "id": "san-luis-obispo", "name": "San Luis Obispo", "code": "CA", "region": "California · United States",
+      "lat": 35.2828, "lon": -120.6596, "pop": 47339, "coastal": true, "continent": "North America",
+      "terrain": []
     }
   ]
 }

@@ -202,15 +202,19 @@ async function jsonCache(name) {
 
 // ---------- GeoNames ----------
 
-const geo = join(CACHE, 'cities15000.txt')
-if (!(await exists(geo))) {
-  execFileSync('unzip', [
-    '-o',
-    '-q',
-    await download('cities15000.zip', 'https://download.geonames.org/export/dump/cities15000.zip'),
-    '-d',
-    CACHE,
-  ])
+/** cities15000 for candidates; cities1000 only to resolve named includes too small for it (Aspen, Vail). */
+async function geonames(name) {
+  const file = join(CACHE, `${name}.txt`)
+  if (!(await exists(file))) {
+    execFileSync('unzip', [
+      '-o',
+      '-q',
+      await download(`${name}.zip`, `https://download.geonames.org/export/dump/${name}.zip`),
+      '-d',
+      CACHE,
+    ])
+  }
+  return file
 }
 const countries = new Map(
   (await tsv(await download('countryInfo.txt', 'https://download.geonames.org/export/dump/countryInfo.txt'))).map(
@@ -223,21 +227,23 @@ const admin1 = new Map(
   ).map((r) => [r[0], r[1]]),
 )
 
-const places = (await tsv(geo))
-  .filter((r) => PLACE_CODES.has(r[7]) && !(r[8] in config.skipCountries))
-  .map((r) => ({
-    gid: r[0],
-    name: r[1],
-    ascii: r[2],
-    alt: r[3],
-    lat: Number(r[4]),
-    lon: Number(r[5]),
-    fcode: r[7],
-    cc: r[8],
-    admin1: r[10],
-    admin2: r[11],
-    pop: Number(r[14]),
-  }))
+const readPlaces = async (name) =>
+  (await tsv(await geonames(name)))
+    .filter((r) => PLACE_CODES.has(r[7]) && !(r[8] in config.skipCountries))
+    .map((r) => ({
+      gid: r[0],
+      name: r[1],
+      ascii: r[2],
+      alt: r[3],
+      lat: Number(r[4]),
+      lon: Number(r[5]),
+      fcode: r[7],
+      cc: r[8],
+      admin1: r[10],
+      admin2: r[11],
+      pop: Number(r[14]),
+    }))
+const places = await readPlaces('cities15000')
 
 /** How the catalogue labels a place: US states and Canadian provinces by postal code, everything else by country. */
 function label(p) {
@@ -262,10 +268,10 @@ const fold = (s) =>
     .toLowerCase()
 /** "Name", "Name, ST" (US state / Canadian province) or "Name, CC" (country) → the largest match,
  *  or null. GeoNames' alternate names ("Cologne" for Köln) are the fallback. */
-function resolve(text) {
+function resolve(text, among = places) {
   const [name, where] = text.split(',').map((s) => s.trim())
   const want = fold(name)
-  const here = places.filter((p) => !where || where.toUpperCase() === p.cc || where.toUpperCase() === label(p).code)
+  const here = among.filter((p) => !where || where.toUpperCase() === p.cc || where.toUpperCase() === label(p).code)
   const largest = (hits) => (hits.length ? hits.reduce((a, b) => (b.pop > a.pop ? b : a)) : null)
   return (
     largest(here.filter((p) => fold(p.name) === want || fold(p.ascii) === want)) ??
@@ -279,8 +285,13 @@ const namedInCatalog = (p) =>
   catalog.cities.some((c) => km(p, c) < SAME_CITY_KM && [p.name, p.ascii].some((n) => fold(n) === fold(c.name)))
 const includes = [],
   why = new Map()
+let small
 for (const [text, reason] of config.include) {
-  const p = resolve(text)
+  let p = resolve(text)
+  if (!p) {
+    small ??= await readPlaces('cities1000')
+    p = resolve(text, small)
+  }
   if (!p) throw new Error(`catalog.config include "${text}": no GeoNames town or city by that name`)
   if (namedInCatalog(p)) console.log(`  include "${text}": already in the catalogue`)
   else if (!includes.includes(p)) {
