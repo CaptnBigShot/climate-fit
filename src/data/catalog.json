@@ -193,7 +193,8 @@
     "mammoth-mountain": { "name": "Mammoth Mountain", "lat": 37.6402, "lon": -119.0205, "elevFt": 9500 },
     "steamboat": { "name": "Steamboat Ski Resort", "lat": 40.4539, "lon": -106.7752, "elevFt": 8700 },
     "purgatory": { "name": "Purgatory Resort", "lat": 37.6233, "lon": -107.8357, "elevFt": 9800 },
-    "wolf-creek": { "name": "Wolf Creek Ski Area", "lat": 37.4643, "lon": -106.7872, "elevFt": 11000 }
+    "wolf-creek": { "name": "Wolf Creek Ski Area", "lat": 37.4643, "lon": -106.7872, "elevFt": 11000 },
+    "loup-loup-ski": { "name": "Loup Loup Ski Bowl", "lat": 48.3919, "lon": -119.9183, "elevFt": 4700 }
   },
   "cities": [
     {
@@ -1540,6 +1541,11 @@
       "id": "san-luis-obispo", "name": "San Luis Obispo", "code": "CA", "region": "California · United States",
       "lat": 35.2828, "lon": -120.6596, "pop": 47339, "coastal": true, "continent": "North America",
       "terrain": []
+    },
+    {
+      "id": "winthrop", "name": "Winthrop", "code": "WA", "region": "Washington · United States",
+      "lat": 48.4779, "lon": -120.1862, "pop": 420, "coastal": false, "continent": "North America",
+      "terrain": [["loup-loup-ski", 30], ["mission-ridge", 150]]
     }
   ]
 }

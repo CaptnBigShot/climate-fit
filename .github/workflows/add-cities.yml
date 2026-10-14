@@ -1,0 +1,135 @@
+name: Add cities
+
+# Adds places to the set: scripts/add-cities.mjs drafts their catalogue entries and fetches
+# their data, this commits the result to main and redeploys the site. Start it from an issue
+# (the "Add cities" form, or the app's "Add … to the set" link, which opens it), or run it by
+# hand from the Actions tab or `gh workflow run add-cities -f cities="Aspen, CO; Winthrop, WA"`.
+# Editing the issue's list runs it again, so a typo is fixed in place.
+
+on:
+  workflow_dispatch:
+    inputs:
+      cities:
+        description: 'Places, separated by semicolons: "Aspen, CO; Winthrop, WA; Kyoto, Japan"'
+        required: true
+  issues:
+    types: [opened, edited, reopened]
+
+concurrency:
+  group: add-cities
+  cancel-in-progress: false
+
+jobs:
+  add:
+    # Issues only from the repo owner, only from the form (its label, or its heading if the
+    # label didn't stick), and an edit only when the list itself changed.
+    if: >-
+      github.event_name == 'workflow_dispatch' || (
+        github.event.issue.author_association == 'OWNER' &&
+        github.event.issue.state == 'open' &&
+        (contains(github.event.issue.labels.*.name, 'add-cities') ||
+         contains(github.event.issue.body, '### Places to add')) &&
+        (github.event.action != 'edited' || github.event.changes.body != null))
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: write
+    outputs:
+      sha: ${{ steps.commit.outputs.sha }}
+      summary: ${{ steps.commit.outputs.summary }}
+      problems: ${{ steps.commit.outputs.problems }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # GeoNames, CRU, OpenSkiMap, census and EPA downloads (~700 MB) and the OSRM route cache.
+      # Each run saves a new copy and the next restores the latest.
+      - uses: actions/cache/restore@v4
+        with:
+          path: .cache
+          key: pipeline-${{ github.run_id }}
+          restore-keys: pipeline-
+      - name: Add cities
+        env:
+          CITIES: ${{ github.event_name == 'workflow_dispatch' && inputs.cities || github.event.issue.body }}
+        run: npm run add-cities -- "$CITIES"
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: .cache
+          key: pipeline-${{ github.run_id }}
+      - name: Commit and push
+        id: commit
+        if: always()
+        env:
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          {
+            echo 'summary<<SUMMARY_END'
+            cat .cache/add-cities.md 2>/dev/null || true
+            echo 'SUMMARY_END'
+            echo "problems=$(node -p "require('./.cache/add-cities.json').problems" 2>/dev/null || echo 1)"
+          } >> "$GITHUB_OUTPUT"
+          git add -A public/data src/data
+          if git diff --cached --quiet; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898283+github-actions[bot]@users.noreply.github.com'
+          names=$(node -p "require('./.cache/add-cities.json').names.join('; ')" 2>/dev/null || echo 'cities')
+          git commit -q -m "Add $names${ISSUE:+ (#$ISSUE)}"
+          git pull -q --rebase origin main
+          git push -q origin HEAD:main
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  # A push made with the workflow token doesn't start other workflows, so deploy is called here.
+  deploy:
+    needs: add
+    if: always() && needs.add.outputs.sha != ''
+    uses: ./.github/workflows/deploy.yml
+    with:
+      ref: ${{ needs.add.outputs.sha }}
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+  reply:
+    needs: [add, deploy]
+    if: always() && github.event_name == 'issues' && needs.add.result != 'skipped'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      ISSUE: ${{ github.event.issue.number }}
+      SUMMARY: ${{ needs.add.outputs.summary }}
+      PROBLEMS: ${{ needs.add.outputs.problems }}
+      SHA: ${{ needs.add.outputs.sha }}
+      ADD_RESULT: ${{ needs.add.result }}
+      DEPLOY_RESULT: ${{ needs.deploy.result }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      SITE: https://captnbigshot.github.io/climate-fit/
+    steps:
+      - run: |
+          {
+            printf '%s\n\n' "$SUMMARY"
+            if [ "$ADD_RESULT" != success ]; then
+              echo "⚠️ Something failed partway — [see the run]($RUN_URL)."
+              if [ -n "$SHA" ]; then echo "What finished was committed in $SHA."; fi
+            elif [ -z "$SHA" ]; then
+              echo "Nothing new to add."
+            elif [ "$DEPLOY_RESULT" = success ]; then
+              echo "Committed in $SHA and live at $SITE."
+            else
+              echo "Committed in $SHA, but the deploy didn't finish — [see the run]($RUN_URL)."
+            fi
+            if [ "$PROBLEMS" != 0 ]; then printf '\nEdit the list above to try the others again.\n'; fi
+          } > reply.md
+          gh issue comment "$ISSUE" --body-file reply.md
+          gh label create add-cities --color 0e8a16 --description 'Handled by the Add cities workflow' 2>/dev/null || true
+          if [ "$ADD_RESULT" = success ] && [ "$PROBLEMS" = 0 ] && [ "$DEPLOY_RESULT" != failure ]; then
+            gh issue close "$ISSUE" --reason completed
+          fi

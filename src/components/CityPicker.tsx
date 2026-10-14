@@ -8,6 +8,11 @@ import { useDismiss } from '../hooks/useDismiss'
 
 const country = (c: CityMeta) => c.region.split(' · ').pop()
 
+/** The repo's "Add cities" issue form, with the search filled in. Submitting it starts the
+ *  add-cities workflow, which fetches the place's data and redeploys (.github/workflows). */
+const addCityUrl = (query: string) =>
+  `https://github.com/CaptnBigShot/climate-fit/issues/new?template=add-cities.yml&places=${encodeURIComponent(query)}`
+
 export function CityList({
   onPick,
   current,
@@ -101,6 +106,16 @@ export function CityList({
         ))}
       </div>
       {!matches.length && <div className="city-none">No city matches “{query.trim()}”.</div>}
+      {query.trim().length >= 3 && (
+        <a
+          className={`city-add${matches.length ? '' : ' lead'}`}
+          href={addCityUrl(query.trim())}
+          target="_blank"
+          rel="noreferrer"
+        >
+          + Add “{query.trim()}” to the set
+        </a>
+      )}
     </div>
   )
 }

@@ -1,0 +1,19 @@
+name: Add cities
+description: Add places to Climate Fit. A workflow fetches their data, commits it and redeploys the site — usually within 10 minutes.
+title: Add cities
+labels: [add-cities]
+body:
+  - type: textarea
+    id: places
+    attributes:
+      label: Places to add
+      description: >-
+        One per line, as "Place, ST" (US state or Canadian province) or "Place, Country". Without the state the
+        biggest place of that name wins. The workflow replies here; if a name isn't found it suggests close
+        spellings — edit this list to try again.
+      placeholder: |
+        Aspen, CO
+        Winthrop, WA
+        Kyoto, Japan
+    validations:
+      required: true

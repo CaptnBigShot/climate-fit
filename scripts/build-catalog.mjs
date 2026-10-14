@@ -16,6 +16,8 @@
 //   npm run catalog -- --dry-run    print the choice and ranking only (no routing, no queue)
 //   npm run catalog -- --count 150  a different number of cities
 //   npm run catalog -- --check      the rules against the hand-set seed catalogue
+//   npm run catalog -- --add "Aspen, CO" --add "Winthrop, WA"
+//                                   queue just these places (scripts/add-cities.mjs wraps it)
 import { execFileSync } from 'node:child_process'
 import { createReadStream } from 'node:fs'
 import { mkdir, readFile, writeFile, access } from 'node:fs/promises'
@@ -137,18 +139,33 @@ const { values: opts } = parseArgs({
     force: { type: 'boolean' },
     check: { type: 'boolean' },
     'dry-run': { type: 'boolean' },
+    add: { type: 'string', multiple: true },
   },
 })
+/** --add: queue only these places, with no ranking against the rest of the world. Each value
+ *  may hold several, one per line or separated by semicolons; list bullets are ignored. */
+const adding = (opts.add ?? [])
+  .flatMap((v) => v.split(/[;\n]/))
+  .map((s) => s.replace(/^\s*[-*•]\s*/, '').trim())
+  .filter(Boolean)
+const ADD = opts.add !== undefined
+/** What --add did with each name, for scripts/add-cities.mjs. */
+export const ADDED_FILE = join(CACHE, 'added.json')
 const { minPop, floors, shares, countryCap, caps, perCountry, maxMuggy, minFit, weights } = config
 const floorOf = (p) => floors[p.cc] ?? minPop
 /** The countries given their own floor are the focus and aren't capped. */
 const capOf = (cc) => caps[cc] ?? (cc in floors ? Infinity : countryCap)
 
 const catalog = await readCatalog()
-const count = opts.count ? Number(opts.count) : SET_SIZE - catalog.cities.length
+let count = opts.count ? Number(opts.count) : SET_SIZE - catalog.cities.length
 if (!opts.check && !opts['dry-run'] && !opts.force && (await readQueue())?.cities.length) {
-  throw new Error(`${QUEUE_FILE} already has cities waiting — pass --force to replace it (edits there are lost)`)
+  throw new Error(
+    ADD
+      ? `${QUEUE_FILE} already has cities waiting — run npm run fetch-data to finish them first`
+      : `${QUEUE_FILE} already has cities waiting — pass --force to replace it (edits there are lost)`,
+  )
 }
+if (ADD && !adding.length) throw new Error('--add needs at least one place, like --add "Aspen, CO"')
 await mkdir(CACHE, { recursive: true })
 
 // ---------- helpers ----------
@@ -202,7 +219,8 @@ async function jsonCache(name) {
 
 // ---------- GeoNames ----------
 
-/** cities15000 for candidates; cities1000 only to resolve named includes too small for it (Aspen, Vail). */
+/** cities15000 for candidates. Named places too small for it resolve from cities500 (Aspen),
+ *  then from the whole country's file (Winthrop, WA: 400 people). */
 async function geonames(name) {
   const file = join(CACHE, `${name}.txt`)
   if (!(await exists(file))) {
@@ -227,10 +245,14 @@ const admin1 = new Map(
   ).map((r) => [r[0], r[1]]),
 )
 
-const readPlaces = async (name) =>
-  (await tsv(await geonames(name)))
-    .filter((r) => PLACE_CODES.has(r[7]) && !(r[8] in config.skipCountries))
-    .map((r) => ({
+/** Towns and cities from a GeoNames dump, streamed: a country file runs to hundreds of MB. */
+async function readPlaces(name) {
+  const out = []
+  for await (const line of createInterface({ input: createReadStream(await geonames(name)), crlfDelay: Infinity })) {
+    if (!line || line.startsWith('#')) continue
+    const r = line.split('\t')
+    if (!PLACE_CODES.has(r[7]) || r[8] in config.skipCountries) continue
+    out.push({
       gid: r[0],
       name: r[1],
       ascii: r[2],
@@ -242,7 +264,10 @@ const readPlaces = async (name) =>
       admin1: r[10],
       admin2: r[11],
       pop: Number(r[14]),
-    }))
+    })
+  }
+  return out
+}
 const places = await readPlaces('cities15000')
 
 /** How the catalogue labels a place: US states and Canadian provinces by postal code, everything else by country. */
@@ -266,17 +291,67 @@ const fold = (s) =>
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
-/** "Name", "Name, ST" (US state / Canadian province) or "Name, CC" (country) → the largest match,
- *  or null. GeoNames' alternate names ("Cologne" for Köln) are the fallback. */
+const COUNTRY_ALIASES = { usa: 'US', 'united states of america': 'US', uk: 'GB', 'united kingdom': 'GB' }
+/** Does `where` ("CO", "Colorado", "US", "USA", "Japan") name the place's state, province or country? */
+function isIn(p, where) {
+  const w = fold(where)
+  const { code } = label(p)
+  return [p.cc, code, admin1.get(`${p.cc}.${p.admin1}`), countries.get(p.cc).name]
+    .filter(Boolean)
+    .some((n) => fold(n) === w || COUNTRY_ALIASES[w] === p.cc)
+}
+const splitName = (text) => {
+  const [name, ...rest] = text.split(',').map((s) => s.trim())
+  return [name, rest.join(', ')]
+}
+/** The country a "where" ("WA", "Washington", "BC", "Japan", "JP") is in, or null. */
+function countryFor(where) {
+  const w = fold(where)
+  if (COUNTRY_ALIASES[w]) return COUNTRY_ALIASES[w]
+  for (const [cc, c] of countries) if (fold(cc) === w || fold(c.name) === w) return cc
+  for (const [key, name] of admin1) {
+    const [cc, code] = key.split('.')
+    const postal = cc === 'US' ? code : cc === 'CA' ? CA_PROVINCES[code] : null
+    if (fold(name) === w || (postal && fold(postal) === w)) return cc
+  }
+  return null
+}
+const largest = (hits) => (hits.length ? hits.reduce((a, b) => (b.pop > a.pop ? b : a)) : null)
+/** "Name", "Name, ST" (US state / Canadian province, code or name) or "Name, Country" → the
+ *  largest match, or null. GeoNames' alternate names ("Cologne" for Köln) are the fallback. */
 function resolve(text, among = places) {
-  const [name, where] = text.split(',').map((s) => s.trim())
+  const [name, where] = splitName(text)
   const want = fold(name)
-  const here = among.filter((p) => !where || where.toUpperCase() === p.cc || where.toUpperCase() === label(p).code)
-  const largest = (hits) => (hits.length ? hits.reduce((a, b) => (b.pop > a.pop ? b : a)) : null)
+  const here = among.filter((p) => !where || isIn(p, where))
   return (
     largest(here.filter((p) => fold(p.name) === want || fold(p.ascii) === want)) ??
     largest(here.filter((p) => p.alt.split(',').some((a) => fold(a) === want)))
   )
+}
+/** Edit distance, giving up past `max`. */
+function editDistance(a, b, max) {
+  if (Math.abs(a.length - b.length) > max) return max + 1
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j)
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i]
+    for (let j = 1; j <= b.length; j++)
+      row[j] = Math.min(prev[j] + 1, row[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))
+    if (Math.min(...row) > max) return max + 1
+    prev = row
+  }
+  return prev[b.length]
+}
+/** For a name that resolved to nothing: the same name elsewhere, or close spellings — biggest first. */
+function suggest(text, among) {
+  const [name, where] = splitName(text)
+  const want = fold(name)
+  const max = want.length < 5 ? 1 : 2
+  const close = among.filter((p) => editDistance(fold(p.ascii || p.name), want, max) <= max)
+  const inPlace = where ? close.filter((p) => isIn(p, where)) : close
+  return (inPlace.length ? inPlace : close)
+    .sort((a, b) => b.pop - a.pop)
+    .slice(0, 5)
+    .map((p) => `${p.name}, ${label(p).code}`)
 }
 
 const inCatalog = (p) => catalog.cities.some((c) => km(p, c) < SAME_CITY_KM)
@@ -284,19 +359,47 @@ const inCatalog = (p) => catalog.cities.some((c) => km(p, c) < SAME_CITY_KM)
 const namedInCatalog = (p) =>
   catalog.cities.some((c) => km(p, c) < SAME_CITY_KM && [p.name, p.ascii].some((n) => fold(n) === fold(c.name)))
 const includes = [],
-  why = new Map()
+  why = new Map(),
+  asked = new Map()
+const added = { queued: [], already: [], notFound: [], noClimate: [] }
 let small
-for (const [text, reason] of config.include) {
+const byCountry = new Map()
+for (const [text, reason] of ADD ? adding.map((t) => [t, 'added by name']) : config.include) {
   let p = resolve(text)
   if (!p) {
-    small ??= await readPlaces('cities1000')
+    small ??= await readPlaces('cities500')
     p = resolve(text, small)
   }
-  if (!p) throw new Error(`catalog.config include "${text}": no GeoNames town or city by that name`)
-  if (namedInCatalog(p)) console.log(`  include "${text}": already in the catalogue`)
-  else if (!includes.includes(p)) {
+  const cc = !p && countryFor(splitName(text)[1] || '-')
+  if (cc && !(cc in config.skipCountries)) {
+    if (!byCountry.has(cc)) byCountry.set(cc, await readPlaces(cc))
+    p = resolve(text, byCountry.get(cc))
+  }
+  if (!p) {
+    if (!ADD) throw new Error(`catalog.config include "${text}": no GeoNames town or city by that name`)
+    added.notFound.push({ text, suggestions: suggest(text, byCountry.get(cc) ?? small) })
+    continue
+  }
+  const have = namedInCatalog(p)
+  if (have) {
+    console.log(`  ${ADD ? '' : 'include '}"${text}": already in the catalogue`)
+    if (ADD) {
+      const c = catalog.cities.find((c) => km(p, c) < SAME_CITY_KM && fold(c.name) === fold(p.name))
+      added.already.push({ text, id: c?.id, name: c?.name ?? p.name, code: c?.code ?? label(p).code })
+    }
+  } else if (!includes.includes(p)) {
     includes.push(p)
     why.set(p.gid, reason)
+    asked.set(p.gid, text)
+  }
+}
+const writeAdded = () => writeFile(ADDED_FILE, JSON.stringify(added, null, 2))
+if (ADD) {
+  count = includes.length
+  if (!includes.length) {
+    await writeAdded()
+    console.log('nothing new to queue')
+    process.exit(0)
   }
 }
 const excluded = new Set()
@@ -752,7 +855,12 @@ const pick = (p, reason) => {
 }
 for (const p of includes.flatMap(placed).map(withFit)) pick(p, why.get(p.gid))
 const taken = new Set(picks.map(({ p }) => p.gid))
-for (const { cc, n } of required) {
+for (const p of includes)
+  if (!taken.has(p.gid)) {
+    added.noClimate.push({ text: asked.get(p.gid), name: p.name, code: label(p).code })
+    console.warn(`  "${asked.get(p.gid) ?? p.name}": no climate normals within ~50 km, left out`)
+  }
+for (const { cc, n } of ADD ? [] : required) {
   const rank = (p) => p.fit.score + (p.fcode === 'PPLC' ? CAPITAL_BONUS : 0)
   const options = [...pool, ...reserve]
     .filter((p) => p.cc === cc && !taken.has(p.gid))
@@ -786,7 +894,7 @@ const quota = Object.fromEntries(
 const minD = pool.map((p) => nearestIn(p, set).d)
 // A continent without enough good fits (minFit) stays short rather than handing its places to
 // another: the queue can come out under the count, which also makes it cheaper.
-while (picks.length < count) {
+while (!ADD && picks.length < count) {
   let bi = -1,
     bg = -Infinity
   pool.forEach((p, i) => {
@@ -874,6 +982,11 @@ if (opts['dry-run']) {
       `${String(i + 1).padStart(3)}. ${p.fit.score.toFixed(2)} ${p.name}, ${label(p).code} · c ${p.fit.climate.toFixed(2)} t ${p.fit.tech.toFixed(2)} (${p.fit.jobsFrom}) w ${p.fit.walk.toFixed(2)} (${p.fit.walkFrom})${w ? ` · ${w}` : ''}`,
     ),
   )
+  if (ADD) {
+    for (const { p } of picks)
+      added.queued.push({ text: asked.get(p.gid), name: p.name, code: label(p).code, pop: p.pop, dryRun: true })
+    await writeAdded()
+  }
   process.exit(0)
 }
 
@@ -907,6 +1020,7 @@ for (const [i, { p, nearest, why: reason }] of picks.entries()) {
   }
   rows.push({
     city,
+    asked: asked.get(p.gid),
     fit,
     reason: reason ?? null,
     nearest: nearest.q?.name ?? null,
@@ -943,6 +1057,13 @@ rows.forEach((r, i) => {
 // Only terrain the queue actually uses (a --check or reuse may have minted others).
 const used = new Set(cities.flatMap((c) => c.terrain.map(([tid]) => tid)))
 const terrain = Object.fromEntries(Object.entries(newTerrain).filter(([tid]) => used.has(tid)))
+if (ADD) {
+  for (const r of rows) {
+    const c = r.city
+    added.queued.push({ text: r.asked, id: c.id, name: c.name, code: c.code, region: c.region, pop: c.pop })
+  }
+  await writeAdded()
+}
 await writeQueue({
   generated: {
     on: new Date().toISOString().slice(0, 10),

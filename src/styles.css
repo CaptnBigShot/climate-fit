@@ -1052,6 +1052,17 @@ button.ctl .caret {
   font: 400 10.5px/1.4 var(--mono);
   color: var(--dim);
 }
+.city-add {
+  padding: 6px 4px 4px;
+  font: 400 10.5px/1.4 var(--mono);
+  color: var(--faint);
+  text-decoration: none;
+}
+.city-add.lead,
+.city-add:hover,
+.city-add:focus-visible {
+  color: var(--accent);
+}
 .city-inline {
   max-width: 360px;
   padding: 6px;

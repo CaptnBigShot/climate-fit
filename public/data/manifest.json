@@ -2152,6 +2152,14 @@
    "seasonStdF": 5.98,
    "demElevM": 75,
    "gridElevM": 187
+  },
+  "winthrop": {
+   "solarIdx": 52,
+   "seasonsIdx": 67,
+   "meanRadMJ": 15,
+   "seasonStdF": 15.59,
+   "demElevM": 537,
+   "gridElevM": 779
   }
  },
  "terrain": [
@@ -2347,7 +2355,8 @@
   "mammoth-mountain",
   "steamboat",
   "purgatory",
-  "wolf-creek"
+  "wolf-creek",
+  "loup-loup-ski"
  ],
  "hourly": [
   "tacoma",
@@ -2618,6 +2627,7 @@
   "durango",
   "wenatchee",
   "arcata",
-  "san-luis-obispo"
+  "san-luis-obispo",
+  "winthrop"
  ]
 }
