@@ -5,6 +5,9 @@ name: Add cities
 # (the "Add cities" form, or the app's "Add … to the set" link, which opens it), or run it by
 # hand from the Actions tab or `gh workflow run add-cities -f cities="Aspen, CO; Winthrop, WA"`.
 # Editing the issue's list runs it again, so a typo is fixed in place.
+#
+# An issue run only hands the list on to a workflow_dispatch run: GitHub gives runs started by
+# issues (which anyone can open) a read-only cache, and the cache is what keeps runs quick.
 
 on:
   workflow_dispatch:
@@ -12,26 +15,45 @@ on:
       cities:
         description: 'Places, separated by semicolons: "Aspen, CO; Winthrop, WA; Kyoto, Japan"'
         required: true
+      issue:
+        description: The issue to reply on (set when an issue started this)
+        required: false
   issues:
     types: [opened, edited, reopened]
 
-concurrency:
-  group: add-cities
-  cancel-in-progress: false
-
 jobs:
-  add:
+  relay:
     # Issues only from the repo owner, only from the form (its label, or its heading if the
     # label didn't stick), and an edit only when the list itself changed.
     if: >-
-      github.event_name == 'workflow_dispatch' || (
-        github.event.issue.author_association == 'OWNER' &&
-        github.event.issue.state == 'open' &&
-        (contains(github.event.issue.labels.*.name, 'add-cities') ||
-         contains(github.event.issue.body, '### Places to add')) &&
-        (github.event.action != 'edited' || github.event.changes.body != null))
+      github.event_name == 'issues' &&
+      github.event.issue.author_association == 'OWNER' &&
+      github.event.issue.state == 'open' &&
+      (contains(github.event.issue.labels.*.name, 'add-cities') ||
+       contains(github.event.issue.body, '### Places to add')) &&
+      (github.event.action != 'edited' || github.event.changes.body != null)
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      ISSUE: ${{ github.event.issue.number }}
+      BODY: ${{ github.event.issue.body }}
+    steps:
+      - run: |
+          gh workflow run add-cities.yml --ref "${{ github.event.repository.default_branch }}" -f cities="$BODY" -f issue="$ISSUE"
+          gh api "repos/$GH_REPO/issues/$ISSUE/reactions" -f content=eyes --silent
+
+  add:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    # One at a time, so each run's commit lands on the last one's.
+    concurrency:
+      group: add-cities
+      cancel-in-progress: false
     permissions:
       contents: write
     outputs:
@@ -54,7 +76,7 @@ jobs:
           restore-keys: pipeline-
       - name: Add cities
         env:
-          CITIES: ${{ github.event_name == 'workflow_dispatch' && inputs.cities || github.event.issue.body }}
+          CITIES: ${{ inputs.cities }}
         run: npm run add-cities -- "$CITIES"
       - uses: actions/cache/save@v4
         if: always()
@@ -65,7 +87,7 @@ jobs:
         id: commit
         if: always()
         env:
-          ISSUE: ${{ github.event.issue.number }}
+          ISSUE: ${{ inputs.issue }}
         run: |
           {
             echo 'summary<<SUMMARY_END'
@@ -97,14 +119,14 @@ jobs:
 
   reply:
     needs: [add, deploy]
-    if: always() && github.event_name == 'issues' && needs.add.result != 'skipped'
+    if: always() && inputs.issue != '' && needs.add.result != 'skipped'
     runs-on: ubuntu-latest
     permissions:
       issues: write
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
-      ISSUE: ${{ github.event.issue.number }}
+      ISSUE: ${{ inputs.issue }}
       SUMMARY: ${{ needs.add.outputs.summary }}
       PROBLEMS: ${{ needs.add.outputs.problems }}
       SHA: ${{ needs.add.outputs.sha }}
