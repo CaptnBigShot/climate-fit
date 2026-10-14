@@ -2160,6 +2160,14 @@
    "seasonStdF": 15.59,
    "demElevM": 537,
    "gridElevM": 779
+  },
+  "pueblo": {
+   "solarIdx": 77,
+   "seasonsIdx": 68,
+   "meanRadMJ": 18.65,
+   "seasonStdF": 15.9,
+   "demElevM": 1421,
+   "gridElevM": 1422
   }
  },
  "terrain": [
@@ -2628,6 +2636,7 @@
   "wenatchee",
   "arcata",
   "san-luis-obispo",
-  "winthrop"
+  "winthrop",
+  "pueblo"
  ]
 }

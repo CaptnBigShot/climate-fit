@@ -1546,6 +1546,11 @@
       "id": "winthrop", "name": "Winthrop", "code": "WA", "region": "Washington · United States",
       "lat": 48.4779, "lon": -120.1862, "pop": 420, "coastal": false, "continent": "North America",
       "terrain": [["loup-loup-ski", 30], ["mission-ridge", 150]]
+    },
+    {
+      "id": "pueblo", "name": "Pueblo", "code": "CO", "region": "Colorado · United States",
+      "lat": 38.2544, "lon": -104.6091, "pop": 109412, "coastal": false, "continent": "North America",
+      "terrain": [["loveland", 165]]
     }
   ]
 }
