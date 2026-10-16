@@ -2168,6 +2168,14 @@
    "seasonStdF": 15.9,
    "demElevM": 1421,
    "gridElevM": 1422
+  },
+  "everett": {
+   "solarIdx": 33,
+   "seasonsIdx": 40,
+   "meanRadMJ": 12.16,
+   "seasonStdF": 9.52,
+   "demElevM": 28,
+   "gridElevM": 84
   }
  },
  "terrain": [
@@ -2637,6 +2645,7 @@
   "arcata",
   "san-luis-obispo",
   "winthrop",
-  "pueblo"
+  "pueblo",
+  "everett"
  ]
 }

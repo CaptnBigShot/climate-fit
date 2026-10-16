@@ -1551,6 +1551,11 @@
       "id": "pueblo", "name": "Pueblo", "code": "CO", "region": "Colorado · United States",
       "lat": 38.2544, "lon": -104.6091, "pop": 109412, "coastal": false, "continent": "North America",
       "terrain": [["loveland", 165]]
+    },
+    {
+      "id": "everett", "name": "Everett", "code": "WA", "region": "Washington · United States",
+      "lat": 47.979, "lon": -122.2021, "pop": 108010, "coastal": true, "continent": "North America",
+      "terrain": [["stevens", 80], ["crystal", 130]]
     }
   ]
 }
