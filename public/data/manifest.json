@@ -2232,6 +2232,30 @@
    "seasonStdF": 7.48,
    "demElevM": 13,
    "gridElevM": 90
+  },
+  "port-angeles": {
+   "solarIdx": 41,
+   "seasonsIdx": 36,
+   "meanRadMJ": 13.38,
+   "seasonStdF": 8.7,
+   "demElevM": 22,
+   "gridElevM": 174
+  },
+  "eindhoven": {
+   "solarIdx": 27,
+   "seasonsIdx": 42,
+   "meanRadMJ": 11.22,
+   "seasonStdF": 9.97,
+   "demElevM": 23,
+   "gridElevM": 20
+  },
+  "hillsboro": {
+   "solarIdx": 43,
+   "seasonsIdx": 47,
+   "meanRadMJ": 13.59,
+   "seasonStdF": 11.12,
+   "demElevM": 65,
+   "gridElevM": 107
   }
  },
  "terrain": [
@@ -2429,7 +2453,8 @@
   "purgatory",
   "wolf-creek",
   "loup-loup-ski",
-  "nevis-range"
+  "nevis-range",
+  "skiliftkarussell-winterberg"
  ],
  "hourly": [
   "tacoma",
@@ -2710,6 +2735,9 @@
   "tartu",
   "lillooet",
   "tofino",
-  "inverness"
+  "inverness",
+  "port-angeles",
+  "eindhoven",
+  "hillsboro"
  ]
 }

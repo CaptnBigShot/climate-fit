@@ -195,7 +195,8 @@
     "purgatory": { "name": "Purgatory Resort", "lat": 37.6233, "lon": -107.8357, "elevFt": 9800 },
     "wolf-creek": { "name": "Wolf Creek Ski Area", "lat": 37.4643, "lon": -106.7872, "elevFt": 11000 },
     "loup-loup-ski": { "name": "Loup Loup Ski Bowl", "lat": 48.3919, "lon": -119.9183, "elevFt": 4700 },
-    "nevis-range": { "name": "Nevis Range", "lat": 56.8346, "lon": -4.9725, "elevFt": 3000 }
+    "nevis-range": { "name": "Nevis Range", "lat": 56.8346, "lon": -4.9725, "elevFt": 3000 },
+    "skiliftkarussell-winterberg": { "name": "Skiliftkarussell Winterberg", "lat": 51.19, "lon": 8.5057, "elevFt": 2300 }
   },
   "cities": [
     {
@@ -1592,6 +1593,21 @@
       "id": "inverness", "name": "Inverness", "code": "GB", "region": "United Kingdom",
       "lat": 57.4791, "lon": -4.224, "pop": 47790, "coastal": true, "continent": "Europe",
       "terrain": [["nevis-range", 80]]
+    },
+    {
+      "id": "port-angeles", "name": "Port Angeles", "code": "WA", "region": "Washington · United States",
+      "lat": 48.1181, "lon": -123.4307, "pop": 19448, "coastal": true, "continent": "North America",
+      "terrain": [["hurricane-ridge", 35]]
+    },
+    {
+      "id": "eindhoven", "name": "Eindhoven", "code": "NL", "region": "The Netherlands",
+      "lat": 51.4408, "lon": 5.4778, "pop": 235691, "coastal": false, "continent": "Europe",
+      "terrain": [["skiliftkarussell-winterberg", 165]]
+    },
+    {
+      "id": "hillsboro", "name": "Hillsboro", "code": "OR", "region": "Oregon · United States",
+      "lat": 45.5229, "lon": -122.9898, "pop": 102347, "coastal": false, "continent": "North America",
+      "terrain": [["timberline-lodge", 100]]
     }
   ]
 }
