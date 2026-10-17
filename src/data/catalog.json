@@ -1692,6 +1692,11 @@
       "id": "honolulu", "name": "Honolulu", "code": "HI", "region": "Hawaii · United States",
       "lat": 21.3069, "lon": -157.8583, "pop": 350964, "coastal": true, "continent": "North America",
       "terrain": []
+    },
+    {
+      "id": "charlottetown", "name": "Charlottetown", "code": "PE", "region": "Prince Edward Island · Canada",
+      "lat": 46.2346, "lon": -63.1256, "pop": 38809, "coastal": true, "continent": "North America",
+      "terrain": [["poley-mountain", 175]]
     }
   ]
 }

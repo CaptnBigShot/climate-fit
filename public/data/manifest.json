@@ -2384,6 +2384,14 @@
    "seasonStdF": 2.66,
    "demElevM": 4,
    "gridElevM": 97
+  },
+  "charlottetown": {
+   "solarIdx": 38,
+   "seasonsIdx": 60,
+   "meanRadMJ": 12.86,
+   "seasonStdF": 16.32,
+   "demElevM": 15,
+   "gridElevM": 17
   }
  },
  "terrain": [
@@ -2886,6 +2894,7 @@
   "galway",
   "yellowknife",
   "iqaluit",
-  "honolulu"
+  "honolulu",
+  "charlottetown"
  ]
 }
