@@ -2176,6 +2176,14 @@
    "seasonStdF": 9.52,
    "demElevM": 28,
    "gridElevM": 84
+  },
+  "squamish": {
+   "solarIdx": 31,
+   "seasonsIdx": 51,
+   "meanRadMJ": 11.77,
+   "seasonStdF": 12.08,
+   "demElevM": 3,
+   "gridElevM": 729
   }
  },
  "terrain": [
@@ -2646,6 +2654,7 @@
   "san-luis-obispo",
   "winthrop",
   "pueblo",
-  "everett"
+  "everett",
+  "squamish"
  ]
 }

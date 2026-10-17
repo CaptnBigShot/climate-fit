@@ -1556,6 +1556,11 @@
       "id": "everett", "name": "Everett", "code": "WA", "region": "Washington · United States",
       "lat": 47.979, "lon": -122.2021, "pop": 108010, "coastal": true, "continent": "North America",
       "terrain": [["stevens", 80], ["crystal", 130]]
+    },
+    {
+      "id": "squamish", "name": "Squamish", "code": "BC", "region": "British Columbia · Canada",
+      "lat": 49.6992, "lon": -123.1563, "pop": 23819, "coastal": true, "continent": "North America",
+      "terrain": [["whistler-blackcomb", 45]]
     }
   ]
 }
