@@ -1587,6 +1587,11 @@
       "id": "tofino", "name": "Tofino", "code": "BC", "region": "British Columbia · Canada",
       "lat": 49.1531, "lon": -125.9074, "pop": 2516, "coastal": true, "continent": "North America",
       "terrain": []
+    },
+    {
+      "id": "inverness", "name": "Inverness", "code": "GB", "region": "United Kingdom",
+      "lat": 57.4791, "lon": -4.224, "pop": 47790, "coastal": true, "continent": "Europe",
+      "terrain": [["nevis-range", 80]]
     }
   ]
 }

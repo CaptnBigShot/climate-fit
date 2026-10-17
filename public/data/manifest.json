@@ -2224,6 +2224,14 @@
    "seasonStdF": 7.52,
    "demElevM": 18,
    "gridElevM": 0
+  },
+  "inverness": {
+   "solarIdx": 12,
+   "seasonsIdx": 31,
+   "meanRadMJ": 8.93,
+   "seasonStdF": 7.48,
+   "demElevM": 13,
+   "gridElevM": 90
   }
  },
  "terrain": [
@@ -2701,6 +2709,7 @@
   "pemberton",
   "tartu",
   "lillooet",
-  "tofino"
+  "tofino",
+  "inverness"
  ]
 }
