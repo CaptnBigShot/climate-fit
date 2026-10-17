@@ -2184,6 +2184,46 @@
    "seasonStdF": 12.08,
    "demElevM": 3,
    "gridElevM": 729
+  },
+  "fort-william": {
+   "solarIdx": 5,
+   "seasonsIdx": 30,
+   "meanRadMJ": 7.96,
+   "seasonStdF": 7.27,
+   "demElevM": 14,
+   "gridElevM": 272
+  },
+  "pemberton": {
+   "solarIdx": 37,
+   "seasonsIdx": 65,
+   "meanRadMJ": 12.78,
+   "seasonStdF": 15.21,
+   "demElevM": 209,
+   "gridElevM": 1019
+  },
+  "tartu": {
+   "solarIdx": 19,
+   "seasonsIdx": 59,
+   "meanRadMJ": 9.96,
+   "seasonStdF": 13.9,
+   "demElevM": 36,
+   "gridElevM": 54
+  },
+  "lillooet": {
+   "solarIdx": 43,
+   "seasonsIdx": 68,
+   "meanRadMJ": 13.58,
+   "seasonStdF": 15.92,
+   "demElevM": 288,
+   "gridElevM": 1080
+  },
+  "tofino": {
+   "solarIdx": 29,
+   "seasonsIdx": 31,
+   "meanRadMJ": 11.46,
+   "seasonStdF": 7.52,
+   "demElevM": 18,
+   "gridElevM": 0
   }
  },
  "terrain": [
@@ -2380,7 +2420,8 @@
   "steamboat",
   "purgatory",
   "wolf-creek",
-  "loup-loup-ski"
+  "loup-loup-ski",
+  "nevis-range"
  ],
  "hourly": [
   "tacoma",
@@ -2655,6 +2696,11 @@
   "winthrop",
   "pueblo",
   "everett",
-  "squamish"
+  "squamish",
+  "fort-william",
+  "pemberton",
+  "tartu",
+  "lillooet",
+  "tofino"
  ]
 }

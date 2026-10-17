@@ -194,7 +194,8 @@
     "steamboat": { "name": "Steamboat Ski Resort", "lat": 40.4539, "lon": -106.7752, "elevFt": 8700 },
     "purgatory": { "name": "Purgatory Resort", "lat": 37.6233, "lon": -107.8357, "elevFt": 9800 },
     "wolf-creek": { "name": "Wolf Creek Ski Area", "lat": 37.4643, "lon": -106.7872, "elevFt": 11000 },
-    "loup-loup-ski": { "name": "Loup Loup Ski Bowl", "lat": 48.3919, "lon": -119.9183, "elevFt": 4700 }
+    "loup-loup-ski": { "name": "Loup Loup Ski Bowl", "lat": 48.3919, "lon": -119.9183, "elevFt": 4700 },
+    "nevis-range": { "name": "Nevis Range", "lat": 56.8346, "lon": -4.9725, "elevFt": 3000 }
   },
   "cities": [
     {
@@ -1561,6 +1562,31 @@
       "id": "squamish", "name": "Squamish", "code": "BC", "region": "British Columbia · Canada",
       "lat": 49.6992, "lon": -123.1563, "pop": 23819, "coastal": true, "continent": "North America",
       "terrain": [["whistler-blackcomb", 45]]
+    },
+    {
+      "id": "fort-william", "name": "Fort William", "code": "GB", "region": "United Kingdom",
+      "lat": 56.8165, "lon": -5.1121, "pop": 15757, "coastal": true, "continent": "Europe",
+      "terrain": [["nevis-range", 10]]
+    },
+    {
+      "id": "pemberton", "name": "Pemberton", "code": "BC", "region": "British Columbia · Canada",
+      "lat": 50.3164, "lon": -122.8027, "pop": 2574, "coastal": false, "continent": "North America",
+      "terrain": [["whistler-blackcomb", 30]]
+    },
+    {
+      "id": "tartu", "name": "Tartu", "code": "EE", "region": "Estonia",
+      "lat": 58.3806, "lon": 26.7251, "pop": 91407, "coastal": false, "continent": "Europe",
+      "terrain": []
+    },
+    {
+      "id": "lillooet", "name": "Lillooet", "code": "BC", "region": "British Columbia · Canada",
+      "lat": 50.6856, "lon": -121.942, "pop": 2324, "coastal": false, "continent": "North America",
+      "terrain": [["sun-peaks", 170]]
+    },
+    {
+      "id": "tofino", "name": "Tofino", "code": "BC", "region": "British Columbia · Canada",
+      "lat": 49.1531, "lon": -125.9074, "pop": 2516, "coastal": true, "continent": "North America",
+      "terrain": []
     }
   ]
 }
