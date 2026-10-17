@@ -196,7 +196,11 @@
     "wolf-creek": { "name": "Wolf Creek Ski Area", "lat": 37.4643, "lon": -106.7872, "elevFt": 11000 },
     "loup-loup-ski": { "name": "Loup Loup Ski Bowl", "lat": 48.3919, "lon": -119.9183, "elevFt": 4700 },
     "nevis-range": { "name": "Nevis Range", "lat": 56.8346, "lon": -4.9725, "elevFt": 3000 },
-    "skiliftkarussell-winterberg": { "name": "Skiliftkarussell Winterberg", "lat": 51.19, "lon": 8.5057, "elevFt": 2300 }
+    "skiliftkarussell-winterberg": { "name": "Skiliftkarussell Winterberg", "lat": 51.19, "lon": 8.5057, "elevFt": 2300 },
+    "eaglecrest": { "name": "Eaglecrest Ski Area", "lat": 58.2673, "lon": -134.511, "elevFt": 1900 },
+    "sisorarfiit-skiliften": { "name": "Sisorarfiit Skiliften", "lat": 64.1898, "lon": -51.6562, "elevFt": 800 },
+    "mount-sima": { "name": "Mount Sima", "lat": 60.6081, "lon": -135.0567, "elevFt": 3400 },
+    "taos-ski-valley": { "name": "Taos Ski Valley", "lat": 36.5789, "lon": -105.4502, "elevFt": 10600 }
   },
   "cities": [
     {
@@ -1608,6 +1612,86 @@
       "id": "hillsboro", "name": "Hillsboro", "code": "OR", "region": "Oregon · United States",
       "lat": 45.5229, "lon": -122.9898, "pop": 102347, "coastal": false, "continent": "North America",
       "terrain": [["timberline-lodge", 100]]
+    },
+    {
+      "id": "richmond-bc", "name": "Richmond", "code": "BC", "region": "British Columbia · Canada",
+      "lat": 49.17, "lon": -123.1368, "pop": 209937, "coastal": true, "continent": "North America",
+      "terrain": [["cypress-mountain", 50], ["whistler-blackcomb", 120]]
+    },
+    {
+      "id": "glasgow", "name": "Glasgow", "code": "GB", "region": "United Kingdom",
+      "lat": 55.8651, "lon": -4.2576, "pop": 626410, "coastal": true, "continent": "Europe",
+      "terrain": [["glenshee", 105]]
+    },
+    {
+      "id": "york", "name": "York", "code": "GB", "region": "United Kingdom",
+      "lat": 53.9576, "lon": -1.0827, "pop": 156135, "coastal": false, "continent": "Europe",
+      "terrain": []
+    },
+    {
+      "id": "juneau", "name": "Juneau", "code": "AK", "region": "Alaska · United States",
+      "lat": 58.3019, "lon": -134.4197, "pop": 31555, "coastal": true, "continent": "North America",
+      "terrain": [["eaglecrest", 30]]
+    },
+    {
+      "id": "cork", "name": "Cork", "code": "IE", "region": "Ireland",
+      "lat": 51.898, "lon": -8.4706, "pop": 224004, "coastal": true, "continent": "Europe",
+      "terrain": []
+    },
+    {
+      "id": "banff", "name": "Banff", "code": "AB", "region": "Alberta · Canada",
+      "lat": 51.1762, "lon": -115.5698, "pop": 8305, "coastal": false, "continent": "North America",
+      "terrain": [["sunshine", 20]]
+    },
+    {
+      "id": "nuuk", "name": "Nuuk", "code": "GL", "region": "Greenland",
+      "lat": 64.1835, "lon": -51.7216, "pop": 14798, "coastal": true, "continent": "North America",
+      "terrain": [["sisorarfiit-skiliften", 5]]
+    },
+    {
+      "id": "whitehorse", "name": "Whitehorse", "code": "YT", "region": "Yukon · Canada",
+      "lat": 60.7161, "lon": -135.0538, "pop": 28201, "coastal": false, "continent": "North America",
+      "terrain": [["mount-sima", 20]]
+    },
+    {
+      "id": "taos", "name": "Taos", "code": "NM", "region": "New Mexico · United States",
+      "lat": 36.4072, "lon": -105.5731, "pop": 5740, "coastal": false, "continent": "North America",
+      "terrain": [["taos-ski-valley", 35]]
+    },
+    {
+      "id": "limerick", "name": "Limerick", "code": "IE", "region": "Ireland",
+      "lat": 52.6647, "lon": -8.6231, "pop": 102287, "coastal": true, "continent": "Europe",
+      "terrain": []
+    },
+    {
+      "id": "alamosa", "name": "Alamosa", "code": "CO", "region": "Colorado · United States",
+      "lat": 37.4695, "lon": -105.87, "pop": 9819, "coastal": false, "continent": "North America",
+      "terrain": [["monarch-mountain", 100]]
+    },
+    {
+      "id": "saint-pierre", "name": "Saint-Pierre", "code": "PM", "region": "Saint Pierre and Miquelon",
+      "lat": 46.7791, "lon": -56.1773, "pop": 6200, "coastal": true, "continent": "North America",
+      "terrain": []
+    },
+    {
+      "id": "galway", "name": "Galway", "code": "IE", "region": "Ireland",
+      "lat": 53.2724, "lon": -9.051, "pop": 85910, "coastal": true, "continent": "Europe",
+      "terrain": []
+    },
+    {
+      "id": "yellowknife", "name": "Yellowknife", "code": "NT", "region": "Northwest Territories · Canada",
+      "lat": 62.4541, "lon": -114.3725, "pop": 20340, "coastal": false, "continent": "North America",
+      "terrain": []
+    },
+    {
+      "id": "iqaluit", "name": "Iqaluit", "code": "NU", "region": "Nunavut · Canada",
+      "lat": 63.747, "lon": -68.5173, "pop": 7429, "coastal": true, "continent": "North America",
+      "terrain": []
+    },
+    {
+      "id": "honolulu", "name": "Honolulu", "code": "HI", "region": "Hawaii · United States",
+      "lat": 21.3069, "lon": -157.8583, "pop": 350964, "coastal": true, "continent": "North America",
+      "terrain": []
     }
   ]
 }
