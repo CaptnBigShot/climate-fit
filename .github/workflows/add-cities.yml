@@ -23,11 +23,11 @@ on:
 
 jobs:
   relay:
-    # Issues only from the repo owner, only from the form (its label, or its heading if the
+    # Issues only from the owner or a collaborator, only from the form (its label, or its heading if the
     # label didn't stick), and an edit only when the list itself changed.
     if: >-
       github.event_name == 'issues' &&
-      github.event.issue.author_association == 'OWNER' &&
+      contains(fromJSON('["OWNER", "COLLABORATOR", "MEMBER"]'), github.event.issue.author_association) &&
       github.event.issue.state == 'open' &&
       (contains(github.event.issue.labels.*.name, 'add-cities') ||
        contains(github.event.issue.body, '### Places to add')) &&
